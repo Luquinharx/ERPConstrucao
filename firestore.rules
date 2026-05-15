@@ -1,0 +1,64 @@
+﻿rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    match /clientes/{docId} {
+      allow read, delete: if isOwner(resource.data.userId);
+      allow create: if isOwner(request.resource.data.userId);
+      allow update: if isOwner(resource.data.userId) && isOwner(request.resource.data.userId);
+    }
+
+    match /funcionarios/{docId} {
+      allow read, delete: if isOwner(resource.data.userId);
+      allow create: if isOwner(request.resource.data.userId);
+      allow update: if isOwner(resource.data.userId) && isOwner(request.resource.data.userId);
+    }
+
+    match /materiais/{docId} {
+      allow read, delete: if isOwner(resource.data.userId);
+      allow create: if isOwner(request.resource.data.userId);
+      allow update: if isOwner(resource.data.userId) && isOwner(request.resource.data.userId);
+    }
+
+    match /material-categories/{docId} {
+      allow read, delete: if isOwner(resource.data.userId);
+      allow create: if isOwner(request.resource.data.userId);
+      allow update: if isOwner(resource.data.userId) && isOwner(request.resource.data.userId);
+    }
+
+    match /servicos/{docId} {
+      allow read, delete: if isOwner(resource.data.userId);
+      allow create: if isOwner(request.resource.data.userId);
+      allow update: if isOwner(resource.data.userId) && isOwner(request.resource.data.userId);
+    }
+
+    match /orcamentos/{docId} {
+      allow read, delete: if isOwner(resource.data.userId);
+      allow create: if isOwner(request.resource.data.userId);
+      allow update: if isOwner(resource.data.userId) && isOwner(request.resource.data.userId);
+    }
+
+    match /categorias/{docId} {
+      allow read, delete: if isOwner(resource.data.userId);
+      allow create: if isOwner(request.resource.data.userId);
+      allow update: if isOwner(resource.data.userId) && isOwner(request.resource.data.userId);
+    }
+
+    match /termos_servico/{docId} {
+      allow read, delete: if isOwner(resource.data.userId);
+      allow create: if isOwner(request.resource.data.userId);
+      allow update: if isOwner(resource.data.userId) && isOwner(request.resource.data.userId);
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

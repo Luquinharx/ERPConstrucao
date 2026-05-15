@@ -1,0 +1,518 @@
+"use client"
+
+import { Badge } from "@/components/ui/badge"
+import type React from "react"
+import { useState, useEffect, useMemo } from "react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Plus, Edit, Trash2, Package, RefreshCw, Search, Filter, X } from "lucide-react"
+import { useAuth } from "@/hooks/use-auth"
+import { toast } from "@/hooks/use-toast"
+import type { Material, MaterialCategory } from "@/lib/types"
+import { FirebaseService } from "@/lib/firebase-service"
+import { LoadingSpinner } from "@/components/ui/loading-spinner"
+import { formatCurrency } from "@/lib/utils"
+
+export default function MateriaisPage() {
+  const [materiais, setMateriais] = useState<Material[]>([])
+  const [categories, setCategories] = useState<MaterialCategory[]>([])
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [editingMaterial, setEditingMaterial] = useState<Material | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [pageLoading, setPageLoading] = useState(true)
+  const { user } = useAuth()
+
+  // Estados para busca e filtros
+  const [searchTerm, setSearchTerm] = useState("")
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>("todas")
+  const [showFilters, setShowFilters] = useState(false)
+
+  const [formData, setFormData] = useState({
+    nome: "",
+    unidade: "Unidades",
+    precoUnitario: 0,
+    categoriaId: "sem-categoria",
+    fornecedor: "",
+  })
+
+  useEffect(() => {
+    if (user) {
+      loadData()
+    }
+  }, [user])
+
+  const loadData = async () => {
+    if (!user) return
+
+    try {
+      setPageLoading(true)
+      console.log("🔄 Carregando materiais e categorias...")
+
+      const [materiaisData, categoriesData] = await Promise.all([
+        FirebaseService.getMateriais(user.uid),
+        FirebaseService.getMaterialCategories(user.uid),
+      ])
+
+      console.log("✅ Materiais carregados:", materiaisData.length)
+      console.log("✅ Categorias carregadas:", categoriesData.length)
+
+      setMateriais(materiaisData)
+      setCategories(categoriesData)
+    } catch (error) {
+      console.error("❌ Erro ao carregar dados:", error)
+      toast({
+        title: "Erro ao carregar dados",
+        description: "Não foi possível carregar a lista de materiais ou categorias.",
+        variant: "destructive",
+      })
+    } finally {
+      setPageLoading(false)
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!user) return
+
+    setLoading(true)
+    try {
+      const materialToSave = {
+        ...formData,
+        precoUnitario: Number.parseFloat(formData.precoUnitario.toString()) || 0,
+        categoriaId: formData.categoriaId === "sem-categoria" ? undefined : formData.categoriaId,
+      }
+
+      if (editingMaterial) {
+        await FirebaseService.updateMaterial(editingMaterial.id!, materialToSave)
+        toast({
+          title: "Material atualizado",
+          description: "Os dados do material foram atualizados com sucesso.",
+        })
+      } else {
+        await FirebaseService.addMaterial(materialToSave, user.uid)
+        toast({
+          title: "Material cadastrado",
+          description: "O material foi cadastrado com sucesso.",
+        })
+      }
+
+      resetForm()
+      setIsDialogOpen(false)
+      await loadData()
+    } catch (error) {
+      console.error("❌ Erro ao salvar material:", error)
+      toast({
+        title: "Erro ao salvar material",
+        description: "Não foi possível salvar os dados do material.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleEdit = (material: Material) => {
+    setEditingMaterial(material)
+    setFormData({
+      nome: material.nome,
+      unidade: material.unidade || "Unidades",
+      precoUnitario: material.precoUnitario,
+      categoriaId: material.categoriaId || "sem-categoria",
+      fornecedor: material.fornecedor || "",
+    })
+    setIsDialogOpen(true)
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Tem certeza que deseja excluir este material?")) return
+
+    try {
+      await FirebaseService.deleteMaterial(id)
+      toast({
+        title: "Material excluído",
+        description: "O material foi excluído com sucesso.",
+      })
+      await loadData()
+    } catch (error) {
+      console.error("❌ Erro ao excluir material:", error)
+      toast({
+        title: "Erro ao excluir material",
+        description: "Não foi possível excluir o material.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const resetForm = () => {
+    setFormData({
+      nome: "",
+      unidade: "Unidades",
+      precoUnitario: 0,
+      categoriaId: "sem-categoria",
+      fornecedor: "",
+    })
+    setEditingMaterial(null)
+  }
+
+  const clearFilters = () => {
+    setSearchTerm("")
+    setSelectedCategoryFilter("todas")
+  }
+
+  // Filtrar materiais baseado na busca e categoria
+  const filteredMaterials = useMemo(() => {
+    let filtered = materiais
+
+    // Filtrar por termo de busca (nome ou fornecedor)
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase().trim()
+      filtered = filtered.filter(
+        (material) =>
+          material.nome.toLowerCase().includes(searchLower) ||
+          (material.fornecedor && material.fornecedor.toLowerCase().includes(searchLower)),
+      )
+    }
+
+    // Filtrar por categoria
+    if (selectedCategoryFilter !== "todas") {
+      if (selectedCategoryFilter === "sem-categoria") {
+        filtered = filtered.filter((material) => !material.categoriaId)
+      } else {
+        filtered = filtered.filter((material) => material.categoriaId === selectedCategoryFilter)
+      }
+    }
+
+    return filtered
+  }, [materiais, searchTerm, selectedCategoryFilter])
+
+  // Agrupar materiais filtrados por categoria
+  const materialsByCategory = useMemo(() => {
+    const grouped: { [key: string]: Material[] } = {}
+    filteredMaterials.forEach((material) => {
+      const categoryName = categories.find((cat) => cat.id === material.categoriaId)?.nome || "Sem Categoria"
+      if (!grouped[categoryName]) {
+        grouped[categoryName] = []
+      }
+      grouped[categoryName].push(material)
+    })
+    return grouped
+  }, [filteredMaterials, categories])
+
+  const hasActiveFilters = searchTerm.trim() || selectedCategoryFilter !== "todas"
+  const totalFilteredResults = filteredMaterials.length
+
+  if (pageLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <LoadingSpinner size="lg" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold">Materiais</h1>
+          <p className="text-muted-foreground mt-2">Gerir o inventário de materiais e seus custos</p>
+        </div>
+        <div className="flex space-x-2">
+          <Button variant="outline" onClick={loadData} className="rounded-full bg-transparent">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Atualizar
+          </Button>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={resetForm} className="rounded-full">
+                <Plus className="h-4 w-4 mr-2" />
+                Novo Material
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>{editingMaterial ? "Editar Material" : "Novo Material"}</DialogTitle>
+                <DialogDescription>
+                  {editingMaterial ? "Atualize os dados do material." : "Adicione um novo material ao inventário."}
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="nome">Nome do Material</Label>
+                  <Input
+                    id="nome"
+                    value={formData.nome}
+                    onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+                    placeholder="Nome do material"
+                    required
+                    className="rounded-full"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="unidade">Unidade de Medida</Label>
+                    <Select
+                      value={formData.unidade}
+                      onValueChange={(value) => setFormData({ ...formData, unidade: value })}
+                    >
+                      <SelectTrigger className="rounded-full">
+                        <SelectValue placeholder="Selecione a unidade" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Litros">Litros</SelectItem>
+                        <SelectItem value="Kg">Quilogramas</SelectItem>
+                        <SelectItem value="Unidades">Unidades</SelectItem>
+                        <SelectItem value="Metros">Metros</SelectItem>
+                        <SelectItem value="M²">Metros Quadrados</SelectItem>
+                        <SelectItem value="M³">Metros Cúbicos</SelectItem>
+                        <SelectItem value="Galões">Galões</SelectItem>
+                        <SelectItem value="Latas">Latas</SelectItem>
+                        <SelectItem value="Rolos">Rolos</SelectItem>
+                        <SelectItem value="Sacos">Sacos</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="precoUnitario">Preço Unitário (€)</Label>
+                    <Input
+                      id="precoUnitario"
+                      type="number"
+                      step="0.01"
+                      value={formData.precoUnitario}
+                      onChange={(e) =>
+                        setFormData({ ...formData, precoUnitario: Number.parseFloat(e.target.value) || 0 })
+                      }
+                      placeholder="0.00"
+                      required
+                      className="rounded-full"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="categoriaId">Categoria</Label>
+                  <Select
+                    value={formData.categoriaId}
+                    onValueChange={(value) => setFormData({ ...formData, categoriaId: value })}
+                  >
+                    <SelectTrigger className="rounded-full">
+                      <SelectValue placeholder="Selecione a categoria" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sem-categoria">Sem categoria</SelectItem>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.id!}>
+                          {cat.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {categories.length === 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      Nenhuma categoria disponível. Crie uma categoria primeiro.
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="fornecedor">Fornecedor (Opcional)</Label>
+                  <Input
+                    id="fornecedor"
+                    value={formData.fornecedor}
+                    onChange={(e) => setFormData({ ...formData, fornecedor: e.target.value })}
+                    placeholder="Nome do fornecedor"
+                    className="rounded-full"
+                  />
+                </div>
+
+                <div className="flex justify-end space-x-2 pt-4">
+                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={loading} className="rounded-full">
+                    {loading ? "A guardar..." : editingMaterial ? "Atualizar" : "Cadastrar"}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+
+      {/* Barra de Busca e Filtros */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col space-y-4">
+            {/* Barra de Busca */}
+            <div className="flex items-center space-x-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  placeholder="Buscar por nome do material ou fornecedor..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 rounded-full"
+                />
+              </div>
+              <Button variant="outline" onClick={() => setShowFilters(!showFilters)} className="rounded-full">
+                <Filter className="h-4 w-4 mr-2" />
+                Filtros
+                {hasActiveFilters && (
+                  <Badge variant="secondary" className="ml-2">
+                    !
+                  </Badge>
+                )}
+              </Button>
+              {hasActiveFilters && (
+                <Button variant="ghost" onClick={clearFilters} className="rounded-full text-muted-foreground">
+                  <X className="h-4 w-4 mr-2" />
+                  Limpar
+                </Button>
+              )}
+            </div>
+
+            {/* Filtros Expandidos */}
+            {showFilters && (
+              <div className="border-t pt-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Filtrar por Categoria</Label>
+                    <Select value={selectedCategoryFilter} onValueChange={setSelectedCategoryFilter}>
+                      <SelectTrigger className="rounded-full">
+                        <SelectValue placeholder="Todas as categorias" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="todas">Todas as categorias</SelectItem>
+                        <SelectItem value="sem-categoria">Sem categoria</SelectItem>
+                        {categories.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id!}>
+                            {cat.nome}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Resultados da Busca */}
+            {hasActiveFilters && (
+              <div className="flex items-center justify-between text-sm text-muted-foreground border-t pt-4">
+                <span>
+                  {totalFilteredResults} {totalFilteredResults === 1 ? "material encontrado" : "materiais encontrados"}
+                  {searchTerm && ` para "${searchTerm}"`}
+                </span>
+                {selectedCategoryFilter !== "todas" && (
+                  <Badge variant="outline">
+                    {selectedCategoryFilter === "sem-categoria"
+                      ? "Sem categoria"
+                      : categories.find((cat) => cat.id === selectedCategoryFilter)?.nome}
+                  </Badge>
+                )}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+
+
+      {/* Materiais Grouped by Category */}
+      {Object.keys(materialsByCategory).length > 0 ? (
+        Object.entries(materialsByCategory).map(([categoryName, materialsInGroup]) => (
+          <div key={categoryName} className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-semibold mt-6 mb-4">{categoryName}</h2>
+              <Badge variant="secondary" className="text-xs">
+                {materialsInGroup.length} {materialsInGroup.length === 1 ? "item" : "itens"}
+              </Badge>
+            </div>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {materialsInGroup.map((material, index) => (
+                <Card key={material.id} className="animate-slide-in" style={{ animationDelay: `${index * 100}ms` }}>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
+                          <Package className="h-5 w-5 text-primary-foreground" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg">{material.nome}</CardTitle>
+                          <CardDescription>{material.fornecedor || "Sem fornecedor"}</CardDescription>
+                        </div>
+                      </div>
+                      <Badge variant="secondary">{material.unidade}</Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Preço Unitário:</span>
+                        <span className="font-medium">{formatCurrency(material.precoUnitario)}</span>
+                      </div>
+                    </div>
+                    <div className="flex justify-end space-x-2 mt-4">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => handleEdit(material)}
+                        className="rounded-full"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => handleDelete(material.id!)}
+                        className="rounded-full text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        ))
+      ) : hasActiveFilters ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Search className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium mb-2">Nenhum material encontrado</h3>
+            <p className="text-muted-foreground text-center mb-4">Tente ajustar os filtros ou termos de busca.</p>
+            <Button onClick={clearFilters} variant="outline" className="rounded-full bg-transparent">
+              <X className="h-4 w-4 mr-2" />
+              Limpar Filtros
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Package className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium mb-2">Nenhum material cadastrado</h3>
+            <p className="text-muted-foreground text-center mb-4">Comece por adicionar materiais ao seu inventário.</p>
+            <Button onClick={() => setIsDialogOpen(true)} className="rounded-full">
+              <Plus className="h-4 w-4 mr-2" />
+              Adicionar Primeiro Material
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  )
+}
