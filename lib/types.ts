@@ -93,6 +93,16 @@ export interface Categoria {
   userId: string
 }
 
+export interface ServicoComposicaoItem {
+  id: string
+  materialId: string
+  nome: string
+  quantidade: number
+  unidade: string
+  precoUnitario: number
+  total: number
+}
+
 export interface Servico {
   id?: string
   nome: string
@@ -103,7 +113,9 @@ export interface Servico {
   categoriaNome?: string
   maoDeObra?: number
   consumiveis?: number
+  listaConsumiveis?: ServicoComposicaoItem[]
   itens?: number
+  listaItens?: ServicoComposicaoItem[]
   transporte?: number
   observacoes?: string
   createdAt: Date
