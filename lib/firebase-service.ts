@@ -6,7 +6,6 @@ import {
   updateDoc,
   deleteDoc,
   query,
-  where,
   Timestamp,
   limit,
   onSnapshot,
@@ -16,6 +15,19 @@ import {
   DocumentSnapshot,
 } from "firebase/firestore"
 import { db } from "./firebase"
+
+/**
+ * BASE COMPARTILHADA
+ *
+ * As consultas nao filtram por `userId`: qualquer conta autenticada ve toda a
+ * base (clientes, funcionarios, materiais, servicos, orcamentos e termos).
+ * As regras em `firestore.rules` seguem a mesma decisao.
+ *
+ * O `userId` continua a ser gravado em cada documento e as funcoes continuam a
+ * receber esse parametro, mas apenas como registo de quem criou - nao restringe
+ * o acesso. Para voltar a separar por conta, repor o `where("userId", "==", userId)`
+ * nas consultas e as regras de dono em firestore.rules.
+ */
 import type {
   Cliente,
   Funcionario,
@@ -95,7 +107,6 @@ export async function getClientesPaginated(
 
     let q = query(
       collection(db, "clientes"),
-      where("userId", "==", userId),
       orderBy("createdAt", "desc"),
       limit(pageSize)
     )
@@ -103,7 +114,6 @@ export async function getClientesPaginated(
     if (lastDoc) {
       q = query(
         collection(db, "clientes"),
-        where("userId", "==", userId),
         orderBy("createdAt", "desc"),
         startAfter(lastDoc),
         limit(pageSize)
@@ -119,7 +129,6 @@ export async function getClientesPaginated(
         console.warn("⚠️ Índice composto ausente. Buscando sem ordenação no servidor.", error.message)
         const fallbackQuery = query(
           collection(db, "clientes"), 
-          where("userId", "==", userId),
           limit(pageSize)
         );
         querySnapshot = await getDocs(fallbackQuery)
@@ -164,7 +173,7 @@ export async function getClientes(userId: string): Promise<Cliente[]> {
   try {
     console.log("🔄 Buscando clientes para usuário:", userId)
 
-    const q = query(collection(db, "clientes"), where("userId", "==", userId))
+    const q = query(collection(db, "clientes"))
     const querySnapshot = await getDocs(q)
     const clientes: Cliente[] = []
 
@@ -242,7 +251,7 @@ export async function getFuncionarios(userId: string): Promise<Funcionario[]> {
   try {
     console.log("🔄 Buscando funcionários para usuário:", userId)
 
-    const q = query(collection(db, "funcionarios"), where("userId", "==", userId))
+    const q = query(collection(db, "funcionarios"))
     const querySnapshot = await getDocs(q)
     const funcionarios: Funcionario[] = []
 
@@ -320,7 +329,7 @@ export async function getMateriais(userId: string): Promise<Material[]> {
   try {
     console.log("🔄 Buscando materiais para usuário:", userId)
 
-    const q = query(collection(db, "materiais"), where("userId", "==", userId))
+    const q = query(collection(db, "materiais"))
     const querySnapshot = await getDocs(q)
     const materiais: Material[] = []
 
@@ -398,7 +407,7 @@ export async function getMaterialCategories(userId: string): Promise<MaterialCat
   try {
     console.log("🔄 Buscando categorias de materiais para usuário:", userId)
 
-    const q = query(collection(db, "material-categories"), where("userId", "==", userId))
+    const q = query(collection(db, "material-categories"))
     const querySnapshot = await getDocs(q)
     const categorias: MaterialCategory[] = []
 
@@ -476,7 +485,7 @@ export async function getCategorias(userId: string): Promise<Categoria[]> {
   try {
     console.log("🔄 Buscando categorias para usuário:", userId)
 
-    const q = query(collection(db, "categorias"), where("userId", "==", userId))
+    const q = query(collection(db, "categorias"))
     const querySnapshot = await getDocs(q)
     const categorias: Categoria[] = []
 
@@ -554,7 +563,7 @@ export async function getServicos(userId: string): Promise<Servico[]> {
   try {
     console.log("🔄 Buscando serviços para usuário:", userId)
 
-    const q = query(collection(db, "servicos"), where("userId", "==", userId))
+    const q = query(collection(db, "servicos"))
     const querySnapshot = await getDocs(q)
     const servicos: Servico[] = []
 
@@ -634,7 +643,7 @@ export async function getOrcamentos(userId: string): Promise<Orcamento[]> {
   try {
     console.log("🔄 Buscando orçamentos para usuário:", userId)
 
-    const q = query(collection(db, "orcamentos"), where("userId", "==", userId))
+    const q = query(collection(db, "orcamentos"))
     const querySnapshot = await getDocs(q)
     const orcamentos: Orcamento[] = []
 
@@ -700,7 +709,7 @@ export async function getTermosServico(userId: string, onlyActive: boolean = fal
   try {
     console.log("🔄 Buscando termos de servico para usuario:", userId)
 
-    const q = query(collection(db, "termos_servico"), where("userId", "==", userId))
+    const q = query(collection(db, "termos_servico"))
     const querySnapshot = await getDocs(q)
     const termos: TermoServico[] = []
 
@@ -782,7 +791,7 @@ export function subscribeToCollection<T>(
   try {
     console.log(`🔄 Iniciando subscription para ${collectionName}`)
 
-    const q = query(collection(db, collectionName), where("userId", "==", userId))
+    const q = query(collection(db, collectionName))
 
     return onSnapshot(q, (querySnapshot) => {
       const data: T[] = []

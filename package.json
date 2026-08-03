@@ -7,7 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "clean": "rm -rf .next node_modules && npm install"
+    "clean": "rm -rf .next node_modules && npm install",
+    "firebase:login": "npx -y firebase-tools login",
+    "deploy:rules": "npx -y firebase-tools deploy --only firestore:rules",
+    "deploy:indexes": "npx -y firebase-tools deploy --only firestore:indexes",
+    "deploy:firestore": "npx -y firebase-tools deploy --only firestore",
+    "firebase:check": "node scripts/check-firebase.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

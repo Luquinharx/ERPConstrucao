@@ -18,13 +18,27 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Edit, Trash2, Calculator, Search, FileText, Download, X, Loader2 } from "lucide-react"
+import { Plus, Edit, Trash2, Calculator, Search, FileText, Download, X, Loader2, Copy } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/hooks/use-auth"
 import { toast } from "@/hooks/use-toast"
 import type { Orcamento, Funcionario, Servico, ItemOrcamento, Cliente, TermoServico } from "@/lib/types"
 import { FirebaseService } from "@/lib/firebase-service"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, matchesSearch, round2, toFixed2 } from "@/lib/utils"
 import { getServiceCategoryName } from "@/lib/service-categories"
+import { ListToolbar } from "@/components/ui/list-toolbar"
+import { useSearchQuery } from "@/hooks/use-search-query"
+
+/** Documento gerado: venda (cliente) ou custo (interno). */
+type TipoDocumento = "venda" | "custo"
 
 interface OrcamentoFormState {
   clienteId: string
@@ -35,6 +49,8 @@ interface OrcamentoFormState {
   servicosSelecionados: string[]
   itens: ItemOrcamento[]
   margemLucro: number
+  /** Custo de transporte: linha propria no final do orcamento. */
+  transporte: number
   observacoes: string
 }
 
@@ -43,6 +59,8 @@ interface ServicoFormState {
   quantidade: number
   unidade: string
   precoUnitario: number
+  precoFixo: number
+  transporte: number
 }
 
 interface MaoObraFormState {
@@ -50,6 +68,7 @@ interface MaoObraFormState {
   quantidade: number
   unidade: string
   precoUnitario: number
+  custoUnitario: number
 }
 
 function toDateInput(date: Date): string {
@@ -81,6 +100,7 @@ function getDefaultFormData(): OrcamentoFormState {
     servicosSelecionados: [],
     itens: [],
     margemLucro: 20,
+    transporte: 0,
     observacoes: "",
   }
 }
@@ -91,6 +111,8 @@ function getDefaultServicoForm(): ServicoFormState {
     quantidade: 1,
     unidade: "",
     precoUnitario: 0,
+    precoFixo: 0,
+    transporte: 0,
   }
 }
 
@@ -100,15 +122,59 @@ function getDefaultMaoObraForm(): MaoObraFormState {
     quantidade: 8,
     unidade: "horas",
     precoUnitario: 0,
+    custoUnitario: 0,
   }
 }
 
-function calculateSubtotal(itens: ItemOrcamento[]): number {
-  return itens.reduce((sum, item) => sum + item.total, 0)
+/**
+ * Total do item. Itens marcados como valor fixo nao multiplicam pela
+ * quantidade/area (ex.: andaime, deslocacao, montagem).
+ */
+function calculateItemTotal(quantidade: number, precoUnitario: number, valorFixo?: boolean): number {
+  if (valorFixo) return round2(precoUnitario)
+  return round2((Number(quantidade) || 0) * (Number(precoUnitario) || 0))
 }
 
-function calculateTotal(subtotal: number, margemLucro: number): number {
-  return subtotal * (1 + margemLucro / 100)
+function calculateSubtotal(itens: ItemOrcamento[]): number {
+  return round2(itens.reduce((sum, item) => sum + (Number(item.total) || 0), 0))
+}
+
+function calculateSubtotalCusto(itens: ItemOrcamento[]): number {
+  return round2(
+    itens.reduce((sum, item) => {
+      const custo = item.custoUnitario ?? item.precoUnitario
+      return sum + calculateItemTotal(item.quantidade, custo, item.valorFixo)
+    }, 0),
+  )
+}
+
+/** Total de venda: subtotal + margem, com o transporte somado no final. */
+function calculateTotal(subtotal: number, margemLucro: number, transporte = 0): number {
+  return round2(subtotal * (1 + (Number(margemLucro) || 0) / 100) + (Number(transporte) || 0))
+}
+
+/** Total de custo: custo real dos itens + transporte, sem margem. */
+function calculateTotalCusto(subtotalCusto: number, transporte = 0): number {
+  return round2(subtotalCusto + (Number(transporte) || 0))
+}
+
+/** Separa preco variavel (por unidade), fixo e transporte, com fallback para servicos antigos. */
+function getServicoPrecos(servico: Servico) {
+  const transporte = round2(servico.transporte ?? 0)
+  const temSplit = servico.precoVariavel !== undefined || servico.precoFixo !== undefined
+
+  return {
+    precoVariavel: temSplit ? round2(servico.precoVariavel ?? 0) : round2(Number(servico.preco ?? 0) - transporte),
+    precoFixo: temSplit ? round2(servico.precoFixo ?? 0) : 0,
+    transporte,
+  }
+}
+
+/** Descricao impressa no PDF: no de venda o nome do funcionario nunca aparece. */
+function getItemDescricaoDocumento(item: ItemOrcamento, tipo: TipoDocumento): string {
+  if (tipo === "custo") return item.nome || item.descricao
+  if (item.tipo === "mao_obra") return item.descricaoCliente || "Mao de obra"
+  return item.nome || item.descricao
 }
 
 function escapeHtml(input?: string): string {
@@ -133,11 +199,23 @@ function getStatusLabel(status: Orcamento["status"]): string {
   return labels[status] || status
 }
 
-function buildOrcamentoDocumentHtml(orcamento: Orcamento, termos: TermoServico[]): string {
-  const subtotal = Number(orcamento.subtotal || 0)
-  const margem = Number(orcamento.margemLucro || 0)
-  const margemValor = (subtotal * margem) / 100
-  const total = Number(orcamento.valorTotal || 0)
+function buildOrcamentoDocumentHtml(
+  orcamento: Orcamento,
+  termos: TermoServico[],
+  tipo: TipoDocumento = "venda",
+): string {
+  const isCusto = tipo === "custo"
+  const itens = orcamento.itens || []
+
+  const subtotal = round2(orcamento.subtotal || 0)
+  const subtotalCusto = round2(orcamento.subtotalCusto ?? calculateSubtotalCusto(itens))
+  const transporte = round2(orcamento.transporte || 0)
+  const margem = round2(orcamento.margemLucro || 0)
+  const margemValor = round2((subtotal * margem) / 100)
+  const totalVenda = round2(orcamento.valorTotal || 0)
+  const totalCusto = round2(orcamento.valorTotalCusto ?? calculateTotalCusto(subtotalCusto, transporte))
+  const total = isCusto ? totalCusto : totalVenda
+  const lucro = round2(totalVenda - totalCusto)
 
   const termosAtivos = termos.filter((item) => item.ativo)
   const grouped = {
@@ -146,17 +224,26 @@ function buildOrcamentoDocumentHtml(orcamento: Orcamento, termos: TermoServico[]
     condicoes: termosAtivos.filter((item) => item.tipo === "condicoes"),
   }
 
-  const itensRows = (orcamento.itens || [])
-    .map(
-      (item) => `
+  const itensRows = itens
+    .map((item) => {
+      const nome = getItemDescricaoDocumento(item, tipo)
+      const detalhe = item.nome && item.descricao && item.descricao !== item.nome ? item.descricao : ""
+      const precoUnitario = isCusto ? (item.custoUnitario ?? item.precoUnitario) : item.precoUnitario
+      const totalItem = calculateItemTotal(item.quantidade, precoUnitario, item.valorFixo)
+      const quantidadeLabel = item.valorFixo ? "Valor fixo" : toFixed2(item.quantidade)
+
+      return `
         <tr>
-          <td>${escapeHtml(item.descricao)}</td>
-          <td>${escapeHtml(item.unidade)}</td>
-          <td style="text-align:right">${item.quantidade.toFixed(2)}</td>
-          <td style="text-align:right">${formatCurrency(item.precoUnitario)}</td>
-          <td style="text-align:right">${formatCurrency(item.total)}</td>
-        </tr>`,
-    )
+          <td>
+            <div style="font-weight:600">${escapeHtml(nome)}</div>
+            ${detalhe ? `<div style="color:#475569; font-size:12px; margin-top:2px">${escapeHtml(detalhe)}</div>` : ""}
+          </td>
+          <td>${escapeHtml(item.valorFixo ? "-" : item.unidade)}</td>
+          <td style="text-align:right">${quantidadeLabel}</td>
+          <td style="text-align:right">${formatCurrency(precoUnitario)}</td>
+          <td style="text-align:right">${formatCurrency(totalItem)}</td>
+        </tr>`
+    })
     .join("")
 
   const renderTermSection = (title: string, items: TermoServico[]) => {
@@ -196,7 +283,7 @@ function buildOrcamentoDocumentHtml(orcamento: Orcamento, termos: TermoServico[]
   <html>
     <head>
       <meta charset="utf-8" />
-      <title>Orcamento ${escapeHtml(orcamento.numero)}</title>
+      <title>Orcamento ${isCusto ? "CUSTO " : ""}${escapeHtml(orcamento.numero)}</title>
       <style>
         body { font-family: Arial, sans-serif; padding: 24px; color: #0f172a; }
         h1, h2, h3 { margin: 0; }
@@ -216,6 +303,9 @@ function buildOrcamentoDocumentHtml(orcamento: Orcamento, termos: TermoServico[]
       <header style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid #cbd5e1; padding-bottom: 12px;">
         <div>
           <h1>Orcamento #${escapeHtml(orcamento.numero)}</h1>
+          <div style="margin-top:6px; display:inline-block; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:700; ${
+            isCusto ? "background:#fee2e2; color:#991b1b;" : "background:#dcfce7; color:#166534;"
+          }">${isCusto ? "ORCAMENTO DE CUSTO - USO INTERNO" : "ORCAMENTO DE VENDA - CLIENTE"}</div>
           <p class="muted">Data: ${new Date(orcamento.dataOrcamento).toLocaleDateString("pt-PT")}</p>
           <p class="muted">Validade: ${new Date(orcamento.dataValidade).toLocaleDateString("pt-PT")}</p>
         </div>
@@ -265,9 +355,22 @@ function buildOrcamentoDocumentHtml(orcamento: Orcamento, termos: TermoServico[]
       </section>
 
       <section class="totals">
-        <div><span>Subtotal:</span><span>${formatCurrency(subtotal)}</span></div>
-        <div><span>Margem (${margem.toFixed(2)}%):</span><span>${formatCurrency(margemValor)}</span></div>
-        <div class="total-final"><span>Total:</span><span>${formatCurrency(total)}</span></div>
+        ${
+          isCusto
+            ? `
+          <div><span>Subtotal (custo real):</span><span>${formatCurrency(subtotalCusto)}</span></div>
+          <div><span>Transporte:</span><span>${formatCurrency(transporte)}</span></div>
+          <div class="total-final"><span>Total de custo:</span><span>${formatCurrency(totalCusto)}</span></div>
+          <div style="margin-top:8px"><span>Total de venda:</span><span>${formatCurrency(totalVenda)}</span></div>
+          <div><span>Lucro previsto:</span><span>${formatCurrency(lucro)}</span></div>
+        `
+            : `
+          <div><span>Subtotal:</span><span>${formatCurrency(subtotal)}</span></div>
+          <div><span>Margem (${toFixed2(margem)}%):</span><span>${formatCurrency(margemValor)}</span></div>
+          <div><span>Transporte:</span><span>${formatCurrency(transporte)}</span></div>
+          <div class="total-final"><span>Total:</span><span>${formatCurrency(totalVenda)}</span></div>
+        `
+        }
       </section>
 
       ${
@@ -276,7 +379,7 @@ function buildOrcamentoDocumentHtml(orcamento: Orcamento, termos: TermoServico[]
           : ""
       }
 
-      ${termosHtml}
+      ${isCusto ? "" : termosHtml}
 
       <div class="footer">
         Documento gerado automaticamente em ${new Date().toLocaleDateString("pt-PT")}
@@ -294,13 +397,17 @@ export default function OrcamentosPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingOrcamento, setEditingOrcamento] = useState<Orcamento | null>(null)
   const [loading, setLoading] = useState(false)
-  const [searchTerm, setSearchTerm] = useState("")
+  const { searchTerm, setSearchTerm, clearSearch } = useSearchQuery()
   const [statusFilter, setStatusFilter] = useState("all")
   const [generatingDocId, setGeneratingDocId] = useState<string | null>(null)
 
   const [servicoForm, setServicoForm] = useState<ServicoFormState>(getDefaultServicoForm())
   const [maoObraForm, setMaoObraForm] = useState<MaoObraFormState>(getDefaultMaoObraForm())
   const [formData, setFormData] = useState<OrcamentoFormState>(getDefaultFormData())
+
+  // Duplicar mao de obra: item de origem + funcionario escolhido para a copia
+  const [duplicandoItem, setDuplicandoItem] = useState<ItemOrcamento | null>(null)
+  const [duplicarFuncionarioId, setDuplicarFuncionarioId] = useState("")
 
   const { user } = useAuth()
 
@@ -340,12 +447,16 @@ export default function OrcamentosPage() {
     let filtered = [...orcamentos]
 
     if (searchTerm.trim()) {
-      const query = searchTerm.toLowerCase().trim()
-      filtered = filtered.filter(
-        (orcamento) =>
-          orcamento.cliente.nome.toLowerCase().includes(query) ||
-          orcamento.numero.toLowerCase().includes(query) ||
-          (orcamento.cliente.email || "").toLowerCase().includes(query),
+      filtered = filtered.filter((orcamento) =>
+        matchesSearch(searchTerm, [
+          orcamento.numero,
+          orcamento.cliente.nome,
+          orcamento.cliente.email,
+          orcamento.cliente.telefone,
+          orcamento.cliente.cidade,
+          orcamento.cliente.nif,
+          getStatusLabel(orcamento.status),
+        ]),
       )
     }
 
@@ -393,11 +504,15 @@ export default function OrcamentosPage() {
     const servico = servicos.find((item) => item.id === servicoId)
     if (!servico) return
 
+    const { precoVariavel, precoFixo, transporte } = getServicoPrecos(servico)
+
     setServicoForm({
       servicoId,
       quantidade: 1,
       unidade: servico.unidade || "un",
-      precoUnitario: Number(servico.preco || 0),
+      precoUnitario: precoVariavel,
+      precoFixo,
+      transporte,
     })
   }
 
@@ -408,7 +523,8 @@ export default function OrcamentosPage() {
     setMaoObraForm({
       ...maoObraForm,
       funcionarioId,
-      precoUnitario: Number(funcionario.custoHora || 0),
+      precoUnitario: round2(funcionario.custoHora || 0),
+      custoUnitario: round2(funcionario.custoHoraCalculado ?? funcionario.custoHora ?? 0),
     })
   }
 
@@ -435,21 +551,49 @@ export default function OrcamentosPage() {
     if (!servico) return
 
     const categoryName = getServiceCategoryName(servico.categoriaId, servico.categoriaNome)
-    const novoItem: ItemOrcamento = {
-      id: `servico-${servicoForm.servicoId}-${Date.now()}`,
-      descricao: `${servico.nome} (${categoryName})`,
-      quantidade: servicoForm.quantidade,
-      unidade: servicoForm.unidade,
-      precoUnitario: servicoForm.precoUnitario,
-      total: servicoForm.quantidade * servicoForm.precoUnitario,
-      tipo: "servico",
-      servicoId: servicoForm.servicoId,
+    const nome = `${servico.nome} (${categoryName})`
+    const descricao = servico.descricao?.trim() || nome
+    const timestamp = Date.now()
+
+    const novosItens: ItemOrcamento[] = [
+      {
+        id: `servico-${servicoForm.servicoId}-${timestamp}`,
+        nome,
+        descricao,
+        quantidade: round2(servicoForm.quantidade),
+        unidade: servicoForm.unidade,
+        precoUnitario: round2(servicoForm.precoUnitario),
+        custoUnitario: round2(servicoForm.precoUnitario),
+        total: calculateItemTotal(servicoForm.quantidade, servicoForm.precoUnitario),
+        valorFixo: false,
+        tipo: "servico",
+        servicoId: servicoForm.servicoId,
+      },
+    ]
+
+    // Parte fixa do servico: entra uma unica vez, sem multiplicar pela area
+    if (servicoForm.precoFixo > 0) {
+      novosItens.push({
+        id: `servico-fixo-${servicoForm.servicoId}-${timestamp}`,
+        nome: `${servico.nome} - valor fixo`,
+        descricao: "Itens e equipamentos que nao acompanham a area (cobrados uma unica vez)",
+        quantidade: 1,
+        unidade: servicoForm.unidade,
+        precoUnitario: round2(servicoForm.precoFixo),
+        custoUnitario: round2(servicoForm.precoFixo),
+        total: round2(servicoForm.precoFixo),
+        valorFixo: true,
+        tipo: "servico",
+        servicoId: servicoForm.servicoId,
+      })
     }
 
     setFormData({
       ...formData,
-      itens: [...formData.itens, novoItem],
+      itens: [...formData.itens, ...novosItens],
       servicosSelecionados: [...formData.servicosSelecionados, servicoForm.servicoId],
+      // Transporte do servico soma na linha final do orcamento
+      transporte: round2(formData.transporte + servicoForm.transporte),
     })
     setServicoForm(getDefaultServicoForm())
   }
@@ -467,16 +611,7 @@ export default function OrcamentosPage() {
     const funcionario = funcionarios.find((item) => item.id === maoObraForm.funcionarioId)
     if (!funcionario) return
 
-    const novoItem: ItemOrcamento = {
-      id: `funcionario-${maoObraForm.funcionarioId}-${Date.now()}`,
-      descricao: `Mao de obra - ${funcionario.nome}`,
-      quantidade: maoObraForm.quantidade,
-      unidade: maoObraForm.unidade,
-      precoUnitario: maoObraForm.precoUnitario,
-      total: maoObraForm.quantidade * maoObraForm.precoUnitario,
-      tipo: "mao_obra",
-      funcionarioId: maoObraForm.funcionarioId,
-    }
+    const novoItem = buildMaoObraItem(funcionario, maoObraForm.quantidade, maoObraForm.unidade)
 
     setFormData({
       ...formData,
@@ -486,7 +621,67 @@ export default function OrcamentosPage() {
     setMaoObraForm(getDefaultMaoObraForm())
   }
 
-  const handleItemUpdate = (itemId: string, field: keyof ItemOrcamento, value: string | number) => {
+  /**
+   * Monta um item de mao de obra. O nome do funcionario fica apenas no uso interno:
+   * o PDF de venda usa a descricao para o cliente (funcao, sem nome).
+   */
+  const buildMaoObraItem = (funcionario: Funcionario, quantidade: number, unidade: string): ItemOrcamento => {
+    const precoUnitario = round2(funcionario.custoHora || 0)
+    const custoUnitario = round2(funcionario.custoHoraCalculado ?? funcionario.custoHora ?? 0)
+
+    return {
+      id: `funcionario-${funcionario.id}-${Date.now()}-${Math.round(Math.random() * 1000)}`,
+      nome: `Mao de obra - ${funcionario.nome}`,
+      descricao: `Mao de obra - ${funcionario.nome}${funcionario.funcao ? ` (${funcionario.funcao})` : ""}`,
+      descricaoCliente: funcionario.funcao ? `Mao de obra - ${funcionario.funcao}` : "Mao de obra",
+      quantidade: round2(quantidade),
+      unidade,
+      precoUnitario,
+      custoUnitario,
+      total: calculateItemTotal(quantidade, precoUnitario),
+      valorFixo: false,
+      tipo: "mao_obra",
+      funcionarioId: funcionario.id,
+      funcionarioNome: funcionario.nome,
+      funcionarioFuncao: funcionario.funcao,
+    }
+  }
+
+  const handleDuplicarMaoObra = () => {
+    if (!duplicandoItem) return
+
+    const funcionario = funcionarios.find((item) => item.id === duplicarFuncionarioId)
+    if (!funcionario) {
+      toast({
+        title: "Selecione um funcionario",
+        description: "Escolha o funcionario que vai receber a copia da mao de obra.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const novoItem = buildMaoObraItem(funcionario, duplicandoItem.quantidade, duplicandoItem.unidade)
+
+    setFormData({
+      ...formData,
+      itens: [...formData.itens, novoItem],
+      funcionariosSelecionados: [...new Set([...formData.funcionariosSelecionados, funcionario.id!])],
+    })
+
+    toast({
+      title: "Mao de obra duplicada",
+      description: `${toFixed2(duplicandoItem.quantidade)} ${duplicandoItem.unidade} atribuidas a ${funcionario.nome}.`,
+    })
+
+    setDuplicandoItem(null)
+    setDuplicarFuncionarioId("")
+  }
+
+  const handleItemUpdate = (
+    itemId: string,
+    field: keyof ItemOrcamento,
+    value: string | number | boolean,
+  ) => {
     const updatedItens = formData.itens.map((item) => {
       if (item.id !== itemId) return item
 
@@ -495,8 +690,12 @@ export default function OrcamentosPage() {
         [field]: value,
       } as ItemOrcamento
 
-      if (field === "quantidade" || field === "precoUnitario") {
-        updatedItem.total = Number(updatedItem.quantidade) * Number(updatedItem.precoUnitario)
+      if (field === "quantidade" || field === "precoUnitario" || field === "custoUnitario" || field === "valorFixo") {
+        updatedItem.total = calculateItemTotal(
+          updatedItem.quantidade,
+          updatedItem.precoUnitario,
+          updatedItem.valorFixo,
+        )
       }
 
       return updatedItem
@@ -511,9 +710,21 @@ export default function OrcamentosPage() {
 
     let servicosSelecionados = formData.servicosSelecionados
     let funcionariosSelecionados = formData.funcionariosSelecionados
+    let transporte = formData.transporte
 
     if (target?.tipo === "servico" && target.servicoId) {
-      servicosSelecionados = formData.servicosSelecionados.filter((id) => id !== target.servicoId)
+      const aindaTemServico = updatedItens.some(
+        (item) => item.tipo === "servico" && item.servicoId === target.servicoId,
+      )
+
+      if (!aindaTemServico) {
+        servicosSelecionados = formData.servicosSelecionados.filter((id) => id !== target.servicoId)
+        // Devolve o transporte que este servico tinha somado na linha final
+        const servico = servicos.find((item) => item.id === target.servicoId)
+        if (servico) {
+          transporte = round2(Math.max(0, transporte - getServicoPrecos(servico).transporte))
+        }
+      }
     }
 
     if (target?.tipo === "mao_obra" && target.funcionarioId) {
@@ -530,6 +741,7 @@ export default function OrcamentosPage() {
       itens: updatedItens,
       servicosSelecionados,
       funcionariosSelecionados,
+      transporte,
     })
   }
 
@@ -583,7 +795,10 @@ export default function OrcamentosPage() {
     }
 
     const subtotal = calculateSubtotal(formData.itens)
-    const valorTotal = calculateTotal(subtotal, formData.margemLucro)
+    const subtotalCusto = calculateSubtotalCusto(formData.itens)
+    const transporte = round2(formData.transporte)
+    const valorTotal = calculateTotal(subtotal, formData.margemLucro, transporte)
+    const valorTotalCusto = calculateTotalCusto(subtotalCusto, transporte)
 
     setLoading(true)
     try {
@@ -610,9 +825,12 @@ export default function OrcamentosPage() {
         funcionariosSelecionados: formData.funcionariosSelecionados,
         servicosSelecionados: formData.servicosSelecionados,
         subtotal,
+        subtotalCusto,
+        transporte,
         impostos: 0,
-        margemLucro: formData.margemLucro,
+        margemLucro: round2(formData.margemLucro),
         valorTotal,
+        valorTotalCusto,
         observacoes: formData.observacoes,
         status: editingOrcamento?.status || "rascunho",
         userId: user.uid,
@@ -668,6 +886,7 @@ export default function OrcamentosPage() {
       servicosSelecionados: orcamento.servicosSelecionados || [],
       itens: orcamento.itens || [],
       margemLucro: orcamento.margemLucro || 0,
+      transporte: round2(orcamento.transporte || 0),
       observacoes: orcamento.observacoes || "",
     })
     setServicoForm(getDefaultServicoForm())
@@ -699,14 +918,14 @@ export default function OrcamentosPage() {
     }
   }
 
-  const handleOpenDocument = async (orcamento: Orcamento, shouldPrint: boolean) => {
+  const handleOpenDocument = async (orcamento: Orcamento, shouldPrint: boolean, tipo: TipoDocumento) => {
     if (!user) return
     if (!orcamento.id) return
 
     try {
       setGeneratingDocId(orcamento.id)
-      const termos = await FirebaseService.getTermosServico(user.uid, true)
-      const html = buildOrcamentoDocumentHtml(orcamento, termos)
+      const termos = tipo === "venda" ? await FirebaseService.getTermosServico(user.uid, true) : []
+      const html = buildOrcamentoDocumentHtml(orcamento, termos, tipo)
       const popup = window.open("", "_blank", "width=1024,height=720")
 
       if (!popup) {
@@ -746,7 +965,11 @@ export default function OrcamentosPage() {
   }
 
   const subtotalAtual = calculateSubtotal(formData.itens)
-  const valorTotalAtual = calculateTotal(subtotalAtual, formData.margemLucro)
+  const subtotalCustoAtual = calculateSubtotalCusto(formData.itens)
+  const transporteAtual = round2(formData.transporte)
+  const valorTotalAtual = calculateTotal(subtotalAtual, formData.margemLucro, transporteAtual)
+  const valorTotalCustoAtual = calculateTotalCusto(subtotalCustoAtual, transporteAtual)
+  const lucroPrevisto = round2(valorTotalAtual - valorTotalCustoAtual)
   const selectedClientValue =
     formData.clienteId && clientes.some((cliente) => cliente.id === formData.clienteId) ? formData.clienteId : "__novo"
 
@@ -1000,21 +1223,42 @@ export default function OrcamentosPage() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label>Valor unitario (automatico)</Label>
-                            <Input
-                              type="number"
-                              value={servicoForm.precoUnitario}
-                              readOnly
-                              className="rounded-full bg-muted"
-                            />
+                            <Label>Valor por {servicoForm.unidade || "unidade"} (automatico)</Label>
+                            <Input value={toFixed2(servicoForm.precoUnitario)} readOnly className="rounded-full bg-muted" />
                           </div>
                         </div>
 
-                        <div className="p-3 bg-muted rounded-lg flex items-center justify-between">
-                          <span className="font-medium">Total do item</span>
-                          <span className="text-lg font-bold">
-                            {formatCurrency(servicoForm.quantidade * servicoForm.precoUnitario)}
-                          </span>
+                        <div className="p-3 bg-muted rounded-lg space-y-1 text-sm">
+                          <div className="flex items-center justify-between">
+                            <span>
+                              {toFixed2(servicoForm.quantidade)} {servicoForm.unidade} x{" "}
+                              {formatCurrency(servicoForm.precoUnitario)}
+                            </span>
+                            <span>{formatCurrency(calculateItemTotal(servicoForm.quantidade, servicoForm.precoUnitario))}</span>
+                          </div>
+                          {servicoForm.precoFixo > 0 && (
+                            <div className="flex items-center justify-between">
+                              <span>Valor fixo (nao multiplica pela area)</span>
+                              <span>{formatCurrency(servicoForm.precoFixo)}</span>
+                            </div>
+                          )}
+                          {servicoForm.transporte > 0 && (
+                            <div className="flex items-center justify-between text-muted-foreground">
+                              <span>Transporte (vai para a linha final)</span>
+                              <span>{formatCurrency(servicoForm.transporte)}</span>
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between border-t pt-1 font-medium">
+                            <span>Total do item</span>
+                            <span className="text-lg font-bold">
+                              {formatCurrency(
+                                round2(
+                                  calculateItemTotal(servicoForm.quantidade, servicoForm.precoUnitario) +
+                                    servicoForm.precoFixo,
+                                ),
+                              )}
+                            </span>
+                          </div>
                         </div>
 
                         <div className="flex justify-end">
@@ -1084,17 +1328,29 @@ export default function OrcamentosPage() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label>Valor unitario da hora (automatico)</Label>
-                            <Input value={maoObraForm.precoUnitario.toFixed(2)} readOnly className="rounded-full bg-muted" />
+                            <Label>Valor de venda/hora (automatico)</Label>
+                            <Input value={toFixed2(maoObraForm.precoUnitario)} readOnly className="rounded-full bg-muted" />
                           </div>
                         </div>
 
-                        <div className="p-3 bg-muted rounded-lg flex items-center justify-between">
-                          <span className="font-medium">Total do item</span>
-                          <span className="text-lg font-bold">
-                            {formatCurrency(maoObraForm.quantidade * maoObraForm.precoUnitario)}
-                          </span>
+                        <div className="p-3 bg-muted rounded-lg space-y-1 text-sm">
+                          <div className="flex items-center justify-between text-muted-foreground">
+                            <span>Custo real ({toFixed2(maoObraForm.custoUnitario)}/hora)</span>
+                            <span>
+                              {formatCurrency(calculateItemTotal(maoObraForm.quantidade, maoObraForm.custoUnitario))}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between border-t pt-1">
+                            <span className="font-medium">Total do item (venda)</span>
+                            <span className="text-lg font-bold">
+                              {formatCurrency(calculateItemTotal(maoObraForm.quantidade, maoObraForm.precoUnitario))}
+                            </span>
+                          </div>
                         </div>
+                        <p className="text-xs text-muted-foreground">
+                          O nome do funcionario fica so no uso interno e no PDF de custo. No PDF de venda o item aparece
+                          como &quot;Mao de obra&quot; com a funcao.
+                        </p>
 
                         <div className="flex justify-end">
                           <Button type="button" onClick={handleMaoObraFormSubmit} className="rounded-full">
@@ -1113,36 +1369,84 @@ export default function OrcamentosPage() {
                   <div className="space-y-3">
                     {formData.itens.map((item) => {
                       const readOnlyServico = item.tipo === "servico"
+                      const custoUnitario = item.custoUnitario ?? item.precoUnitario
                       return (
                         <div key={item.id} className="p-4 border rounded-lg">
-                          <div className="flex items-center justify-between mb-2">
-                            <div>
-                              <h4 className="font-medium">{item.descricao}</h4>
-                              <Badge variant="outline" className="text-xs mt-1">
-                                {item.tipo === "servico" ? "Servico" : item.tipo === "mao_obra" ? "Mao de obra" : "Material"}
-                              </Badge>
+                          <div className="flex items-start justify-between mb-2 gap-2">
+                            <div className="flex-1 space-y-2">
+                              <div>
+                                <Label className="text-xs">Nome do item</Label>
+                                <Input
+                                  value={item.nome ?? item.descricao}
+                                  onChange={(e) => handleItemUpdate(item.id, "nome", e.target.value)}
+                                  className="h-8 text-sm font-medium"
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-xs">Descricao do item</Label>
+                                <Textarea
+                                  value={item.descricao}
+                                  onChange={(e) => handleItemUpdate(item.id, "descricao", e.target.value)}
+                                  rows={2}
+                                  className="text-sm"
+                                  placeholder="Descricao detalhada impressa no orcamento"
+                                />
+                              </div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Badge variant="outline" className="text-xs">
+                                  {item.tipo === "servico" ? "Servico" : item.tipo === "mao_obra" ? "Mao de obra" : "Material"}
+                                </Badge>
+                                {item.valorFixo && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    Valor fixo
+                                  </Badge>
+                                )}
+                                {item.tipo === "mao_obra" && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    No PDF do cliente: {item.descricaoCliente || "Mao de obra"}
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleItemRemove(item.id)}
-                              className="h-6 w-6 text-destructive hover:text-destructive"
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              {item.tipo === "mao_obra" && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  title="Duplicar mao de obra para outro funcionario"
+                                  onClick={() => {
+                                    setDuplicandoItem(item)
+                                    setDuplicarFuncionarioId(item.funcionarioId || "")
+                                  }}
+                                  className="h-6 w-6"
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </Button>
+                              )}
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleItemRemove(item.id)}
+                                className="h-6 w-6 text-destructive hover:text-destructive"
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
                           </div>
-                          <div className="grid grid-cols-4 gap-2">
+                          <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
                             <div>
                               <Label className="text-xs">Quantidade</Label>
                               <Input
                                 type="number"
                                 step="0.01"
                                 value={item.quantidade}
+                                disabled={item.valorFixo}
                                 onChange={(e) =>
-                                  handleItemUpdate(item.id, "quantidade", Number.parseFloat(e.target.value) || 0)
+                                  handleItemUpdate(item.id, "quantidade", round2(Number.parseFloat(e.target.value) || 0))
                                 }
-                                className="h-8 text-sm"
+                                className={`h-8 text-sm ${item.valorFixo ? "bg-muted" : ""}`}
                               />
                             </div>
                             <div>
@@ -1155,22 +1459,55 @@ export default function OrcamentosPage() {
                               />
                             </div>
                             <div>
-                              <Label className="text-xs">Preco Unit. (EUR)</Label>
+                              <Label className="text-xs">Custo Unit. (EUR)</Label>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={custoUnitario}
+                                onChange={(e) =>
+                                  handleItemUpdate(
+                                    item.id,
+                                    "custoUnitario",
+                                    round2(Number.parseFloat(e.target.value) || 0),
+                                  )
+                                }
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Venda Unit. (EUR)</Label>
                               <Input
                                 type="number"
                                 step="0.01"
                                 value={item.precoUnitario}
-                                readOnly={readOnlyServico}
                                 onChange={(e) =>
-                                  handleItemUpdate(item.id, "precoUnitario", Number.parseFloat(e.target.value) || 0)
+                                  handleItemUpdate(
+                                    item.id,
+                                    "precoUnitario",
+                                    round2(Number.parseFloat(e.target.value) || 0),
+                                  )
                                 }
-                                className={`h-8 text-sm ${readOnlyServico ? "bg-muted" : ""}`}
+                                className="h-8 text-sm"
                               />
                             </div>
                             <div>
-                              <Label className="text-xs">Total (EUR)</Label>
-                              <Input value={item.total.toFixed(2)} readOnly className="h-8 text-sm bg-muted" />
+                              <Label className="text-xs">Total venda (EUR)</Label>
+                              <Input value={toFixed2(item.total)} readOnly className="h-8 text-sm bg-muted" />
                             </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center justify-between gap-2 mt-2">
+                            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <Checkbox
+                                checked={!!item.valorFixo}
+                                onCheckedChange={(checked) => handleItemUpdate(item.id, "valorFixo", checked === true)}
+                              />
+                              Valor fixo: nao multiplica pela quantidade/area
+                            </label>
+                            <span className="text-xs text-muted-foreground">
+                              Custo do item:{" "}
+                              {formatCurrency(calculateItemTotal(item.quantidade, custoUnitario, item.valorFixo))}
+                            </span>
                           </div>
                         </div>
                       )
@@ -1181,17 +1518,38 @@ export default function OrcamentosPage() {
 
               <div className="space-y-4">
                 <h3 className="text-lg font-medium">Precificacao</h3>
-                <div className="space-y-2">
-                  <Label htmlFor="margemLucro">Margem de lucro (%)</Label>
-                  <Input
-                    id="margemLucro"
-                    type="number"
-                    step="0.1"
-                    value={formData.margemLucro}
-                    onChange={(e) => setFormData({ ...formData, margemLucro: Number.parseFloat(e.target.value) || 0 })}
-                    required
-                    className="rounded-full"
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="margemLucro">Margem de lucro (%)</Label>
+                    <Input
+                      id="margemLucro"
+                      type="number"
+                      step="0.01"
+                      value={formData.margemLucro}
+                      onChange={(e) =>
+                        setFormData({ ...formData, margemLucro: round2(Number.parseFloat(e.target.value) || 0) })
+                      }
+                      required
+                      className="rounded-full"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="transporte">Custo de transporte (EUR)</Label>
+                    <Input
+                      id="transporte"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.transporte}
+                      onChange={(e) =>
+                        setFormData({ ...formData, transporte: round2(Number.parseFloat(e.target.value) || 0) })
+                      }
+                      className="rounded-full"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Somado automaticamente a partir dos servicos e lancado como linha propria no final do orcamento.
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -1207,20 +1565,48 @@ export default function OrcamentosPage() {
               </div>
 
               {formData.itens.length > 0 && (
-                <div className="space-y-2 p-4 bg-muted rounded-lg">
-                  <h4 className="font-medium">Resumo do Orcamento</h4>
-                  <div className="space-y-1 text-sm">
-                    <div className="flex justify-between">
-                      <span>Subtotal:</span>
-                      <span>{formatCurrency(subtotalAtual)}</span>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2 p-4 bg-muted rounded-lg">
+                    <h4 className="font-medium">Orcamento de Venda (cliente)</h4>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span>Subtotal:</span>
+                        <span>{formatCurrency(subtotalAtual)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Margem ({toFixed2(formData.margemLucro)}%):</span>
+                        <span>{formatCurrency(round2((subtotalAtual * formData.margemLucro) / 100))}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Transporte:</span>
+                        <span>{formatCurrency(transporteAtual)}</span>
+                      </div>
+                      <div className="flex justify-between font-medium border-t pt-1">
+                        <span>Total de venda:</span>
+                        <span>{formatCurrency(valorTotalAtual)}</span>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span>Margem ({formData.margemLucro}%):</span>
-                      <span>{formatCurrency((subtotalAtual * formData.margemLucro) / 100)}</span>
-                    </div>
-                    <div className="flex justify-between font-medium border-t pt-1">
-                      <span>Total:</span>
-                      <span>{formatCurrency(valorTotalAtual)}</span>
+                  </div>
+
+                  <div className="space-y-2 p-4 border rounded-lg">
+                    <h4 className="font-medium">Orcamento de Custo (interno)</h4>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span>Custo dos itens:</span>
+                        <span>{formatCurrency(subtotalCustoAtual)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Transporte:</span>
+                        <span>{formatCurrency(transporteAtual)}</span>
+                      </div>
+                      <div className="flex justify-between font-medium border-t pt-1">
+                        <span>Total de custo:</span>
+                        <span>{formatCurrency(valorTotalCustoAtual)}</span>
+                      </div>
+                      <div className="flex justify-between text-primary font-medium">
+                        <span>Lucro previsto:</span>
+                        <span>{formatCurrency(lucroPrevisto)}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1235,39 +1621,78 @@ export default function OrcamentosPage() {
                 </Button>
               </div>
             </form>
+
+            {/* Duplicar mao de obra para outro funcionario */}
+            <Dialog
+              open={!!duplicandoItem}
+              onOpenChange={(open) => {
+                if (!open) {
+                  setDuplicandoItem(null)
+                  setDuplicarFuncionarioId("")
+                }
+              }}
+            >
+              <DialogContent className="sm:max-w-[480px]">
+                <DialogHeader>
+                  <DialogTitle>Duplicar Mao de Obra</DialogTitle>
+                  <DialogDescription>
+                    Copia {toFixed2(duplicandoItem?.quantidade || 0)} {duplicandoItem?.unidade} para outro funcionario.
+                    O valor/hora usado e o do funcionario escolhido.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-2">
+                  <Label>Funcionario da copia</Label>
+                  <Select value={duplicarFuncionarioId} onValueChange={setDuplicarFuncionarioId}>
+                    <SelectTrigger className="rounded-full">
+                      <SelectValue placeholder="Escolha um funcionario" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {funcionarios.map((funcionario) => (
+                        <SelectItem key={funcionario.id} value={funcionario.id!}>
+                          {funcionario.nome} - {formatCurrency(funcionario.custoHora)} /hora
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button type="button" variant="outline" onClick={() => setDuplicandoItem(null)}>
+                    Cancelar
+                  </Button>
+                  <Button type="button" onClick={handleDuplicarMaoObra} className="rounded-full">
+                    <Copy className="h-4 w-4 mr-2" />
+                    Duplicar
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </DialogContent>
         </Dialog>
       </div>
 
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Pesquisar orcamentos..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 rounded-full"
-                />
-              </div>
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-[220px] rounded-full">
-                <SelectValue placeholder="Todos os status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os status</SelectItem>
-                <SelectItem value="rascunho">Rascunho</SelectItem>
-                <SelectItem value="enviado">Enviado</SelectItem>
-                <SelectItem value="aprovado">Aprovado</SelectItem>
-                <SelectItem value="rejeitado">Rejeitado</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+      <ListToolbar
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        onClear={clearSearch}
+        placeholder="Pesquisar por numero, cliente, email, cidade, NIF ou status..."
+        resultCount={filteredOrcamentos.length}
+        totalCount={orcamentos.length}
+      >
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-full sm:w-[220px] rounded-full">
+            <SelectValue placeholder="Todos os status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os status</SelectItem>
+            <SelectItem value="rascunho">Rascunho</SelectItem>
+            <SelectItem value="enviado">Enviado</SelectItem>
+            <SelectItem value="aprovado">Aprovado</SelectItem>
+            <SelectItem value="rejeitado">Rejeitado</SelectItem>
+          </SelectContent>
+        </Select>
+      </ListToolbar>
 
       <div className="space-y-4">
         {filteredOrcamentos.map((orcamento, index) => (
@@ -1293,29 +1718,58 @@ export default function OrcamentosPage() {
                   <p>Data: {new Date(orcamento.dataOrcamento).toLocaleDateString("pt-PT")}</p>
                   <p>Validade: {new Date(orcamento.dataValidade).toLocaleDateString("pt-PT")}</p>
                   <p>Itens: {orcamento.itens.length}</p>
+                  <p>
+                    Custo:{" "}
+                    {formatCurrency(
+                      orcamento.valorTotalCusto ??
+                        calculateTotalCusto(calculateSubtotalCusto(orcamento.itens || []), orcamento.transporte),
+                    )}
+                    {orcamento.transporte ? ` | Transporte: ${formatCurrency(orcamento.transporte)}` : ""}
+                  </p>
                 </div>
                 <div className="flex space-x-2">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => handleOpenDocument(orcamento, false)}
-                    className="rounded-full bg-transparent"
-                  >
-                    <FileText className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => handleOpenDocument(orcamento, true)}
-                    className="rounded-full bg-transparent"
-                    disabled={generatingDocId === orcamento.id}
-                  >
-                    {generatingDocId === orcamento.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Download className="h-4 w-4" />
-                    )}
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="rounded-full bg-transparent"
+                        title="Abrir orcamento (venda ou custo)"
+                        disabled={generatingDocId === orcamento.id}
+                      >
+                        {generatingDocId === orcamento.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <FileText className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>Orcamento de Venda (cliente)</DropdownMenuLabel>
+                      <DropdownMenuItem onClick={() => handleOpenDocument(orcamento, false, "venda")}>
+                        <FileText className="h-4 w-4 mr-2" />
+                        Visualizar venda - {formatCurrency(orcamento.valorTotal)}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleOpenDocument(orcamento, true, "venda")}>
+                        <Download className="h-4 w-4 mr-2" />
+                        Imprimir / PDF de venda
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuLabel>Orcamento de Custo (interno)</DropdownMenuLabel>
+                      <DropdownMenuItem onClick={() => handleOpenDocument(orcamento, false, "custo")}>
+                        <FileText className="h-4 w-4 mr-2" />
+                        Visualizar custo -{" "}
+                        {formatCurrency(
+                          orcamento.valorTotalCusto ??
+                            calculateTotalCusto(calculateSubtotalCusto(orcamento.itens || []), orcamento.transporte),
+                        )}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleOpenDocument(orcamento, true, "custo")}>
+                        <Download className="h-4 w-4 mr-2" />
+                        Imprimir / PDF de custo
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   <Button variant="outline" size="icon" onClick={() => handleEdit(orcamento)} className="rounded-full">
                     <Edit className="h-4 w-4" />
                   </Button>
@@ -1343,7 +1797,7 @@ export default function OrcamentosPage() {
               </p>
               <Button
                 onClick={() => {
-                  setSearchTerm("")
+                  clearSearch()
                   setStatusFilter("all")
                 }}
                 variant="outline"

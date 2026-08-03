@@ -39,7 +39,9 @@ import { toast } from "@/hooks/use-toast"
 import type { Funcionario } from "@/lib/types"
 import { FirebaseService } from "@/lib/firebase-service"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, matchesSearch, round2, toFixed2 } from "@/lib/utils"
+import { ListToolbar } from "@/components/ui/list-toolbar"
+import { useSearchQuery } from "@/hooks/use-search-query"
 
 interface FuncionarioFormState {
   nome: string
@@ -66,6 +68,8 @@ interface FuncionarioFormState {
   valorTransporte: number
   percentualSeguranca: number
   percentualIRS: number
+  percentualSegurancaLiquido: number
+  percentualIRSLiquido: number
   ativo: boolean
 }
 
@@ -101,6 +105,8 @@ function getDefaultFormData(): FuncionarioFormState {
     valorTransporte: 0,
     percentualSeguranca: 0,
     percentualIRS: 0,
+    percentualSegurancaLiquido: 0,
+    percentualIRSLiquido: 0,
     ativo: true,
   }
 }
@@ -118,26 +124,45 @@ function calculateAge(birthDate: string): number {
 }
 
 function calculateHorasPorSemana(horasPorDia: number, diasPorSemana: number): number {
-  return (Number(horasPorDia) || 0) * (Number(diasPorSemana) || 0)
+  return round2((Number(horasPorDia) || 0) * (Number(diasPorSemana) || 0))
+}
+
+/**
+ * Dias efetivamente trabalhados no mes de referencia.
+ *
+ * Conta os dias reais do calendario a partir de segunda-feira:
+ * 5 dias/semana = seg a sex, 6 = seg a sab, 7 = todos os dias.
+ * (Antes usava a media dias_do_mes x dias_semana/7, que inflava as horas.)
+ */
+function calculateDiasUteisMes(mesReferencia: string, diasPorSemana: number): number {
+  const dias = Math.min(Math.max(Number(diasPorSemana) || 0, 0), 7)
+  if (dias === 0) return 0
+
+  const referencia = mesReferencia || getCurrentMonthInput()
+  const [yearRaw, monthRaw] = referencia.split("-")
+  const year = Number(yearRaw)
+  const month = Number(monthRaw)
+  if (!year || !month) return 0
+
+  const daysInMonth = new Date(year, month, 0).getDate()
+  let total = 0
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const weekday = new Date(year, month - 1, day).getDay() // 0 = domingo
+    const posicaoNaSemana = weekday === 0 ? 7 : weekday // 1 = segunda ... 7 = domingo
+    if (posicaoNaSemana <= dias) total++
+  }
+
+  return total
 }
 
 function calculateHorasPorMes(mesReferencia: string, horasPorDia: number, diasPorSemana: number): number {
-  const horasSemanais = calculateHorasPorSemana(horasPorDia, diasPorSemana)
-  if (!mesReferencia) return Number((horasSemanais * 4.33).toFixed(2))
-
-  const [yearRaw, monthRaw] = mesReferencia.split("-")
-  const year = Number(yearRaw)
-  const month = Number(monthRaw)
-
-  if (!year || !month) return Number((horasSemanais * 4.33).toFixed(2))
-
-  const daysInMonth = new Date(year, month, 0).getDate()
-  const weeklyRatio = Math.min(Math.max(diasPorSemana, 1), 7) / 7
-  return Number((daysInMonth * weeklyRatio * horasPorDia).toFixed(2))
+  const diasUteis = calculateDiasUteisMes(mesReferencia, diasPorSemana)
+  return round2(diasUteis * (Number(horasPorDia) || 0))
 }
 
 function calculatePercentValue(base: number, percentual: number): number {
-  return (Number(base) || 0) * ((Number(percentual) || 0) / 100)
+  return round2((Number(base) || 0) * ((Number(percentual) || 0) / 100))
 }
 
 export default function FuncionariosPage() {
@@ -148,17 +173,45 @@ export default function FuncionariosPage() {
   const [pageLoading, setPageLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("pessoais")
   const { user } = useAuth()
+  const { searchTerm, setSearchTerm, clearSearch } = useSearchQuery()
 
   const [formData, setFormData] = useState<FuncionarioFormState>(getDefaultFormData())
 
+  const diasUteisMes = calculateDiasUteisMes(formData.mesReferencia, formData.diasPorSemana)
   const horasPorSemana = calculateHorasPorSemana(formData.horasPorDia, formData.diasPorSemana)
   const horasPorMes = calculateHorasPorMes(formData.mesReferencia, formData.horasPorDia, formData.diasPorSemana)
+
+  // Encargos (custo da empresa): somam ao salario
   const valorSeguranca = calculatePercentValue(formData.salarioBase, formData.percentualSeguranca)
   const valorIRS = calculatePercentValue(formData.salarioBase, formData.percentualIRS)
-  const totalEncargos = valorSeguranca + valorIRS
-  const salarioTotal = formData.salarioBase + formData.valorBeneficios + formData.valorTransporte + totalEncargos
-  const custoHoraCalculado = horasPorMes > 0 ? salarioTotal / horasPorMes : 0
-  const valorDeVendaCalculado = custoHoraCalculado * (1 + Number(formData.margemLucro || 0) / 100)
+  const totalEncargos = round2(valorSeguranca + valorIRS)
+  const salarioTotal = round2(
+    formData.salarioBase + formData.valorBeneficios + formData.valorTransporte + totalEncargos,
+  )
+  const custoHoraCalculado = horasPorMes > 0 ? round2(salarioTotal / horasPorMes) : 0
+  const valorDeVendaCalculado = round2(custoHoraCalculado * (1 + Number(formData.margemLucro || 0) / 100))
+
+  // Encargos liquidos (percentuais independentes): descontam do salario
+  const valorSegurancaLiquido = calculatePercentValue(formData.salarioBase, formData.percentualSegurancaLiquido)
+  const valorIRSLiquido = calculatePercentValue(formData.salarioBase, formData.percentualIRSLiquido)
+  const totalEncargosLiquido = round2(valorSegurancaLiquido + valorIRSLiquido)
+  const salarioTotalLiquido = round2(
+    formData.salarioBase + formData.valorBeneficios + formData.valorTransporte - totalEncargosLiquido,
+  )
+  const custoHoraLiquido = horasPorMes > 0 ? round2(salarioTotalLiquido / horasPorMes) : 0
+  const valorVendaHoraLiquido = round2(custoHoraLiquido * (1 + Number(formData.margemLucro || 0) / 100))
+
+  const filteredFuncionarios = funcionarios.filter((funcionario) =>
+    matchesSearch(searchTerm, [
+      funcionario.nome,
+      funcionario.email,
+      funcionario.telefone,
+      funcionario.funcao,
+      funcionario.departamento,
+      funcionario.numeroFuncionario,
+      funcionario.cidade,
+    ]),
+  )
 
   useEffect(() => {
     if (user) {
@@ -213,19 +266,28 @@ export default function FuncionariosPage() {
         diasPorSemana: Number(formData.diasPorSemana) || 0,
         horasPorSemana,
         horasPorMes,
+        diasUteisMes,
         mesReferencia: formData.mesReferencia,
         margemLucro: Number(formData.margemLucro) || 0,
         custoHora: valorDeVendaCalculado,
         custoHoraCalculado,
-        salarioBase: Number(formData.salarioBase) || 0,
-        valorBeneficios: Number(formData.valorBeneficios) || 0,
-        valorTransporte: Number(formData.valorTransporte) || 0,
-        percentualSeguranca: Number(formData.percentualSeguranca) || 0,
+        salarioBase: round2(formData.salarioBase),
+        valorBeneficios: round2(formData.valorBeneficios),
+        valorTransporte: round2(formData.valorTransporte),
+        percentualSeguranca: round2(formData.percentualSeguranca),
         valorSeguranca,
-        percentualIRS: Number(formData.percentualIRS) || 0,
+        percentualIRS: round2(formData.percentualIRS),
         valorIRS,
         totalEncargos,
         salarioTotal,
+        percentualSegurancaLiquido: round2(formData.percentualSegurancaLiquido),
+        valorSegurancaLiquido,
+        percentualIRSLiquido: round2(formData.percentualIRSLiquido),
+        valorIRSLiquido,
+        totalEncargosLiquido,
+        salarioTotalLiquido,
+        custoHoraLiquido,
+        valorVendaHoraLiquido,
         ativo: formData.ativo,
         userId: user.uid,
       }
@@ -286,6 +348,8 @@ export default function FuncionariosPage() {
       valorTransporte: funcionario.valorTransporte || 0,
       percentualSeguranca: funcionario.percentualSeguranca || 0,
       percentualIRS: funcionario.percentualIRS || 0,
+      percentualSegurancaLiquido: funcionario.percentualSegurancaLiquido ?? funcionario.percentualSeguranca ?? 0,
+      percentualIRSLiquido: funcionario.percentualIRSLiquido ?? funcionario.percentualIRS ?? 0,
       ativo: funcionario.ativo,
     })
     setIsDialogOpen(true)
@@ -353,11 +417,12 @@ export default function FuncionariosPage() {
               </DialogHeader>
 
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-4">
+                <TabsList className="grid w-full grid-cols-5">
                   <TabsTrigger value="pessoais">Dados Pessoais</TabsTrigger>
                   <TabsTrigger value="empresa">Empresa</TabsTrigger>
                   <TabsTrigger value="valores">Horario e Valores</TabsTrigger>
                   <TabsTrigger value="encargos">Encargos</TabsTrigger>
+                  <TabsTrigger value="encargosLiquidos">Encargo Liquido</TabsTrigger>
                 </TabsList>
 
                 <form onSubmit={handleSubmit}>
@@ -598,20 +663,31 @@ export default function FuncionariosPage() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-3 gap-4">
                       <div className="space-y-2">
                         <Label>Horas por Semana (calculado)</Label>
                         <div className="p-3 bg-muted rounded-lg">
-                          <span className="text-lg font-semibold">{horasPorSemana.toFixed(2)} horas/semana</span>
+                          <span className="text-lg font-semibold">{toFixed2(horasPorSemana)} h/semana</span>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Dias uteis no mes (calculado)</Label>
+                        <div className="p-3 bg-muted rounded-lg">
+                          <span className="text-lg font-semibold">{diasUteisMes} dias</span>
                         </div>
                       </div>
                       <div className="space-y-2">
                         <Label>Horas por Mes (calculado)</Label>
                         <div className="p-3 bg-muted rounded-lg">
-                          <span className="text-lg font-semibold">{horasPorMes.toFixed(2)} horas/mes</span>
+                          <span className="text-lg font-semibold">{toFixed2(horasPorMes)} h/mes</span>
                         </div>
                       </div>
                     </div>
+                    <p className="text-xs text-muted-foreground">
+                      Horas/mes = dias uteis reais do mes de referencia x horas por dia ({diasUteisMes} x{" "}
+                      {toFixed2(formData.horasPorDia)} = {toFixed2(horasPorMes)}h). Os dias uteis seguem o calendario
+                      real, contando a partir de segunda-feira conforme os dias por semana definidos.
+                    </p>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
@@ -629,7 +705,7 @@ export default function FuncionariosPage() {
                       <div className="space-y-2">
                         <Label htmlFor="custoHora">Valor de Venda por Hora (EUR) *</Label>
                         <div className="p-3 bg-muted rounded-lg w-full flex items-center h-10 border mt-1">
-                          <span className="text-sm">{valorDeVendaCalculado.toFixed(2)}</span>
+                          <span className="text-sm">{toFixed2(valorDeVendaCalculado)}</span>
                         </div>
                       </div>
                     </div>
@@ -733,6 +809,74 @@ export default function FuncionariosPage() {
                     </div>
                   </TabsContent>
 
+                  <TabsContent value="encargosLiquidos" className="space-y-4 mt-4">
+                    <p className="text-sm text-muted-foreground">
+                      Mesma estrutura da aba Encargos, com percentuais proprios. Aqui os encargos sao{" "}
+                      <strong>descontados</strong> do salario, mostrando o valor liquido e o custo/hora liquido.
+                    </p>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="percentualSegurancaLiquido">Seguranca (%) sobre salario base</Label>
+                        <Input
+                          id="percentualSegurancaLiquido"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={formData.percentualSegurancaLiquido}
+                          onChange={(e) =>
+                            setFormData({ ...formData, percentualSegurancaLiquido: Number(e.target.value) || 0 })
+                          }
+                          className="rounded-full"
+                        />
+                        <p className="text-sm text-muted-foreground">
+                          Valor calculado: {formatCurrency(valorSegurancaLiquido)}
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="percentualIRSLiquido">IRS (%) sobre salario base</Label>
+                        <Input
+                          id="percentualIRSLiquido"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={formData.percentualIRSLiquido}
+                          onChange={(e) =>
+                            setFormData({ ...formData, percentualIRSLiquido: Number(e.target.value) || 0 })
+                          }
+                          className="rounded-full"
+                        />
+                        <p className="text-sm text-muted-foreground">
+                          Valor calculado: {formatCurrency(valorIRSLiquido)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border p-4 space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Total de encargos descontados</span>
+                        <span className="font-semibold">- {formatCurrency(totalEncargosLiquido)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Custo/hora liquido</span>
+                        <span className="font-semibold">{formatCurrency(custoHoraLiquido)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm border-t pt-2">
+                        <span className="text-muted-foreground">Valor de venda/hora (liquido + margem)</span>
+                        <span className="font-semibold">{formatCurrency(valorVendaHoraLiquido)}</span>
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg bg-secondary p-4">
+                      <div className="text-sm text-muted-foreground">Salario liquido</div>
+                      <div className="text-2xl font-bold">{formatCurrency(salarioTotalLiquido)}</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Base + Beneficios + Transporte - Seguranca - IRS
+                      </div>
+                    </div>
+                  </TabsContent>
+
                   <div className="flex justify-end space-x-2 pt-6 border-t">
                     <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                       Cancelar
@@ -748,9 +892,18 @@ export default function FuncionariosPage() {
         </div>
       </div>
 
-      {funcionarios.length > 0 ? (
+      <ListToolbar
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        onClear={clearSearch}
+        placeholder="Pesquisar por nome, email, funcao, departamento..."
+        resultCount={filteredFuncionarios.length}
+        totalCount={funcionarios.length}
+      />
+
+      {filteredFuncionarios.length > 0 ? (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {funcionarios.map((funcionario, index) => {
+          {filteredFuncionarios.map((funcionario, index) => {
             const horasSemana = funcionario.horasPorSemana ?? calculateHorasPorSemana(funcionario.horasPorDia, funcionario.diasPorSemana)
             const custoRealHora = funcionario.custoHoraCalculado ?? funcionario.custoHora
 
@@ -810,7 +963,21 @@ export default function FuncionariosPage() {
                       </div>
                       <div className="flex justify-between items-center text-sm">
                         <span className="text-muted-foreground">Horas semanais:</span>
-                        <span className="font-medium">{horasSemana.toFixed(2)}h</span>
+                        <span className="font-medium">{toFixed2(horasSemana)}h</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-muted-foreground">Horas mensais:</span>
+                        <span className="font-medium">
+                          {toFixed2(
+                            funcionario.horasPorMes ??
+                              calculateHorasPorMes(
+                                funcionario.mesReferencia || "",
+                                funcionario.horasPorDia,
+                                funcionario.diasPorSemana,
+                              ),
+                          )}
+                          h
+                        </span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
                         <span className="text-muted-foreground flex items-center gap-1">
@@ -855,6 +1022,19 @@ export default function FuncionariosPage() {
             )
           })}
         </div>
+      ) : funcionarios.length > 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <User className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium mb-2">Nenhum funcionario encontrado</h3>
+            <p className="text-muted-foreground text-center mb-4">
+              Nenhum resultado para &quot;{searchTerm}&quot;. Ajuste a pesquisa para ver a lista completa.
+            </p>
+            <Button onClick={clearSearch} variant="outline" className="rounded-full">
+              Limpar pesquisa
+            </Button>
+          </CardContent>
+        </Card>
       ) : (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">

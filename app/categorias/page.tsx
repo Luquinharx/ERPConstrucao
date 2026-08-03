@@ -22,6 +22,9 @@ import { toast } from "@/hooks/use-toast"
 import type { MaterialCategory } from "@/lib/types"
 import { FirebaseService } from "@/lib/firebase-service"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
+import { ListToolbar } from "@/components/ui/list-toolbar"
+import { useSearchQuery } from "@/hooks/use-search-query"
+import { matchesSearch } from "@/lib/utils"
 
 const PRESET_COLORS = [
   "#ef4444", // red
@@ -43,6 +46,7 @@ export default function CategoriasPage() {
   const [loading, setLoading] = useState(false)
   const [pageLoading, setPageLoading] = useState(true)
   const { user } = useAuth()
+  const { searchTerm, setSearchTerm, clearSearch } = useSearchQuery()
 
   const [formData, setFormData] = useState({
     nome: "",
@@ -189,6 +193,10 @@ export default function CategoriasPage() {
     setEditingCategory(null)
   }
 
+  const filteredCategories = categories.filter((category) =>
+    matchesSearch(searchTerm, [category.nome, category.descricao]),
+  )
+
   if (pageLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -295,10 +303,19 @@ export default function CategoriasPage() {
 
 
 
+      <ListToolbar
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        onClear={clearSearch}
+        placeholder="Pesquisar categorias por nome ou descricao..."
+        resultCount={filteredCategories.length}
+        totalCount={categories.length}
+      />
+
       {/* Categories List */}
-      {categories.length > 0 ? (
+      {filteredCategories.length > 0 ? (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {categories.map((category, index) => (
+          {filteredCategories.map((category, index) => (
             <Card key={category.id} className="animate-slide-in" style={{ animationDelay: `${index * 100}ms` }}>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
@@ -346,6 +363,19 @@ export default function CategoriasPage() {
             </Card>
           ))}
         </div>
+      ) : categories.length > 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Tag className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium mb-2">Nenhuma categoria encontrada</h3>
+            <p className="text-muted-foreground text-center mb-4">
+              Nenhum resultado para &quot;{searchTerm}&quot;.
+            </p>
+            <Button onClick={clearSearch} variant="outline" className="rounded-full">
+              Limpar pesquisa
+            </Button>
+          </CardContent>
+        </Card>
       ) : (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">

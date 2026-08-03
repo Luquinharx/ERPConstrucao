@@ -16,6 +16,15 @@ import { toast } from "@/hooks/use-toast"
 import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, where } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
+import { ListToolbar } from "@/components/ui/list-toolbar"
+import { useSearchQuery } from "@/hooks/use-search-query"
+import { matchesSearch } from "@/lib/utils"
+
+const TIPO_LABELS: Record<string, string> = {
+  termos: "Termos",
+  regras: "Regras",
+  condicoes: "Condições",
+}
 
 interface TermoServico {
   id?: string
@@ -36,6 +45,7 @@ export default function TermosPage() {
   const [editingTermo, setEditingTermo] = useState<TermoServico | null>(null)
   const [showPreview, setShowPreview] = useState(false)
   const { user } = useAuth()
+  const { searchTerm, setSearchTerm, clearSearch } = useSearchQuery()
 
   const [formData, setFormData] = useState({
     titulo: "",
@@ -170,6 +180,15 @@ export default function TermosPage() {
     })
     setEditingTermo(null)
   }
+
+  const filteredTermos = termos.filter((termo) =>
+    matchesSearch(searchTerm, [
+      termo.titulo,
+      termo.conteudo,
+      TIPO_LABELS[termo.tipo],
+      termo.ativo ? "ativo" : "inativo",
+    ]),
+  )
 
   const generatePreview = () => {
     const termosAtivos = termos.filter((t) => t.ativo)
@@ -412,9 +431,19 @@ export default function TermosPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            <div className="mb-4">
+              <ListToolbar
+                searchTerm={searchTerm}
+                onSearchChange={setSearchTerm}
+                onClear={clearSearch}
+                placeholder="Pesquisar termos por titulo, conteudo ou tipo..."
+                resultCount={filteredTermos.length}
+                totalCount={termos.length}
+              />
+            </div>
             <div className="space-y-3 max-h-[600px] overflow-y-auto">
-              {termos.length > 0 ? (
-                termos.map((termo) => (
+              {filteredTermos.length > 0 ? (
+                filteredTermos.map((termo) => (
                   <div key={termo.id} className="p-3 border rounded-lg">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -449,10 +478,19 @@ export default function TermosPage() {
               ) : (
                 <div className="text-center py-8">
                   <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Nenhum termo cadastrado</h3>
+                  <h3 className="text-lg font-medium mb-2">
+                    {termos.length > 0 ? "Nenhum termo encontrado" : "Nenhum termo cadastrado"}
+                  </h3>
                   <p className="text-muted-foreground text-center mb-4">
-                    Comece criando termos e condições para seus orçamentos.
+                    {termos.length > 0
+                      ? `Nenhum resultado para "${searchTerm}".`
+                      : "Comece criando termos e condições para seus orçamentos."}
                   </p>
+                  {termos.length > 0 && (
+                    <Button onClick={clearSearch} variant="outline" className="rounded-full">
+                      Limpar pesquisa
+                    </Button>
+                  )}
                 </div>
               )}
             </div>

@@ -1,62 +1,60 @@
-﻿rules_version = '2';
+rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // BASE COMPARTILHADA
+    // Qualquer conta autenticada le e escreve toda a base (decisao de negocio:
+    // a equipa partilha clientes, funcionarios, servicos e orcamentos).
+    // O campo userId continua a ser gravado em cada documento, mas serve apenas
+    // como registo de quem criou - nao restringe o acesso.
+    //
+    // ATENCAO: o registo de novas contas esta aberto em /register, entao qualquer
+    // pessoa que se cadastre passa a ver toda a base. Para limitar, trocar
+    // isAuthenticated() por isAutorizado() nas regras abaixo e preencher a lista.
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
-    }
+    // Alternativa mais restrita (nao ativa): apenas emails autorizados.
+    // function isAutorizado() {
+    //   return isAuthenticated() && request.auth.token.email in [
+    //     'email-da-equipa-1@exemplo.com',
+    //     'email-da-equipa-2@exemplo.com'
+    //   ];
+    // }
 
     match /clientes/{docId} {
-      allow read, delete: if isOwner(resource.data.userId);
-      allow create: if isOwner(request.resource.data.userId);
-      allow update: if isOwner(resource.data.userId) && isOwner(request.resource.data.userId);
+      allow read, write: if isAuthenticated();
     }
 
     match /funcionarios/{docId} {
-      allow read, delete: if isOwner(resource.data.userId);
-      allow create: if isOwner(request.resource.data.userId);
-      allow update: if isOwner(resource.data.userId) && isOwner(request.resource.data.userId);
+      allow read, write: if isAuthenticated();
     }
 
     match /materiais/{docId} {
-      allow read, delete: if isOwner(resource.data.userId);
-      allow create: if isOwner(request.resource.data.userId);
-      allow update: if isOwner(resource.data.userId) && isOwner(request.resource.data.userId);
+      allow read, write: if isAuthenticated();
     }
 
     match /material-categories/{docId} {
-      allow read, delete: if isOwner(resource.data.userId);
-      allow create: if isOwner(request.resource.data.userId);
-      allow update: if isOwner(resource.data.userId) && isOwner(request.resource.data.userId);
+      allow read, write: if isAuthenticated();
     }
 
     match /servicos/{docId} {
-      allow read, delete: if isOwner(resource.data.userId);
-      allow create: if isOwner(request.resource.data.userId);
-      allow update: if isOwner(resource.data.userId) && isOwner(request.resource.data.userId);
+      allow read, write: if isAuthenticated();
     }
 
     match /orcamentos/{docId} {
-      allow read, delete: if isOwner(resource.data.userId);
-      allow create: if isOwner(request.resource.data.userId);
-      allow update: if isOwner(resource.data.userId) && isOwner(request.resource.data.userId);
+      allow read, write: if isAuthenticated();
     }
 
     match /categorias/{docId} {
-      allow read, delete: if isOwner(resource.data.userId);
-      allow create: if isOwner(request.resource.data.userId);
-      allow update: if isOwner(resource.data.userId) && isOwner(request.resource.data.userId);
+      allow read, write: if isAuthenticated();
     }
 
     match /termos_servico/{docId} {
-      allow read, delete: if isOwner(resource.data.userId);
-      allow create: if isOwner(request.resource.data.userId);
-      allow update: if isOwner(resource.data.userId) && isOwner(request.resource.data.userId);
+      allow read, write: if isAuthenticated();
     }
 
+    // Tudo o resto continua fechado.
     match /{document=**} {
       allow read, write: if false;
     }

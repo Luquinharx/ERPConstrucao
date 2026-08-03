@@ -16,13 +16,15 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Edit, Trash2, Package, RefreshCw, Search, Filter, X } from "lucide-react"
+import { Plus, Edit, Trash2, Package, RefreshCw, Search, X } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { toast } from "@/hooks/use-toast"
 import type { Material, MaterialCategory } from "@/lib/types"
 import { FirebaseService } from "@/lib/firebase-service"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, matchesSearch } from "@/lib/utils"
+import { ListToolbar } from "@/components/ui/list-toolbar"
+import { useSearchQuery } from "@/hooks/use-search-query"
 
 export default function MateriaisPage() {
   const [materiais, setMateriais] = useState<Material[]>([])
@@ -33,10 +35,9 @@ export default function MateriaisPage() {
   const [pageLoading, setPageLoading] = useState(true)
   const { user } = useAuth()
 
-  // Estados para busca e filtros
-  const [searchTerm, setSearchTerm] = useState("")
+  // Estados para busca e filtros (termo sincronizado com a URL)
+  const { searchTerm, setSearchTerm, clearSearch } = useSearchQuery()
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>("todas")
-  const [showFilters, setShowFilters] = useState(false)
 
   const [formData, setFormData] = useState({
     nome: "",
@@ -166,7 +167,7 @@ export default function MateriaisPage() {
   }
 
   const clearFilters = () => {
-    setSearchTerm("")
+    clearSearch()
     setSelectedCategoryFilter("todas")
   }
 
@@ -174,13 +175,16 @@ export default function MateriaisPage() {
   const filteredMaterials = useMemo(() => {
     let filtered = materiais
 
-    // Filtrar por termo de busca (nome ou fornecedor)
+    // Filtrar por termo de busca (nome, fornecedor, unidade, observacoes)
     if (searchTerm.trim()) {
-      const searchLower = searchTerm.toLowerCase().trim()
-      filtered = filtered.filter(
-        (material) =>
-          material.nome.toLowerCase().includes(searchLower) ||
-          (material.fornecedor && material.fornecedor.toLowerCase().includes(searchLower)),
+      filtered = filtered.filter((material) =>
+        matchesSearch(searchTerm, [
+          material.nome,
+          material.fornecedor,
+          material.unidade,
+          material.observacoes,
+          categories.find((cat) => cat.id === material.categoriaId)?.nome,
+        ]),
       )
     }
 
@@ -194,7 +198,7 @@ export default function MateriaisPage() {
     }
 
     return filtered
-  }, [materiais, searchTerm, selectedCategoryFilter])
+  }, [materiais, searchTerm, selectedCategoryFilter, categories])
 
   // Agrupar materiais filtrados por categoria
   const materialsByCategory = useMemo(() => {
@@ -352,81 +356,35 @@ export default function MateriaisPage() {
       </div>
 
       {/* Barra de Busca e Filtros */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col space-y-4">
-            {/* Barra de Busca */}
-            <div className="flex items-center space-x-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input
-                  placeholder="Buscar por nome do material ou fornecedor..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 rounded-full"
-                />
-              </div>
-              <Button variant="outline" onClick={() => setShowFilters(!showFilters)} className="rounded-full">
-                <Filter className="h-4 w-4 mr-2" />
-                Filtros
-                {hasActiveFilters && (
-                  <Badge variant="secondary" className="ml-2">
-                    !
-                  </Badge>
-                )}
-              </Button>
-              {hasActiveFilters && (
-                <Button variant="ghost" onClick={clearFilters} className="rounded-full text-muted-foreground">
-                  <X className="h-4 w-4 mr-2" />
-                  Limpar
-                </Button>
-              )}
-            </div>
-
-            {/* Filtros Expandidos */}
-            {showFilters && (
-              <div className="border-t pt-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Filtrar por Categoria</Label>
-                    <Select value={selectedCategoryFilter} onValueChange={setSelectedCategoryFilter}>
-                      <SelectTrigger className="rounded-full">
-                        <SelectValue placeholder="Todas as categorias" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="todas">Todas as categorias</SelectItem>
-                        <SelectItem value="sem-categoria">Sem categoria</SelectItem>
-                        {categories.map((cat) => (
-                          <SelectItem key={cat.id} value={cat.id!}>
-                            {cat.nome}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Resultados da Busca */}
-            {hasActiveFilters && (
-              <div className="flex items-center justify-between text-sm text-muted-foreground border-t pt-4">
-                <span>
-                  {totalFilteredResults} {totalFilteredResults === 1 ? "material encontrado" : "materiais encontrados"}
-                  {searchTerm && ` para "${searchTerm}"`}
-                </span>
-                {selectedCategoryFilter !== "todas" && (
-                  <Badge variant="outline">
-                    {selectedCategoryFilter === "sem-categoria"
-                      ? "Sem categoria"
-                      : categories.find((cat) => cat.id === selectedCategoryFilter)?.nome}
-                  </Badge>
-                )}
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      <ListToolbar
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        onClear={clearFilters}
+        placeholder="Buscar por nome, fornecedor, unidade ou categoria..."
+        resultCount={totalFilteredResults}
+        totalCount={materiais.length}
+      >
+        <Select value={selectedCategoryFilter} onValueChange={setSelectedCategoryFilter}>
+          <SelectTrigger className="w-full sm:w-[240px] rounded-full">
+            <SelectValue placeholder="Todas as categorias" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todas">Todas as categorias</SelectItem>
+            <SelectItem value="sem-categoria">Sem categoria</SelectItem>
+            {categories.map((cat) => (
+              <SelectItem key={cat.id} value={cat.id!}>
+                {cat.nome}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {hasActiveFilters && (
+          <Button variant="ghost" onClick={clearFilters} className="rounded-full text-muted-foreground">
+            <X className="h-4 w-4 mr-2" />
+            Limpar filtros
+          </Button>
+        )}
+      </ListToolbar>
 
 
 

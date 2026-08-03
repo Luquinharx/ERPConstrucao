@@ -38,17 +38,20 @@ import { toast } from "@/hooks/use-toast"
 
 import { useAuth } from "@/hooks/use-auth"
 import { useClientes } from "@/hooks/use-clientes"
+import { useSearchQuery } from "@/hooks/use-search-query"
+import { ListToolbar } from "@/components/ui/list-toolbar"
 import { clienteSchema, type ClienteFormData } from "@/lib/schemas"
+import { matchesSearch } from "@/lib/utils"
 import type { Cliente } from "@/lib/types"
 
 export default function ClientesPage() {
   const { user } = useAuth()
-  const { 
-    clientes, 
-    fetchNextPage, 
-    hasNextPage, 
-    // isFetchingNextPage, 
-    isLoading, 
+  const {
+    clientes,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
     isError, 
     addCliente, 
     updateCliente, 
@@ -59,7 +62,8 @@ export default function ClientesPage() {
   } = useClientes()
 
   const { ref, inView } = useInView()
-  
+  const { searchTerm, setSearchTerm, clearSearch } = useSearchQuery()
+
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -82,6 +86,28 @@ export default function ClientesPage() {
       fetchNextPage()
     }
   }, [inView, hasNextPage, fetchNextPage])
+
+  // Busca automatica: com um termo ativo, puxa as paginas restantes para
+  // pesquisar sobre a base completa e nao apenas sobre a pagina carregada.
+  useEffect(() => {
+    if (searchTerm.trim() && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage()
+    }
+  }, [searchTerm, hasNextPage, isFetchingNextPage, fetchNextPage])
+
+  const filteredClientes = clientes.filter((cliente) =>
+    matchesSearch(searchTerm, [
+      cliente.nome,
+      cliente.email,
+      cliente.telefone,
+      cliente.numeroUnico,
+      cliente.morada,
+      cliente.cidade,
+      cliente.codigoPostal,
+      cliente.nif,
+      cliente.observacoes,
+    ]),
+  )
 
   const validateForm = () => {
     try {
@@ -360,6 +386,15 @@ export default function ClientesPage() {
         </div>
       </div>
 
+      <ListToolbar
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        onClear={clearSearch}
+        placeholder="Pesquisar por nome, email, telefone, codigo, NIF ou cidade..."
+        resultCount={filteredClientes.length}
+        totalCount={clientes.length}
+      />
+
       {isLoading ? (
         <div className="flex items-center justify-center h-64">
           <LoadingSpinner size="lg" />
@@ -372,7 +407,7 @@ export default function ClientesPage() {
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {clientes.map((cliente) => {
+          {filteredClientes.map((cliente) => {
             const codeColor = getClientCodeColor(cliente.numeroUnico || cliente.nome)
             return (
             <Card
@@ -440,19 +475,27 @@ export default function ClientesPage() {
             </Card>
           )})}
           
-          {clientes.length === 0 && (
+          {filteredClientes.length === 0 && (
              <div className="col-span-full flex flex-col items-center justify-center p-12 text-center bg-muted/30 rounded-lg border border-dashed border-muted-foreground/25">
               <div className="h-16 w-16 bg-muted rounded-full flex items-center justify-center mb-4">
                 <User className="h-8 w-8 text-muted-foreground" />
               </div>
               <h3 className="text-lg font-semibold">Nenhum cliente encontrado</h3>
               <p className="text-muted-foreground max-w-sm mt-2">
-                Comece construindo sua carteira de clientes agora mesmo.
+                {searchTerm.trim()
+                  ? `Nenhum resultado para "${searchTerm}".`
+                  : "Comece construindo sua carteira de clientes agora mesmo."}
               </p>
-              <Button onClick={() => setIsDialogOpen(true)} className="mt-6 rounded-full">
-                <Plus className="h-4 w-4 mr-2" />
-                Criar Primeiro Cliente
-              </Button>
+              {searchTerm.trim() ? (
+                <Button onClick={clearSearch} variant="outline" className="mt-6 rounded-full">
+                  Limpar pesquisa
+                </Button>
+              ) : (
+                <Button onClick={() => setIsDialogOpen(true)} className="mt-6 rounded-full">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Criar Primeiro Cliente
+                </Button>
+              )}
             </div>
           )}
         </div>

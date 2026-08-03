@@ -26,7 +26,10 @@ import { Plus, Edit, Trash2, Search, RefreshCw, X, Minus } from "lucide-react"
 import { FirebaseService } from "@/lib/firebase-service"
 import type { Servico, Material, ServicoComposicaoItem } from "@/lib/types"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, matchesSearch, round2, toFixed2 } from "@/lib/utils"
+import { ListToolbar } from "@/components/ui/list-toolbar"
+import { useSearchQuery } from "@/hooks/use-search-query"
+import { Checkbox } from "@/components/ui/checkbox"
 import { SERVICE_CATEGORY_PRESETS, getServiceCategoryName } from "@/lib/service-categories"
 import { v4 as uuidv4 } from "uuid"
 
@@ -58,10 +61,30 @@ function getDefaultFormData(): ServicoFormState {
   }
 }
 
-function calculateComposicaoTotal(formData: ServicoFormState): number {
-  const consumiveisTotal = formData.listaConsumiveis.reduce((acc, item) => acc + item.total, 0)
-  const itensTotal = formData.listaItens.reduce((acc, item) => acc + item.total, 0)
-  return consumiveisTotal + itensTotal + (Number(formData.transporte) || 0)
+/** Soma apenas os itens que acompanham a area/quantidade (multiplicam por m2). */
+function sumVariavel(items: ServicoComposicaoItem[]): number {
+  return round2(items.filter((item) => !item.valorFixo).reduce((acc, item) => acc + item.total, 0))
+}
+
+/** Soma apenas os itens de valor fixo (entram uma unica vez, nao multiplicam por m2). */
+function sumFixo(items: ServicoComposicaoItem[]): number {
+  return round2(items.filter((item) => item.valorFixo).reduce((acc, item) => acc + item.total, 0))
+}
+
+function calculateComposicao(formData: ServicoFormState) {
+  const precoVariavel = round2(sumVariavel(formData.listaConsumiveis) + sumVariavel(formData.listaItens))
+  const precoFixo = round2(sumFixo(formData.listaConsumiveis) + sumFixo(formData.listaItens))
+  const transporte = round2(formData.transporte)
+
+  return {
+    precoVariavel,
+    precoFixo,
+    transporte,
+    /** Preco base do servico (sem transporte, que entra no final do orcamento). */
+    precoBase: round2(precoVariavel + precoFixo),
+    /** Referencia de 1 unidade + fixos + transporte. */
+    totalReferencia: round2(precoVariavel + precoFixo + transporte),
+  }
 }
 
 export default function ServicosPage() {
@@ -71,7 +94,7 @@ export default function ServicosPage() {
   const [editingServico, setEditingServico] = useState<Servico | null>(null)
   const [loading, setLoading] = useState(false)
   const [pageLoading, setPageLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
+  const { searchTerm, setSearchTerm, clearSearch } = useSearchQuery()
   const { user } = useAuth()
 
   const [formData, setFormData] = useState<ServicoFormState>(getDefaultFormData())
@@ -83,7 +106,7 @@ export default function ServicosPage() {
   const [selectedItemId, setSelectedItemId] = useState("")
   const [itemQtd, setItemQtd] = useState<number>(1)
 
-  const composicaoTotal = useMemo(() => calculateComposicaoTotal(formData), [formData])
+  const composicao = useMemo(() => calculateComposicao(formData), [formData])
 
   useEffect(() => {
     if (user) {
@@ -142,8 +165,8 @@ export default function ServicosPage() {
           ? formData.categoriaNome.trim() || "Outros"
           : getServiceCategoryName(formData.categoriaId)
 
-      const consumiveisTotal = formData.listaConsumiveis.reduce((acc, item) => acc + item.total, 0)
-      const itensTotal = formData.listaItens.reduce((acc, item) => acc + item.total, 0)
+      const consumiveisTotal = round2(formData.listaConsumiveis.reduce((acc, item) => acc + item.total, 0))
+      const itensTotal = round2(formData.listaItens.reduce((acc, item) => acc + item.total, 0))
 
       const servicoData = {
         nome: formData.nome.trim(),
@@ -155,8 +178,11 @@ export default function ServicosPage() {
         listaConsumiveis: formData.listaConsumiveis,
         itens: itensTotal,
         listaItens: formData.listaItens,
-        transporte: Number(formData.transporte) || 0,
-        preco: composicaoTotal,
+        transporte: composicao.transporte,
+        // preco = base do servico (sem transporte, que passa a ser linha propria do orcamento)
+        preco: composicao.precoBase,
+        precoVariavel: composicao.precoVariavel,
+        precoFixo: composicao.precoFixo,
         observacoes: formData.observacoes.trim(),
         maoDeObra: 0 // Removido
       }
@@ -252,10 +278,13 @@ export default function ServicosPage() {
       id: uuidv4(),
       materialId: mat.id!,
       nome: mat.nome,
+      descricao: mat.observacoes || "",
       unidade: mat.unidade,
       quantidade: qtd,
       precoUnitario: mat.precoUnitario,
-      total: qtd * mat.precoUnitario,
+      total: round2(qtd * mat.precoUnitario),
+      // Consumiveis acompanham a area (multiplicam por m2); itens/equipamentos entram como valor fixo
+      valorFixo: type === "itens",
     }
 
     if (type === "consumiveis") {
@@ -267,7 +296,7 @@ export default function ServicosPage() {
             ...prev,
             listaConsumiveis: prev.listaConsumiveis.map(i => 
               i.materialId === materialId 
-                ? { ...i, quantidade: i.quantidade + qtd, total: (i.quantidade + qtd) * i.precoUnitario }
+                ? { ...i, quantidade: round2(i.quantidade + qtd), total: round2((i.quantidade + qtd) * i.precoUnitario) }
                 : i
             )
           }
@@ -284,7 +313,7 @@ export default function ServicosPage() {
             ...prev,
             listaItens: prev.listaItens.map(i => 
               i.materialId === materialId 
-                ? { ...i, quantidade: i.quantidade + qtd, total: (i.quantidade + qtd) * i.precoUnitario }
+                ? { ...i, quantidade: round2(i.quantidade + qtd), total: round2((i.quantidade + qtd) * i.precoUnitario) }
                 : i
             )
           }
@@ -303,12 +332,12 @@ export default function ServicosPage() {
       
       const newList = list.map(item => {
         if (item.id === id) {
-          const newQtd = Math.max(0, item.quantidade + delta)
+          const newQtd = round2(Math.max(0, item.quantidade + delta))
           if (newQtd === 0) return null
           return {
             ...item,
             quantidade: newQtd,
-            total: newQtd * item.precoUnitario
+            total: round2(newQtd * item.precoUnitario)
           }
         }
         return item
@@ -321,6 +350,17 @@ export default function ServicosPage() {
     })
   }
 
+  /** Alterna se o item acompanha a area (multiplica por m2) ou entra como valor fixo. */
+  const toggleValorFixo = (type: "consumiveis" | "itens", id: string, valorFixo: boolean) => {
+    setFormData((prev) => {
+      const listKey = type === "consumiveis" ? "listaConsumiveis" : "listaItens"
+      return {
+        ...prev,
+        [listKey]: prev[listKey].map((item) => (item.id === id ? { ...item, valorFixo } : item)),
+      }
+    })
+  }
+
   const removeComposicaoItem = (type: "consumiveis" | "itens", id: string) => {
     if (type === "consumiveis") {
       setFormData((prev) => ({ ...prev, listaConsumiveis: prev.listaConsumiveis.filter((i) => i.id !== id) }))
@@ -329,14 +369,14 @@ export default function ServicosPage() {
     }
   }
 
-  const filteredServicos = servicos.filter((servico) => {
-    const categoriaNome = getServiceCategoryName(servico.categoriaId, servico.categoriaNome)
-    return (
-      servico.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (servico.descricao && servico.descricao.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      categoriaNome.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  })
+  const filteredServicos = servicos.filter((servico) =>
+    matchesSearch(searchTerm, [
+      servico.nome,
+      servico.descricao,
+      servico.unidade,
+      getServiceCategoryName(servico.categoriaId, servico.categoriaNome),
+    ]),
+  )
 
   if (pageLoading) {
     return (
@@ -463,7 +503,10 @@ export default function ServicosPage() {
                     <div className="space-y-3 p-4 border rounded-lg bg-card">
                       <div>
                         <Label className="text-base font-semibold">1. Objetos Consumiveis</Label>
-                        <p className="text-xs text-muted-foreground mt-1">Materiais que sao gastos na execucao (ex: Pincel, Tinta, Gesso)</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Materiais que sao gastos na execucao (ex: Pincel, Tinta, Gesso). Por norma acompanham a area
+                          do orcamento (multiplicam por {formData.unidade}).
+                        </p>
                       </div>
                       
                       <div className="flex gap-2 items-end">
@@ -502,6 +545,7 @@ export default function ServicosPage() {
                               <TableRow>
                                 <TableHead>Objeto</TableHead>
                                 <TableHead className="text-center">Qtd</TableHead>
+                                <TableHead className="text-center">Valor fixo</TableHead>
                                 <TableHead className="text-right">Total</TableHead>
                                 <TableHead className="w-[50px]"></TableHead>
                               </TableRow>
@@ -521,6 +565,13 @@ export default function ServicosPage() {
                                       </Button>
                                     </div>
                                   </TableCell>
+                                  <TableCell className="text-center">
+                                    <Checkbox
+                                      checked={!!item.valorFixo}
+                                      onCheckedChange={(checked) => toggleValorFixo("consumiveis", item.id, checked === true)}
+                                      aria-label={`Nao multiplicar ${item.nome} pela area`}
+                                    />
+                                  </TableCell>
                                   <TableCell className="text-right text-sm">{formatCurrency(item.total)}</TableCell>
                                   <TableCell>
                                     <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeComposicaoItem("consumiveis", item.id)}>
@@ -539,7 +590,11 @@ export default function ServicosPage() {
                     <div className="space-y-3 p-4 border rounded-lg bg-card">
                       <div>
                         <Label className="text-base font-semibold">2. Itens</Label>
-                        <p className="text-xs text-muted-foreground mt-1">Materiais que nao sao gastos (ex: Andaime, Escada, Furadeira)</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Materiais que nao sao gastos (ex: Andaime, Escada, Furadeira). Entram como valor fixo: nao
+                          multiplicam pela area do orcamento. Desmarque &quot;Valor fixo&quot; se algum deles deve
+                          acompanhar a area.
+                        </p>
                       </div>
                       
                       <div className="flex gap-2 items-end">
@@ -578,6 +633,7 @@ export default function ServicosPage() {
                               <TableRow>
                                 <TableHead>Item</TableHead>
                                 <TableHead className="text-center">Qtd</TableHead>
+                                <TableHead className="text-center">Valor fixo</TableHead>
                                 <TableHead className="text-right">Total</TableHead>
                                 <TableHead className="w-[50px]"></TableHead>
                               </TableRow>
@@ -596,6 +652,13 @@ export default function ServicosPage() {
                                         <Plus className="h-3 w-3" />
                                       </Button>
                                     </div>
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    <Checkbox
+                                      checked={!!item.valorFixo}
+                                      onCheckedChange={(checked) => toggleValorFixo("itens", item.id, checked === true)}
+                                      aria-label={`Nao multiplicar ${item.nome} pela area`}
+                                    />
                                   </TableCell>
                                   <TableCell className="text-right text-sm">{formatCurrency(item.total)}</TableCell>
                                   <TableCell>
@@ -643,21 +706,29 @@ export default function ServicosPage() {
                     {/* Resumo do Preco */}
                     <div className="rounded-md border bg-muted/20 p-4 space-y-2 mt-4">
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Consumiveis:</span>
-                        <span>{formatCurrency(formData.listaConsumiveis.reduce((acc, item) => acc + item.total, 0))}</span>
+                        <span className="text-muted-foreground">
+                          Por {formData.unidade} (multiplica pela quantidade):
+                        </span>
+                        <span>{formatCurrency(composicao.precoVariavel)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Itens/Equips:</span>
-                        <span>{formatCurrency(formData.listaItens.reduce((acc, item) => acc + item.total, 0))}</span>
+                        <span className="text-muted-foreground">Valor fixo (nao multiplica):</span>
+                        <span>{formatCurrency(composicao.precoFixo)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Custos Fixos (Transporte):</span>
-                        <span>{formatCurrency(Number(formData.transporte) || 0)}</span>
+                        <span className="text-muted-foreground">Transporte (linha final do orcamento):</span>
+                        <span>{formatCurrency(composicao.transporte)}</span>
                       </div>
                       <div className="flex items-center justify-between text-base font-semibold pt-2 border-t">
                         <span>Preco Base Final:</span>
-                        <span className="text-primary">{formatCurrency(composicaoTotal)}</span>
+                        <span className="text-primary">{formatCurrency(composicao.precoBase)}</span>
                       </div>
+                      <p className="text-xs text-muted-foreground">
+                        Exemplo para 10 {formData.unidade}: {formatCurrency(composicao.precoVariavel)} x 10 +{" "}
+                        {formatCurrency(composicao.precoFixo)} ={" "}
+                        {formatCurrency(round2(composicao.precoVariavel * 10 + composicao.precoFixo))} (+ transporte{" "}
+                        {formatCurrency(composicao.transporte)} no final do orcamento).
+                      </p>
                     </div>
                   </TabsContent>
 
@@ -676,21 +747,21 @@ export default function ServicosPage() {
         </div>
       </div>
 
+      <ListToolbar
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        onClear={clearSearch}
+        placeholder="Buscar servicos por nome, descricao, categoria ou unidade..."
+        resultCount={filteredServicos.length}
+        totalCount={servicos.length}
+      />
+
       <Card>
         <CardHeader>
           <CardTitle>Lista de Servicos</CardTitle>
           <CardDescription>
             {servicos.length} servico{servicos.length !== 1 ? "s" : ""} cadastrado{servicos.length !== 1 ? "s" : ""}
           </CardDescription>
-          <div className="flex items-center space-x-2">
-            <Search className="h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar servicos..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="max-w-sm"
-            />
-          </div>
         </CardHeader>
         <CardContent>
           {filteredServicos.length === 0 ? (
@@ -711,9 +782,12 @@ export default function ServicosPage() {
               </TableHeader>
               <TableBody>
                 {filteredServicos.map((servico) => {
-                  const consumiveis = Number(servico.consumiveis ?? 0)
-                  const itens = Number(servico.itens ?? 0)
-                  const transporte = Number(servico.transporte ?? 0)
+                  const transporte = round2(servico.transporte ?? 0)
+                  const temSplit = servico.precoVariavel !== undefined || servico.precoFixo !== undefined
+                  const precoVariavel = temSplit
+                    ? round2(servico.precoVariavel ?? 0)
+                    : round2(Number(servico.preco ?? 0) - transporte)
+                  const precoFixo = temSplit ? round2(servico.precoFixo ?? 0) : 0
 
                   return (
                     <TableRow key={servico.id}>
@@ -729,8 +803,10 @@ export default function ServicosPage() {
                       </TableCell>
                       <TableCell>
                         <div className="text-xs text-muted-foreground">
-                          <div>Cons.: {formatCurrency(consumiveis)}</div>
-                          <div>Itens: {formatCurrency(itens)}</div>
+                          <div>
+                            Por {servico.unidade}: {formatCurrency(precoVariavel)}
+                          </div>
+                          <div>Fixo: {formatCurrency(precoFixo)}</div>
                           <div>Transp.: {formatCurrency(transporte)}</div>
                         </div>
                       </TableCell>
