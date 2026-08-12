@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
@@ -36,7 +37,7 @@ import {
 } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { toast } from "@/hooks/use-toast"
-import type { Funcionario } from "@/lib/types"
+import type { Funcionario, ModoTaxa } from "@/lib/types"
 import { FirebaseService } from "@/lib/firebase-service"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { formatCurrency, matchesSearch, round2, toFixed2 } from "@/lib/utils"
@@ -72,6 +73,15 @@ interface FuncionarioFormState {
   incluiSubsidios: boolean
   percentualSegurancaLiquido: number
   percentualIRSLiquido: number
+  // Cada encargo pode ser lancado por percentagem ou por valor fixo
+  modoSeguranca: ModoTaxa
+  valorSegurancaManual: number
+  modoSeguroAcidentes: ModoTaxa
+  valorSeguroAcidentesManual: number
+  modoSegurancaLiquido: ModoTaxa
+  valorSegurancaLiquidoManual: number
+  modoIRSLiquido: ModoTaxa
+  valorIRSLiquidoManual: number
   ativo: boolean
 }
 
@@ -127,6 +137,14 @@ function getDefaultFormData(): FuncionarioFormState {
     incluiSubsidios: true,
     percentualSegurancaLiquido: TSU_TRABALHADOR,
     percentualIRSLiquido: 0,
+    modoSeguranca: "percentual",
+    valorSegurancaManual: 0,
+    modoSeguroAcidentes: "percentual",
+    valorSeguroAcidentesManual: 0,
+    modoSegurancaLiquido: "percentual",
+    valorSegurancaLiquidoManual: 0,
+    modoIRSLiquido: "percentual",
+    valorIRSLiquidoManual: 0,
     ativo: true,
   }
 }
@@ -185,6 +203,94 @@ function calculatePercentValue(base: number, percentual: number): number {
   return round2((Number(base) || 0) * ((Number(percentual) || 0) / 100))
 }
 
+/**
+ * Resolve uma taxa que pode ter sido definida por percentagem ou por valor fixo.
+ * Devolve sempre os dois lados, para a tela poder mostrar "11% = 132,00 EUR".
+ */
+function resolverTaxa(modo: ModoTaxa, percentual: number, valorManual: number, base: number) {
+  if (modo === "valor") {
+    const valor = round2(valorManual)
+    return { valor, percentual: base > 0 ? round2((valor / base) * 100) : 0 }
+  }
+  return { valor: calculatePercentValue(base, percentual), percentual: round2(percentual) }
+}
+
+interface CampoTaxaProps {
+  id: string
+  label: string
+  base: number
+  modo: ModoTaxa
+  percentual: number
+  valorManual: number
+  /** Valor e percentagem ja resolvidos, para o texto de apoio. */
+  resolvido: { valor: number; percentual: number }
+  ajuda?: React.ReactNode
+  onChange: (campos: { modo?: ModoTaxa; percentual?: number; valorManual?: number }) => void
+}
+
+/** Campo de encargo que aceita percentagem ou valor fixo em euros. */
+function CampoTaxa({ id, label, base, modo, percentual, valorManual, resolvido, ajuda, onChange }: CampoTaxaProps) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <Label htmlFor={id}>{label}</Label>
+        <div className="flex rounded-full border p-0.5">
+          <button
+            type="button"
+            onClick={() => onChange({ modo: "percentual" })}
+            className={`rounded-full px-2.5 py-0.5 text-xs transition-colors ${
+              modo === "percentual" ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+            }`}
+          >
+            %
+          </button>
+          <button
+            type="button"
+            onClick={() => onChange({ modo: "valor" })}
+            className={`rounded-full px-2.5 py-0.5 text-xs transition-colors ${
+              modo === "valor" ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+            }`}
+          >
+            EUR
+          </button>
+        </div>
+      </div>
+
+      {modo === "percentual" ? (
+        <Input
+          id={id}
+          type="number"
+          step="0.01"
+          min="0"
+          value={percentual}
+          onChange={(e) => onChange({ percentual: Number(e.target.value) || 0 })}
+          className="rounded-full"
+          placeholder="0,00 %"
+        />
+      ) : (
+        <Input
+          id={id}
+          type="number"
+          step="0.01"
+          min="0"
+          value={valorManual}
+          onChange={(e) => onChange({ valorManual: Number(e.target.value) || 0 })}
+          className="rounded-full"
+          placeholder="0,00 EUR"
+        />
+      )}
+
+      <p className="text-xs text-muted-foreground">
+        <span className="font-medium text-foreground">
+          {toFixed2(resolvido.percentual)}% = {formatCurrency(resolvido.valor)}
+        </span>
+        {base > 0 && <> sobre {formatCurrency(base)}</>}
+        {ajuda && <> · {ajuda}</>}
+      </p>
+    </div>
+  )
+}
+
 export default function FuncionariosPage() {
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -206,8 +312,20 @@ export default function FuncionariosPage() {
   const valorSubsidiosMensal = formData.incluiSubsidios ? round2(formData.salarioBase * MESES_SUBSIDIOS) : 0
   // A TSU patronal e o seguro incidem sobre o salario e sobre os subsidios
   const baseEncargos = round2(formData.salarioBase + valorSubsidiosMensal)
-  const valorSeguranca = calculatePercentValue(baseEncargos, formData.percentualSeguranca)
-  const valorSeguroAcidentes = calculatePercentValue(baseEncargos, formData.percentualSeguroAcidentes)
+  const seguranca = resolverTaxa(
+    formData.modoSeguranca,
+    formData.percentualSeguranca,
+    formData.valorSegurancaManual,
+    baseEncargos,
+  )
+  const seguroAcidentes = resolverTaxa(
+    formData.modoSeguroAcidentes,
+    formData.percentualSeguroAcidentes,
+    formData.valorSeguroAcidentesManual,
+    baseEncargos,
+  )
+  const valorSeguranca = seguranca.valor
+  const valorSeguroAcidentes = seguroAcidentes.valor
   // O IRS nao entra: e retido ao trabalhador, nao e custo da empresa
   const totalEncargos = round2(valorSeguranca + valorSeguroAcidentes)
   const salarioTotal = round2(
@@ -233,9 +351,26 @@ export default function FuncionariosPage() {
   // === ENCARGO LIQUIDO: o que o trabalhador recebe ===
   // Descontos do lado do trabalhador (TSU 11% + IRS), apenas sobre o salario base.
   // Subsidio de alimentacao e transporte sao isentos ate ao limite legal.
-  const valorSegurancaLiquido = calculatePercentValue(formData.salarioBase, formData.percentualSegurancaLiquido)
-  const valorIRSLiquido = calculatePercentValue(formData.salarioBase, formData.percentualIRSLiquido)
+  const segurancaLiquido = resolverTaxa(
+    formData.modoSegurancaLiquido,
+    formData.percentualSegurancaLiquido,
+    formData.valorSegurancaLiquidoManual,
+    formData.salarioBase,
+  )
+  const irsLiquido = resolverTaxa(
+    formData.modoIRSLiquido,
+    formData.percentualIRSLiquido,
+    formData.valorIRSLiquidoManual,
+    formData.salarioBase,
+  )
+  const valorSegurancaLiquido = segurancaLiquido.valor
+  const valorIRSLiquido = irsLiquido.valor
   const totalEncargosLiquido = round2(valorSegurancaLiquido + valorIRSLiquido)
+  /** Peso total dos descontos sobre o salario base. */
+  const taxaEfetivaDesconto =
+    formData.salarioBase > 0 ? round2((totalEncargosLiquido / formData.salarioBase) * 100) : 0
+  /** Total ilíquido: o que entra antes dos descontos. */
+  const totalIliquido = round2(formData.salarioBase + formData.valorBeneficios + formData.valorTransporte)
   /** Salario base ja com os descontos, antes de somar os valores isentos. */
   const salarioBaseLiquido = round2(formData.salarioBase - totalEncargosLiquido)
   const valoresIsentos = round2(formData.valorBeneficios + formData.valorTransporte)
@@ -316,20 +451,25 @@ export default function FuncionariosPage() {
         salarioBase: round2(formData.salarioBase),
         valorBeneficios: round2(formData.valorBeneficios),
         valorTransporte: round2(formData.valorTransporte),
-        percentualSeguranca: round2(formData.percentualSeguranca),
+        // Grava a percentagem efetiva, mesmo quando foi lancado por valor fixo
+        percentualSeguranca: seguranca.percentual,
         valorSeguranca,
+        modoSeguranca: formData.modoSeguranca,
         percentualIRS: round2(formData.percentualIRS),
         valorIRS: 0,
-        percentualSeguroAcidentes: round2(formData.percentualSeguroAcidentes),
+        percentualSeguroAcidentes: seguroAcidentes.percentual,
         valorSeguroAcidentes,
+        modoSeguroAcidentes: formData.modoSeguroAcidentes,
         incluiSubsidios: formData.incluiSubsidios,
         valorSubsidiosMensal,
         totalEncargos,
         salarioTotal,
-        percentualSegurancaLiquido: round2(formData.percentualSegurancaLiquido),
+        percentualSegurancaLiquido: segurancaLiquido.percentual,
         valorSegurancaLiquido,
-        percentualIRSLiquido: round2(formData.percentualIRSLiquido),
+        modoSegurancaLiquido: formData.modoSegurancaLiquido,
+        percentualIRSLiquido: irsLiquido.percentual,
         valorIRSLiquido,
+        modoIRSLiquido: formData.modoIRSLiquido,
         totalEncargosLiquido,
         salarioTotalLiquido,
         custoHoraLiquido,
@@ -401,6 +541,14 @@ export default function FuncionariosPage() {
       incluiSubsidios: funcionario.incluiSubsidios ?? true,
       percentualSegurancaLiquido: funcionario.percentualSegurancaLiquido ?? TSU_TRABALHADOR,
       percentualIRSLiquido: funcionario.percentualIRSLiquido ?? funcionario.percentualIRS ?? 0,
+      modoSeguranca: funcionario.modoSeguranca ?? "percentual",
+      valorSegurancaManual: round2(funcionario.valorSeguranca ?? 0),
+      modoSeguroAcidentes: funcionario.modoSeguroAcidentes ?? "percentual",
+      valorSeguroAcidentesManual: round2(funcionario.valorSeguroAcidentes ?? 0),
+      modoSegurancaLiquido: funcionario.modoSegurancaLiquido ?? "percentual",
+      valorSegurancaLiquidoManual: round2(funcionario.valorSegurancaLiquido ?? 0),
+      modoIRSLiquido: funcionario.modoIRSLiquido ?? "percentual",
+      valorIRSLiquidoManual: round2(funcionario.valorIRSLiquido ?? 0),
       ativo: funcionario.ativo,
     })
     setIsDialogOpen(true)
@@ -812,41 +960,44 @@ export default function FuncionariosPage() {
                     </p>
 
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="percentualSeguranca">Seguranca Social patronal (%)</Label>
-                        <Input
-                          id="percentualSeguranca"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={formData.percentualSeguranca}
-                          onChange={(e) => setFormData({ ...formData, percentualSeguranca: Number(e.target.value) || 0 })}
-                          className="rounded-full"
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Taxa legal 2026: <strong>{toFixed2(TSU_PATRONAL)}%</strong> (TSU a cargo da empresa).
-                          Calculado: {formatCurrency(valorSeguranca)}
-                        </p>
-                      </div>
+                      <CampoTaxa
+                        id="percentualSeguranca"
+                        label="Seguranca Social patronal"
+                        base={baseEncargos}
+                        modo={formData.modoSeguranca}
+                        percentual={formData.percentualSeguranca}
+                        valorManual={formData.valorSegurancaManual}
+                        resolvido={seguranca}
+                        ajuda={<>taxa legal 2026: {toFixed2(TSU_PATRONAL)}%</>}
+                        onChange={(campos) =>
+                          setFormData({
+                            ...formData,
+                            modoSeguranca: campos.modo ?? formData.modoSeguranca,
+                            percentualSeguranca: campos.percentual ?? formData.percentualSeguranca,
+                            valorSegurancaManual: campos.valorManual ?? formData.valorSegurancaManual,
+                          })
+                        }
+                      />
 
-                      <div className="space-y-2">
-                        <Label htmlFor="percentualSeguroAcidentes">Seguro de acidentes de trabalho (%)</Label>
-                        <Input
-                          id="percentualSeguroAcidentes"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={formData.percentualSeguroAcidentes}
-                          onChange={(e) =>
-                            setFormData({ ...formData, percentualSeguroAcidentes: Number(e.target.value) || 0 })
-                          }
-                          className="rounded-full"
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Obrigatorio. Na construcao ronda 1% a 5% conforme o risco. Calculado:{" "}
-                          {formatCurrency(valorSeguroAcidentes)}
-                        </p>
-                      </div>
+                      <CampoTaxa
+                        id="percentualSeguroAcidentes"
+                        label="Seguro de acidentes de trabalho"
+                        base={baseEncargos}
+                        modo={formData.modoSeguroAcidentes}
+                        percentual={formData.percentualSeguroAcidentes}
+                        valorManual={formData.valorSeguroAcidentesManual}
+                        resolvido={seguroAcidentes}
+                        ajuda={<>obrigatorio; construcao ronda 1% a 5%</>}
+                        onChange={(campos) =>
+                          setFormData({
+                            ...formData,
+                            modoSeguroAcidentes: campos.modo ?? formData.modoSeguroAcidentes,
+                            percentualSeguroAcidentes: campos.percentual ?? formData.percentualSeguroAcidentes,
+                            valorSeguroAcidentesManual:
+                              campos.valorManual ?? formData.valorSeguroAcidentesManual,
+                          })
+                        }
+                      />
                     </div>
 
                     <label className="flex items-start gap-3 rounded-lg border p-3">
@@ -894,13 +1045,13 @@ export default function FuncionariosPage() {
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground pl-4">
-                          Seguranca Social patronal ({toFixed2(formData.percentualSeguranca)}%)
+                          Seguranca Social patronal ({toFixed2(seguranca.percentual)}%)
                         </span>
                         <span>+ {formatCurrency(valorSeguranca)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground pl-4">
-                          Seguro de acidentes ({toFixed2(formData.percentualSeguroAcidentes)}%)
+                          Seguro de acidentes ({toFixed2(seguroAcidentes.percentual)}%)
                         </span>
                         <span>+ {formatCurrency(valorSeguroAcidentes)}</span>
                       </div>
@@ -947,100 +1098,142 @@ export default function FuncionariosPage() {
 
                   <TabsContent value="encargosLiquidos" className="space-y-4 mt-4">
                     <p className="text-sm text-muted-foreground">
-                      O que o trabalhador recebe. Aqui entram os descontos do <strong>lado do trabalhador</strong>,
-                      incidindo apenas sobre o salario base: subsidio de alimentacao e transporte sao isentos ate ao
-                      limite legal e entram por inteiro.
+                      Simulacao do recibo de vencimento: o que o trabalhador recebe e quanto lhe e descontado. Os
+                      descontos incidem apenas sobre o salario base. Cada taxa pode ser lancada em percentagem ou
+                      diretamente em euros.
                     </p>
 
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="percentualSegurancaLiquido">Seguranca Social do trabalhador (%)</Label>
-                        <Input
-                          id="percentualSegurancaLiquido"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={formData.percentualSegurancaLiquido}
-                          onChange={(e) =>
-                            setFormData({ ...formData, percentualSegurancaLiquido: Number(e.target.value) || 0 })
-                          }
-                          className="rounded-full"
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Taxa legal 2026: <strong>{toFixed2(TSU_TRABALHADOR)}%</strong> (TSU retida ao trabalhador).
-                          Calculado: {formatCurrency(valorSegurancaLiquido)}
-                        </p>
+                      <CampoTaxa
+                        id="percentualSegurancaLiquido"
+                        label="Seguranca Social do trabalhador"
+                        base={formData.salarioBase}
+                        modo={formData.modoSegurancaLiquido}
+                        percentual={formData.percentualSegurancaLiquido}
+                        valorManual={formData.valorSegurancaLiquidoManual}
+                        resolvido={segurancaLiquido}
+                        ajuda={<>taxa legal 2026: {toFixed2(TSU_TRABALHADOR)}%</>}
+                        onChange={(campos) =>
+                          setFormData({
+                            ...formData,
+                            modoSegurancaLiquido: campos.modo ?? formData.modoSegurancaLiquido,
+                            percentualSegurancaLiquido:
+                              campos.percentual ?? formData.percentualSegurancaLiquido,
+                            valorSegurancaLiquidoManual:
+                              campos.valorManual ?? formData.valorSegurancaLiquidoManual,
+                          })
+                        }
+                      />
+
+                      <CampoTaxa
+                        id="percentualIRSLiquido"
+                        label="IRS retido na fonte"
+                        base={formData.salarioBase}
+                        modo={formData.modoIRSLiquido}
+                        percentual={formData.percentualIRSLiquido}
+                        valorManual={formData.valorIRSLiquidoManual}
+                        resolvido={irsLiquido}
+                        ajuda={<>tabelas 2026; isento ate 920 EUR/mes</>}
+                        onChange={(campos) =>
+                          setFormData({
+                            ...formData,
+                            modoIRSLiquido: campos.modo ?? formData.modoIRSLiquido,
+                            percentualIRSLiquido: campos.percentual ?? formData.percentualIRSLiquido,
+                            valorIRSLiquidoManual: campos.valorManual ?? formData.valorIRSLiquidoManual,
+                          })
+                        }
+                      />
+                    </div>
+
+                    {/* Recibo de vencimento */}
+                    <div className="rounded-lg border overflow-hidden">
+                      <div className="bg-muted px-4 py-2 text-xs font-semibold uppercase text-muted-foreground">
+                        Recibo de vencimento (simulacao)
                       </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="percentualIRSLiquido">IRS retido na fonte (%)</Label>
-                        <Input
-                          id="percentualIRSLiquido"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={formData.percentualIRSLiquido}
-                          onChange={(e) =>
-                            setFormData({ ...formData, percentualIRSLiquido: Number(e.target.value) || 0 })
-                          }
-                          className="rounded-full"
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Depende do escalao, estado civil e dependentes (tabelas de retencao 2026, Despacho
-                          233-A/2026). Ate 920 EUR/mes ha isencao. Calculado: {formatCurrency(valorIRSLiquido)}
-                        </p>
+                      <div className="p-4 space-y-2">
+                        <div className="text-xs font-medium text-muted-foreground uppercase">Vencimentos</div>
+                        <div className="flex justify-between text-sm">
+                          <span>Vencimento base</span>
+                          <span className="font-medium">{formatCurrency(formData.salarioBase)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Subsidio de alimentacao (isento)</span>
+                          <span>+ {formatCurrency(formData.valorBeneficios)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Transporte (isento)</span>
+                          <span>+ {formatCurrency(formData.valorTransporte)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm border-t pt-2 font-medium">
+                          <span>Total iliquido</span>
+                          <span>{formatCurrency(totalIliquido)}</span>
+                        </div>
+                      </div>
+
+                      <div className="border-t p-4 space-y-2 bg-destructive/5">
+                        <div className="text-xs font-medium text-muted-foreground uppercase">
+                          Descontos do trabalhador
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">
+                            Seguranca Social ({toFixed2(segurancaLiquido.percentual)}% do salario base)
+                          </span>
+                          <span className="text-destructive">- {formatCurrency(valorSegurancaLiquido)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">
+                            IRS ({toFixed2(irsLiquido.percentual)}% do salario base)
+                          </span>
+                          <span className="text-destructive">- {formatCurrency(valorIRSLiquido)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm border-t pt-2 font-medium">
+                          <span>Total descontado</span>
+                          <span className="text-destructive">- {formatCurrency(totalEncargosLiquido)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>Peso dos descontos sobre o salario base</span>
+                          <span>{toFixed2(taxaEfetivaDesconto)}%</span>
+                        </div>
+                      </div>
+
+                      <div className="border-t bg-secondary p-4">
+                        <div className="flex items-end justify-between">
+                          <div>
+                            <div className="text-sm text-muted-foreground">Liquido a receber</div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              {formatCurrency(formData.salarioBase)} - {formatCurrency(totalEncargosLiquido)} +{" "}
+                              {formatCurrency(valoresIsentos)} isentos
+                            </div>
+                          </div>
+                          <div className="text-2xl font-bold">{formatCurrency(salarioTotalLiquido)}</div>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="rounded-lg border p-4 space-y-2">
-                      <div className="text-xs font-medium text-muted-foreground uppercase">Memoria de calculo</div>
-                      <div className="flex justify-between text-sm">
-                        <span>Salario base</span>
-                        <span className="font-medium">{formatCurrency(formData.salarioBase)}</span>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="rounded-lg border p-4 space-y-1">
+                        <div className="text-xs font-medium text-muted-foreground uppercase">Salario base</div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Bruto</span>
+                          <span>{formatCurrency(formData.salarioBase)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Liquido (apos descontos)</span>
+                          <span className="font-semibold">{formatCurrency(salarioBaseLiquido)}</span>
+                        </div>
                       </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground pl-4">
-                          Seguranca ({toFixed2(formData.percentualSegurancaLiquido)}% do salario base)
-                        </span>
-                        <span>- {formatCurrency(valorSegurancaLiquido)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground pl-4">
-                          IRS ({toFixed2(formData.percentualIRSLiquido)}% do salario base)
-                        </span>
-                        <span>- {formatCurrency(valorIRSLiquido)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm border-t pt-2">
-                        <span className="font-medium">Salario base liquido</span>
-                        <span className="font-semibold">{formatCurrency(salarioBaseLiquido)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground pl-4">Beneficios (isento, sem desconto)</span>
-                        <span>+ {formatCurrency(formData.valorBeneficios)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground pl-4">Transporte (isento, sem desconto)</span>
-                        <span>+ {formatCurrency(formData.valorTransporte)}</span>
-                      </div>
-                    </div>
 
-                    <div className="rounded-lg bg-secondary p-4">
-                      <div className="text-sm text-muted-foreground">Salario liquido</div>
-                      <div className="text-2xl font-bold">{formatCurrency(salarioTotalLiquido)}</div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        ({formatCurrency(formData.salarioBase)} - {formatCurrency(totalEncargosLiquido)}) +{" "}
-                        {formatCurrency(valoresIsentos)} isentos
-                      </div>
-                    </div>
-
-                    <div className="rounded-lg border p-4 space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Custo/hora liquido</span>
-                        <span className="font-semibold">{formatCurrency(custoHoraLiquido)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm border-t pt-2">
-                        <span className="text-muted-foreground">Valor de venda/hora (liquido + margem)</span>
-                        <span className="font-semibold">{formatCurrency(valorVendaHoraLiquido)}</span>
+                      <div className="rounded-lg border p-4 space-y-1">
+                        <div className="text-xs font-medium text-muted-foreground uppercase">Por hora</div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Liquido/hora</span>
+                          <span>{formatCurrency(custoHoraLiquido)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Custo/hora para a empresa</span>
+                          <span className="font-semibold">{formatCurrency(custoHoraCalculado)}</span>
+                        </div>
                       </div>
                     </div>
                   </TabsContent>

@@ -14,6 +14,9 @@ export interface Cliente {
   userId: string
 }
 
+/** Como cada encargo foi definido: por percentagem ou por valor fixo. */
+export type ModoTaxa = "percentual" | "valor"
+
 export interface Funcionario {
   id?: string
   // Informações Pessoais
@@ -53,6 +56,12 @@ export interface Funcionario {
   valorIRS?: number
   totalEncargos?: number
   salarioTotal: number
+
+  /** Cada taxa pode ser definida por percentagem ou por valor fixo em euros. */
+  modoSeguranca?: ModoTaxa
+  modoSeguroAcidentes?: ModoTaxa
+  modoSegurancaLiquido?: ModoTaxa
+  modoIRSLiquido?: ModoTaxa
 
   /** Seguro de acidentes de trabalho (%) sobre o salario base - obrigatorio em PT. */
   percentualSeguroAcidentes?: number
