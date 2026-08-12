@@ -324,6 +324,59 @@ O `userId` continua sendo gravado em cada documento e as funções continuam rec
 
 > Nota: o índice composto `clientes` (userId + createdAt) deixou de ser necessário, já que a paginação não filtra mais por `userId`. Ficou publicado; é inofensivo, mas pode ser removido de `firestore.indexes.json` num próximo deploy.
 
+## 4c. Regras de folha salarial de Portugal (corrigidas em 30/07/2026)
+
+Pesquisadas as regras em vigor em 2026 e corrigido o cálculo, que tinha dois erros conceituais.
+
+**Erro 1 — o IRS era somado ao custo da empresa.** O IRS é retido ao trabalhador, não é encargo patronal. Somá-lo inflava o custo/hora e, por consequência, o preço de venda de toda a mão de obra. Foi removido da aba Encargos e vive agora apenas na aba Encargo Líquido.
+
+**Erro 2 — os subsídios de férias e Natal não eram considerados.** Em Portugal pagam-se 14 meses de salário por ano. Sem diluir os 2 meses extra, o custo/hora ficava subavaliado.
+
+**Taxas aplicadas (2026):**
+
+| Item | Taxa | Onde |
+|---|---|---|
+| Segurança Social patronal (TSU) | 23,75% | Aba Encargos |
+| Segurança Social do trabalhador | 11% | Aba Encargo Líquido |
+| Seguro de acidentes de trabalho | 1,75% (editável; construção 1–5%) | Aba Encargos |
+| Subsídios férias + Natal | 2/12 do salário | Aba Encargos (opcional) |
+| IRS | tabelas de retenção 2026 | Aba Encargo Líquido |
+
+O subsídio de alimentação é isento até **10,46 €/dia** em cartão (6,15 € em dinheiro). A tela avisa quando o valor cadastrado passa do limite mensal, porque o excedente paga IRS e Segurança Social dos dois lados.
+
+**Efeito num salário base de 1.200 €, 168 h/mês:**
+
+```
+  Salario base                      1200.00
+  Subsidios ferias+Natal (2/12)      200.00
+  Base de incidencia                1400.00
+  SS patronal 23,75%                 332.50
+  Seguro acidentes 1,75%              24.50
+  Beneficios + transporte            215.00
+  CUSTO TOTAL EMPRESA               1972.00  = 140,9% da remuneracao bruta
+  Custo/hora                          11.74
+```
+
+O custo/hora subiu de 10,90 € para 11,74 € (+7,6%) — estava a ser subavaliado. Os 140,9% caem dentro da referência de mercado portuguesa (130% a 145%), que a tela mostra como validação.
+
+> Funcionários já cadastrados: ao abrir para editar, a Segurança Social patronal é reposta em 23,75% (quem tinha 34,75% estava a usar a taxa combinada) e a do trabalhador em 11%. Reveja e guarde cada um.
+
+## 4d. Composição de serviço no formato da planilha de obra
+
+Analisado o `CO26-0034_Tiago_Amadora_Teto falso.xlsx` (7 abas, 30+ composições) e adotado o mesmo modelo, a pedido.
+
+A composição passa a ser montada para uma **quantidade de referência** (ex.: 10 m²) e o preço unitário sai da divisão. Substituiu o conceito de "valor fixo", que gerava confusão.
+
+**Grupos:** Mão de obra · Materiais · Aluguel · Vazadouro · Transporte · Extras - Diversos
+
+**Colunas por linha:** `Descrição | UN | Qtd padrão | Qtd pontual | V.UN | V.TOTAL`, com `V.TOTAL = padrão × pontual × unitário`. Qtd pontual em **0 desliga a linha** sem a apagar.
+
+Validado contra a composição real "Picagem de reboco" da planilha: 119,33 € para 10 m², bate ao cêntimo.
+
+A mão de obra voltou para dentro da composição (decisão do dono do sistema) e puxa o **custo real/hora** do funcionário — não o valor de venda. Isso resolve a margem dupla que estava em aberto: a margem passa a ser aplicada uma única vez, no orçamento.
+
+> Serviços antigos são convertidos automaticamente ao abrir (consumíveis → Materiais, itens → Aluguel, transporte → Transporte), com quantidade de referência 1 para o preço não mudar. Aparecem marcados em âmbar na listagem até serem revistos.
+
 ## 5. Débitos técnicos pré-existentes (não introduzidos por estas mudanças)
 
 O `npm run build` passa, mas o `next.config.mjs` está com `ignoreBuildErrors: true` e `ignoreDuringBuilds: true`, o que esconde ~25 erros de TypeScript que já existiam antes destas alterações — principalmente `userId` faltando nas chamadas de `addCliente`/`addMaterial`/`addServico`/`addCategoria`, `tipoTrabalho` inexistente em `app/relatorios/page.tsx` e tipagem `any` implícita nos relatórios. Nenhum deles está nos arquivos alterados aqui, mas vale limpar num próximo ciclo.

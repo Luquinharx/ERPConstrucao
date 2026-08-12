@@ -51,8 +51,18 @@ interface OrcamentoFormState {
   margemLucro: number
   /** Custo de transporte: linha propria no final do orcamento. */
   transporte: number
+  /** Taxa de IVA (%) aplicada sobre a base tributavel. */
+  taxaIVA: number
   observacoes: string
 }
+
+/** Taxas de IVA em Portugal (continente). */
+const TAXAS_IVA = [
+  { valor: 23, label: "23% - Taxa normal" },
+  { valor: 13, label: "13% - Taxa intermedia" },
+  { valor: 6, label: "6% - Taxa reduzida (ex.: obras em habitacao)" },
+  { valor: 0, label: "0% - Isento / autoliquidacao" },
+]
 
 interface ServicoFormState {
   servicoId: string
@@ -101,6 +111,7 @@ function getDefaultFormData(): OrcamentoFormState {
     itens: [],
     margemLucro: 20,
     transporte: 0,
+    taxaIVA: 23,
     observacoes: "",
   }
 }
@@ -148,9 +159,23 @@ function calculateSubtotalCusto(itens: ItemOrcamento[]): number {
   )
 }
 
-/** Total de venda: subtotal + margem, com o transporte somado no final. */
-function calculateTotal(subtotal: number, margemLucro: number, transporte = 0): number {
+/**
+ * Base tributavel: subtotal + margem + transporte. E sobre este valor que
+ * incide o IVA, e e este o valor comparado com o custo para apurar o lucro
+ * (o IVA nao e receita, e cobrado para o Estado).
+ */
+function calculateBaseTributavel(subtotal: number, margemLucro: number, transporte = 0): number {
   return round2(subtotal * (1 + (Number(margemLucro) || 0) / 100) + (Number(transporte) || 0))
+}
+
+function calculateIVA(baseTributavel: number, taxaIVA = 0): number {
+  return round2(baseTributavel * ((Number(taxaIVA) || 0) / 100))
+}
+
+/** Total final que o cliente paga: base tributavel + IVA. */
+function calculateTotal(subtotal: number, margemLucro: number, transporte = 0, taxaIVA = 0): number {
+  const base = calculateBaseTributavel(subtotal, margemLucro, transporte)
+  return round2(base + calculateIVA(base, taxaIVA))
 }
 
 /** Total de custo: custo real dos itens + transporte, sem margem. */
@@ -158,8 +183,21 @@ function calculateTotalCusto(subtotalCusto: number, transporte = 0): number {
   return round2(subtotalCusto + (Number(transporte) || 0))
 }
 
-/** Separa preco variavel (por unidade), fixo e transporte, com fallback para servicos antigos. */
+/**
+ * Preco unitario do servico. Na composicao por quantidade de referencia tudo
+ * (incluindo transporte e aluguer) ja esta diluido no preco por unidade, entao
+ * basta multiplicar pela quantidade do orcamento.
+ *
+ * Servicos ainda no formato antigo tinham o transporte somado ao preco: nesse
+ * caso ele e retirado, para nao ser cobrado duas vezes com a linha de transporte
+ * do orcamento.
+ */
 function getServicoPrecos(servico: Servico) {
+  const temComposicao = Boolean(servico.composicao)
+  if (temComposicao) {
+    return { precoVariavel: round2(servico.preco ?? 0), precoFixo: 0, transporte: 0 }
+  }
+
   const transporte = round2(servico.transporte ?? 0)
   const temSplit = servico.precoVariavel !== undefined || servico.precoFixo !== undefined
 
@@ -167,6 +205,30 @@ function getServicoPrecos(servico: Servico) {
     precoVariavel: temSplit ? round2(servico.precoVariavel ?? 0) : round2(Number(servico.preco ?? 0) - transporte),
     precoFixo: temSplit ? round2(servico.precoFixo ?? 0) : 0,
     transporte,
+  }
+}
+
+/** Cor de fundo e borda por tipo de item, para distinguir a olho na lista. */
+function getItemEstilo(tipo: ItemOrcamento["tipo"]) {
+  switch (tipo) {
+    case "mao_obra":
+      return {
+        card: "border-l-4 border-l-blue-500 bg-blue-500/10",
+        badge: "bg-blue-500/20 text-blue-600 dark:text-blue-300 border-blue-500/40",
+        label: "Mao de obra",
+      }
+    case "material":
+      return {
+        card: "border-l-4 border-l-amber-500 bg-amber-500/10",
+        badge: "bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/40",
+        label: "Material",
+      }
+    default:
+      return {
+        card: "border-l-4 border-l-emerald-500 bg-emerald-500/10",
+        badge: "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/40",
+        label: "Servico",
+      }
   }
 }
 
@@ -213,9 +275,14 @@ function buildOrcamentoDocumentHtml(
   const margem = round2(orcamento.margemLucro || 0)
   const margemValor = round2((subtotal * margem) / 100)
   const totalVenda = round2(orcamento.valorTotal || 0)
+  const taxaIVA = round2(orcamento.taxaIVA ?? 0)
+  // Orcamentos antigos nao tinham IVA: nesse caso o total ja e a propria base
+  const baseTributavel = round2(orcamento.baseTributavel ?? totalVenda - (orcamento.valorIVA ?? 0))
+  const valorIVA = round2(orcamento.valorIVA ?? 0)
   const totalCusto = round2(orcamento.valorTotalCusto ?? calculateTotalCusto(subtotalCusto, transporte))
   const total = isCusto ? totalCusto : totalVenda
-  const lucro = round2(totalVenda - totalCusto)
+  // O IVA nao e receita da empresa, entao o lucro compara a base tributavel com o custo
+  const lucro = round2(baseTributavel - totalCusto)
 
   const termosAtivos = termos.filter((item) => item.ativo)
   const grouped = {
@@ -224,12 +291,32 @@ function buildOrcamentoDocumentHtml(
     condicoes: termosAtivos.filter((item) => item.tipo === "condicoes"),
   }
 
+  /**
+   * No documento de venda a margem e o transporte nao aparecem como linhas
+   * separadas: sao diluidos no preco de cada item, para o cliente ver apenas
+   * o valor final e as linhas somarem exatamente a base tributavel.
+   */
+  const fatorVenda = !isCusto && subtotal > 0 ? baseTributavel / subtotal : 1
+  const totaisVenda = itens.map((item) =>
+    round2(calculateItemTotal(item.quantidade, item.precoUnitario, item.valorFixo) * fatorVenda),
+  )
+  // O arredondamento por item pode desviar alguns centimos: o ultimo item absorve a diferenca
+  if (!isCusto && totaisVenda.length > 0) {
+    const somaAjustada = round2(totaisVenda.reduce((acc, valor) => acc + valor, 0))
+    totaisVenda[totaisVenda.length - 1] = round2(
+      totaisVenda[totaisVenda.length - 1] + (baseTributavel - somaAjustada),
+    )
+  }
+
   const itensRows = itens
-    .map((item) => {
+    .map((item, indice) => {
       const nome = getItemDescricaoDocumento(item, tipo)
       const detalhe = item.nome && item.descricao && item.descricao !== item.nome ? item.descricao : ""
-      const precoUnitario = isCusto ? (item.custoUnitario ?? item.precoUnitario) : item.precoUnitario
-      const totalItem = calculateItemTotal(item.quantidade, precoUnitario, item.valorFixo)
+      const totalItem = isCusto
+        ? calculateItemTotal(item.quantidade, item.custoUnitario ?? item.precoUnitario, item.valorFixo)
+        : totaisVenda[indice]
+      const precoUnitario =
+        item.valorFixo || !item.quantidade ? totalItem : round2(totalItem / Number(item.quantidade))
       const quantidadeLabel = item.valorFixo ? "Valor fixo" : toFixed2(item.quantidade)
 
       return `
@@ -361,14 +448,17 @@ function buildOrcamentoDocumentHtml(
           <div><span>Subtotal (custo real):</span><span>${formatCurrency(subtotalCusto)}</span></div>
           <div><span>Transporte:</span><span>${formatCurrency(transporte)}</span></div>
           <div class="total-final"><span>Total de custo:</span><span>${formatCurrency(totalCusto)}</span></div>
-          <div style="margin-top:8px"><span>Total de venda:</span><span>${formatCurrency(totalVenda)}</span></div>
+          <div style="margin-top:8px"><span>Subtotal de venda:</span><span>${formatCurrency(subtotal)}</span></div>
+          <div><span>Margem (${toFixed2(margem)}%):</span><span>${formatCurrency(margemValor)}</span></div>
+          <div><span>Venda sem IVA (base):</span><span>${formatCurrency(baseTributavel)}</span></div>
           <div><span>Lucro previsto:</span><span>${formatCurrency(lucro)}</span></div>
+          <div><span>IVA (${toFixed2(taxaIVA)}%) a entregar:</span><span>${formatCurrency(valorIVA)}</span></div>
+          <div><span>Total cobrado ao cliente:</span><span>${formatCurrency(totalVenda)}</span></div>
         `
             : `
-          <div><span>Subtotal:</span><span>${formatCurrency(subtotal)}</span></div>
-          <div><span>Margem (${toFixed2(margem)}%):</span><span>${formatCurrency(margemValor)}</span></div>
-          <div><span>Transporte:</span><span>${formatCurrency(transporte)}</span></div>
-          <div class="total-final"><span>Total:</span><span>${formatCurrency(totalVenda)}</span></div>
+          <div><span>Subtotal:</span><span>${formatCurrency(baseTributavel)}</span></div>
+          <div><span>IVA (${toFixed2(taxaIVA)}%):</span><span>${formatCurrency(valorIVA)}</span></div>
+          <div class="total-final"><span>Total a pagar:</span><span>${formatCurrency(totalVenda)}</span></div>
         `
         }
       </section>
@@ -797,7 +887,10 @@ export default function OrcamentosPage() {
     const subtotal = calculateSubtotal(formData.itens)
     const subtotalCusto = calculateSubtotalCusto(formData.itens)
     const transporte = round2(formData.transporte)
-    const valorTotal = calculateTotal(subtotal, formData.margemLucro, transporte)
+    const baseTributavel = calculateBaseTributavel(subtotal, formData.margemLucro, transporte)
+    const taxaIVA = round2(formData.taxaIVA)
+    const valorIVA = calculateIVA(baseTributavel, taxaIVA)
+    const valorTotal = round2(baseTributavel + valorIVA)
     const valorTotalCusto = calculateTotalCusto(subtotalCusto, transporte)
 
     setLoading(true)
@@ -827,8 +920,11 @@ export default function OrcamentosPage() {
         subtotal,
         subtotalCusto,
         transporte,
-        impostos: 0,
+        impostos: valorIVA,
         margemLucro: round2(formData.margemLucro),
+        baseTributavel,
+        taxaIVA,
+        valorIVA,
         valorTotal,
         valorTotalCusto,
         observacoes: formData.observacoes,
@@ -887,6 +983,8 @@ export default function OrcamentosPage() {
       itens: orcamento.itens || [],
       margemLucro: orcamento.margemLucro || 0,
       transporte: round2(orcamento.transporte || 0),
+      // Orcamentos criados antes do campo de IVA ficam com 0 para nao alterar o total ja acordado
+      taxaIVA: round2(orcamento.taxaIVA ?? 0),
       observacoes: orcamento.observacoes || "",
     })
     setServicoForm(getDefaultServicoForm())
@@ -967,9 +1065,12 @@ export default function OrcamentosPage() {
   const subtotalAtual = calculateSubtotal(formData.itens)
   const subtotalCustoAtual = calculateSubtotalCusto(formData.itens)
   const transporteAtual = round2(formData.transporte)
-  const valorTotalAtual = calculateTotal(subtotalAtual, formData.margemLucro, transporteAtual)
+  const baseTributavelAtual = calculateBaseTributavel(subtotalAtual, formData.margemLucro, transporteAtual)
+  const valorIVAAtual = calculateIVA(baseTributavelAtual, formData.taxaIVA)
+  const valorTotalAtual = round2(baseTributavelAtual + valorIVAAtual)
   const valorTotalCustoAtual = calculateTotalCusto(subtotalCustoAtual, transporteAtual)
-  const lucroPrevisto = round2(valorTotalAtual - valorTotalCustoAtual)
+  // O IVA nao entra no lucro: e cobrado ao cliente e entregue ao Estado
+  const lucroPrevisto = round2(baseTributavelAtual - valorTotalCustoAtual)
   const selectedClientValue =
     formData.clienteId && clientes.some((cliente) => cliente.id === formData.clienteId) ? formData.clienteId : "__novo"
 
@@ -1273,7 +1374,13 @@ export default function OrcamentosPage() {
               </div>
 
               <div className="space-y-4">
-                <h3 className="text-lg font-medium">Mao de obra</h3>
+                <div>
+                  <h3 className="text-lg font-medium">Mao de obra avulsa (opcional)</h3>
+                  <p className="text-sm text-muted-foreground">
+                    A mao de obra normal ja vem dentro do preco do servico, pelo grupo Mao de obra da composicao. Use
+                    esta seccao apenas para horas extra que fogem ao padrao do servico.
+                  </p>
+                </div>
                 <Card className="p-4 border-2 border-dashed">
                   <div className="space-y-4">
                     <div className="space-y-2">
@@ -1367,11 +1474,21 @@ export default function OrcamentosPage() {
                 <div className="space-y-4">
                   <h3 className="text-lg font-medium">Itens do Orcamento</h3>
                   <div className="space-y-3">
-                    {formData.itens.map((item) => {
+                    {formData.itens.map((item, indice) => {
                       const readOnlyServico = item.tipo === "servico"
                       const custoUnitario = item.custoUnitario ?? item.precoUnitario
+                      const estilo = getItemEstilo(item.tipo)
                       return (
-                        <div key={item.id} className="p-4 border rounded-lg">
+                        <div key={item.id} className={`p-4 border rounded-lg ${estilo.card}`}>
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-background text-xs font-semibold">
+                              {indice + 1}
+                            </span>
+                            <Badge variant="outline" className={`text-xs ${estilo.badge}`}>
+                              {estilo.label}
+                            </Badge>
+                            <span className="ml-auto text-sm font-semibold">{formatCurrency(item.total)}</span>
+                          </div>
                           <div className="flex items-start justify-between mb-2 gap-2">
                             <div className="flex-1 space-y-2">
                               <div>
@@ -1393,9 +1510,6 @@ export default function OrcamentosPage() {
                                 />
                               </div>
                               <div className="flex flex-wrap items-center gap-2">
-                                <Badge variant="outline" className="text-xs">
-                                  {item.tipo === "servico" ? "Servico" : item.tipo === "mao_obra" ? "Mao de obra" : "Material"}
-                                </Badge>
                                 {item.valorFixo && (
                                   <Badge variant="secondary" className="text-xs">
                                     Valor fixo
@@ -1551,6 +1665,50 @@ export default function OrcamentosPage() {
                     </p>
                   </div>
                 </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="taxaIVA">IVA (%)</Label>
+                    <Select
+                      value={TAXAS_IVA.some((t) => t.valor === formData.taxaIVA) ? String(formData.taxaIVA) : "outra"}
+                      onValueChange={(value) => {
+                        if (value === "outra") return
+                        setFormData({ ...formData, taxaIVA: Number(value) })
+                      }}
+                    >
+                      <SelectTrigger className="rounded-full">
+                        <SelectValue placeholder="Selecione a taxa" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TAXAS_IVA.map((taxa) => (
+                          <SelectItem key={taxa.valor} value={String(taxa.valor)}>
+                            {taxa.label}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value="outra">Outra taxa (indicar ao lado)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="taxaIVAValor">Taxa aplicada (%)</Label>
+                    <Input
+                      id="taxaIVAValor"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={formData.taxaIVA}
+                      onChange={(e) =>
+                        setFormData({ ...formData, taxaIVA: round2(Number.parseFloat(e.target.value) || 0) })
+                      }
+                      className="rounded-full"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Incide sobre subtotal + margem + transporte. Nao entra no lucro: e cobrado ao cliente e entregue
+                      ao Estado.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -1581,8 +1739,16 @@ export default function OrcamentosPage() {
                         <span>Transporte:</span>
                         <span>{formatCurrency(transporteAtual)}</span>
                       </div>
+                      <div className="flex justify-between border-t pt-1">
+                        <span>Base tributavel:</span>
+                        <span>{formatCurrency(baseTributavelAtual)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>IVA ({toFixed2(formData.taxaIVA)}%):</span>
+                        <span>{formatCurrency(valorIVAAtual)}</span>
+                      </div>
                       <div className="flex justify-between font-medium border-t pt-1">
-                        <span>Total de venda:</span>
+                        <span>Total com IVA:</span>
                         <span>{formatCurrency(valorTotalAtual)}</span>
                       </div>
                     </div>
@@ -1607,6 +1773,9 @@ export default function OrcamentosPage() {
                         <span>Lucro previsto:</span>
                         <span>{formatCurrency(lucroPrevisto)}</span>
                       </div>
+                      <p className="text-xs text-muted-foreground pt-1">
+                        Lucro = base tributavel ({formatCurrency(baseTributavelAtual)}) - custo, sem o IVA.
+                      </p>
                     </div>
                   </div>
                 </div>

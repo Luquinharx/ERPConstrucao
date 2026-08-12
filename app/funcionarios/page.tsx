@@ -68,10 +68,28 @@ interface FuncionarioFormState {
   valorTransporte: number
   percentualSeguranca: number
   percentualIRS: number
+  percentualSeguroAcidentes: number
+  incluiSubsidios: boolean
   percentualSegurancaLiquido: number
   percentualIRSLiquido: number
   ativo: boolean
 }
+
+/**
+ * Regras de Portugal (continente) em vigor em 2026.
+ *
+ * Taxa Social Unica: 23,75% a cargo da empresa + 11% a cargo do trabalhador
+ * (34,75% no total). O IRS NAO e custo da empresa - e retido ao trabalhador.
+ * Subsidio de alimentacao isento ate 10,46 EUR/dia em cartao ou 6,15 EUR/dia
+ * em dinheiro; acima disso paga IRS e Seguranca Social dos dois lados.
+ */
+const TSU_PATRONAL = 23.75
+const TSU_TRABALHADOR = 11
+const SEGURO_ACIDENTES_CONSTRUCAO = 1.75
+const SUBSIDIO_ALIMENTACAO_ISENTO_CARTAO = 10.46
+const SUBSIDIO_ALIMENTACAO_ISENTO_DINHEIRO = 6.15
+/** Ferias + Natal: 14 meses de salario diluidos em 12. */
+const MESES_SUBSIDIOS = 2 / 12
 
 function getCurrentMonthInput(): string {
   const now = new Date()
@@ -103,9 +121,11 @@ function getDefaultFormData(): FuncionarioFormState {
     salarioBase: 0,
     valorBeneficios: 0,
     valorTransporte: 0,
-    percentualSeguranca: 0,
+    percentualSeguranca: TSU_PATRONAL,
     percentualIRS: 0,
-    percentualSegurancaLiquido: 0,
+    percentualSeguroAcidentes: SEGURO_ACIDENTES_CONSTRUCAO,
+    incluiSubsidios: true,
+    percentualSegurancaLiquido: TSU_TRABALHADOR,
     percentualIRSLiquido: 0,
     ativo: true,
   }
@@ -181,23 +201,45 @@ export default function FuncionariosPage() {
   const horasPorSemana = calculateHorasPorSemana(formData.horasPorDia, formData.diasPorSemana)
   const horasPorMes = calculateHorasPorMes(formData.mesReferencia, formData.horasPorDia, formData.diasPorSemana)
 
-  // Encargos (custo da empresa): somam ao salario
-  const valorSeguranca = calculatePercentValue(formData.salarioBase, formData.percentualSeguranca)
-  const valorIRS = calculatePercentValue(formData.salarioBase, formData.percentualIRS)
-  const totalEncargos = round2(valorSeguranca + valorIRS)
+  // === ENCARGOS: custo real da empresa ===
+  // Subsidios de ferias e Natal diluidos no mes (14 meses de salario em 12)
+  const valorSubsidiosMensal = formData.incluiSubsidios ? round2(formData.salarioBase * MESES_SUBSIDIOS) : 0
+  // A TSU patronal e o seguro incidem sobre o salario e sobre os subsidios
+  const baseEncargos = round2(formData.salarioBase + valorSubsidiosMensal)
+  const valorSeguranca = calculatePercentValue(baseEncargos, formData.percentualSeguranca)
+  const valorSeguroAcidentes = calculatePercentValue(baseEncargos, formData.percentualSeguroAcidentes)
+  // O IRS nao entra: e retido ao trabalhador, nao e custo da empresa
+  const totalEncargos = round2(valorSeguranca + valorSeguroAcidentes)
   const salarioTotal = round2(
-    formData.salarioBase + formData.valorBeneficios + formData.valorTransporte + totalEncargos,
+    formData.salarioBase +
+      valorSubsidiosMensal +
+      formData.valorBeneficios +
+      formData.valorTransporte +
+      totalEncargos,
   )
   const custoHoraCalculado = horasPorMes > 0 ? round2(salarioTotal / horasPorMes) : 0
   const valorDeVendaCalculado = round2(custoHoraCalculado * (1 + Number(formData.margemLucro || 0) / 100))
+  /**
+   * Custo total sobre a remuneracao bruta (salario + subsidios de ferias e Natal).
+   * A referencia de mercado em Portugal aponta 130% a 145% - e sobre a bruta que
+   * essa referencia e medida, nao sobre o salario base isolado.
+   */
+  const percentualSobreSalario = baseEncargos > 0 ? round2((salarioTotal / baseEncargos) * 100) : 0
 
-  // Encargos liquidos (percentuais independentes): descontam do salario
+  // Limite de isencao do subsidio de alimentacao, para alertar excesso
+  const limiteSubsidioMes = round2(SUBSIDIO_ALIMENTACAO_ISENTO_CARTAO * diasUteisMes)
+  const beneficiosAcimaDoLimite = round2(Math.max(0, formData.valorBeneficios - limiteSubsidioMes))
+
+  // === ENCARGO LIQUIDO: o que o trabalhador recebe ===
+  // Descontos do lado do trabalhador (TSU 11% + IRS), apenas sobre o salario base.
+  // Subsidio de alimentacao e transporte sao isentos ate ao limite legal.
   const valorSegurancaLiquido = calculatePercentValue(formData.salarioBase, formData.percentualSegurancaLiquido)
   const valorIRSLiquido = calculatePercentValue(formData.salarioBase, formData.percentualIRSLiquido)
   const totalEncargosLiquido = round2(valorSegurancaLiquido + valorIRSLiquido)
-  const salarioTotalLiquido = round2(
-    formData.salarioBase + formData.valorBeneficios + formData.valorTransporte - totalEncargosLiquido,
-  )
+  /** Salario base ja com os descontos, antes de somar os valores isentos. */
+  const salarioBaseLiquido = round2(formData.salarioBase - totalEncargosLiquido)
+  const valoresIsentos = round2(formData.valorBeneficios + formData.valorTransporte)
+  const salarioTotalLiquido = round2(salarioBaseLiquido + valoresIsentos)
   const custoHoraLiquido = horasPorMes > 0 ? round2(salarioTotalLiquido / horasPorMes) : 0
   const valorVendaHoraLiquido = round2(custoHoraLiquido * (1 + Number(formData.margemLucro || 0) / 100))
 
@@ -277,7 +319,11 @@ export default function FuncionariosPage() {
         percentualSeguranca: round2(formData.percentualSeguranca),
         valorSeguranca,
         percentualIRS: round2(formData.percentualIRS),
-        valorIRS,
+        valorIRS: 0,
+        percentualSeguroAcidentes: round2(formData.percentualSeguroAcidentes),
+        valorSeguroAcidentes,
+        incluiSubsidios: formData.incluiSubsidios,
+        valorSubsidiosMensal,
         totalEncargos,
         salarioTotal,
         percentualSegurancaLiquido: round2(formData.percentualSegurancaLiquido),
@@ -346,9 +392,14 @@ export default function FuncionariosPage() {
       salarioBase: funcionario.salarioBase || 0,
       valorBeneficios: funcionario.valorBeneficios || 0,
       valorTransporte: funcionario.valorTransporte || 0,
-      percentualSeguranca: funcionario.percentualSeguranca || 0,
+      // Registos antigos guardavam a taxa combinada (34,75%) ou zero: repoe-se a taxa legal
+      percentualSeguranca: funcionario.percentualSeguranca
+        ? round2(Math.min(funcionario.percentualSeguranca, TSU_PATRONAL))
+        : TSU_PATRONAL,
       percentualIRS: funcionario.percentualIRS || 0,
-      percentualSegurancaLiquido: funcionario.percentualSegurancaLiquido ?? funcionario.percentualSeguranca ?? 0,
+      percentualSeguroAcidentes: funcionario.percentualSeguroAcidentes ?? SEGURO_ACIDENTES_CONSTRUCAO,
+      incluiSubsidios: funcionario.incluiSubsidios ?? true,
+      percentualSegurancaLiquido: funcionario.percentualSegurancaLiquido ?? TSU_TRABALHADOR,
       percentualIRSLiquido: funcionario.percentualIRSLiquido ?? funcionario.percentualIRS ?? 0,
       ativo: funcionario.ativo,
     })
@@ -755,9 +806,14 @@ export default function FuncionariosPage() {
                   </TabsContent>
 
                   <TabsContent value="encargos" className="space-y-4 mt-4">
+                    <p className="text-sm text-muted-foreground">
+                      Custo real da empresa. O IRS <strong>nao entra aqui</strong>: e retido ao trabalhador e nao e
+                      custo da entidade patronal (aparece na aba Encargo Liquido).
+                    </p>
+
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="percentualSeguranca">Seguranca (%) sobre salario base</Label>
+                        <Label htmlFor="percentualSeguranca">Seguranca Social patronal (%)</Label>
                         <Input
                           id="percentualSeguranca"
                           type="number"
@@ -767,29 +823,117 @@ export default function FuncionariosPage() {
                           onChange={(e) => setFormData({ ...formData, percentualSeguranca: Number(e.target.value) || 0 })}
                           className="rounded-full"
                         />
-                        <p className="text-sm text-muted-foreground">Valor calculado: {formatCurrency(valorSeguranca)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Taxa legal 2026: <strong>{toFixed2(TSU_PATRONAL)}%</strong> (TSU a cargo da empresa).
+                          Calculado: {formatCurrency(valorSeguranca)}
+                        </p>
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="percentualIRS">IRS (%) sobre salario base</Label>
+                        <Label htmlFor="percentualSeguroAcidentes">Seguro de acidentes de trabalho (%)</Label>
                         <Input
-                          id="percentualIRS"
+                          id="percentualSeguroAcidentes"
                           type="number"
                           step="0.01"
                           min="0"
-                          value={formData.percentualIRS}
-                          onChange={(e) => setFormData({ ...formData, percentualIRS: Number(e.target.value) || 0 })}
+                          value={formData.percentualSeguroAcidentes}
+                          onChange={(e) =>
+                            setFormData({ ...formData, percentualSeguroAcidentes: Number(e.target.value) || 0 })
+                          }
                           className="rounded-full"
                         />
-                        <p className="text-sm text-muted-foreground">Valor calculado: {formatCurrency(valorIRS)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Obrigatorio. Na construcao ronda 1% a 5% conforme o risco. Calculado:{" "}
+                          {formatCurrency(valorSeguroAcidentes)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <label className="flex items-start gap-3 rounded-lg border p-3">
+                      <Checkbox
+                        checked={formData.incluiSubsidios}
+                        onCheckedChange={(checked) =>
+                          setFormData({ ...formData, incluiSubsidios: checked === true })
+                        }
+                        className="mt-0.5"
+                      />
+                      <span className="text-sm">
+                        Diluir subsidios de ferias e Natal no custo mensal
+                        <span className="block text-xs text-muted-foreground">
+                          Em Portugal paga-se 14 meses de salario por ano. Diluir os 2 meses extra ({formatCurrency(
+                            valorSubsidiosMensal,
+                          )}
+                          /mes) evita subavaliar o custo/hora.
+                        </span>
+                      </span>
+                    </label>
+
+                    {beneficiosAcimaDoLimite > 0 && (
+                      <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-xs">
+                        O subsidio de alimentacao esta {formatCurrency(beneficiosAcimaDoLimite)} acima do limite isento
+                        ({formatCurrency(SUBSIDIO_ALIMENTACAO_ISENTO_CARTAO)}/dia em cartao x {diasUteisMes} dias ={" "}
+                        {formatCurrency(limiteSubsidioMes)}). O excedente paga IRS e Seguranca Social dos dois lados.
+                      </div>
+                    )}
+
+                    <div className="rounded-lg border p-4 space-y-2">
+                      <div className="text-xs font-medium text-muted-foreground uppercase">Memoria de calculo</div>
+                      <div className="flex justify-between text-sm">
+                        <span>Salario base</span>
+                        <span className="font-medium">{formatCurrency(formData.salarioBase)}</span>
+                      </div>
+                      {formData.incluiSubsidios && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground pl-4">Subsidios ferias + Natal (2/12)</span>
+                          <span>+ {formatCurrency(valorSubsidiosMensal)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-sm border-t pt-2">
+                        <span>Base de incidencia</span>
+                        <span className="font-medium">{formatCurrency(baseEncargos)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground pl-4">
+                          Seguranca Social patronal ({toFixed2(formData.percentualSeguranca)}%)
+                        </span>
+                        <span>+ {formatCurrency(valorSeguranca)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground pl-4">
+                          Seguro de acidentes ({toFixed2(formData.percentualSeguroAcidentes)}%)
+                        </span>
+                        <span>+ {formatCurrency(valorSeguroAcidentes)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground pl-4">Beneficios (isento ate ao limite)</span>
+                        <span>+ {formatCurrency(formData.valorBeneficios)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground pl-4">Transporte (isento)</span>
+                        <span>+ {formatCurrency(formData.valorTransporte)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm border-t pt-2">
+                        <span className="text-muted-foreground">Total de encargos da empresa</span>
+                        <span className="font-semibold">{formatCurrency(totalEncargos)}</span>
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg bg-primary/10 p-4">
+                      <div className="text-sm text-muted-foreground">Custo total mensal da empresa</div>
+                      <div className="text-2xl font-bold text-primary">{formatCurrency(salarioTotal)}</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {percentualSobreSalario > 0 && (
+                          <>
+                            {toFixed2(percentualSobreSalario)}% da remuneracao bruta
+                            {percentualSobreSalario >= 128 && percentualSobreSalario <= 148
+                              ? " - dentro da referencia de mercado em PT (130% a 145%)"
+                              : " - fora da referencia habitual em PT (130% a 145%), vale rever os campos"}
+                          </>
+                        )}
                       </div>
                     </div>
 
                     <div className="rounded-lg border p-4 space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Total de encargos</span>
-                        <span className="font-semibold">{formatCurrency(totalEncargos)}</span>
-                      </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Custo/hora automatico (real)</span>
                         <span className="font-semibold">{formatCurrency(custoHoraCalculado)}</span>
@@ -799,25 +943,18 @@ export default function FuncionariosPage() {
                         <span className="font-semibold">{formatCurrency(valorDeVendaCalculado)}</span>
                       </div>
                     </div>
-
-                    <div className="rounded-lg bg-primary/10 p-4">
-                      <div className="text-sm text-muted-foreground">Salario total com encargos</div>
-                      <div className="text-2xl font-bold text-primary">{formatCurrency(salarioTotal)}</div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        Base + Beneficios + Transporte + Seguranca + IRS
-                      </div>
-                    </div>
                   </TabsContent>
 
                   <TabsContent value="encargosLiquidos" className="space-y-4 mt-4">
                     <p className="text-sm text-muted-foreground">
-                      Mesma estrutura da aba Encargos, com percentuais proprios. Aqui os encargos sao{" "}
-                      <strong>descontados</strong> do salario, mostrando o valor liquido e o custo/hora liquido.
+                      O que o trabalhador recebe. Aqui entram os descontos do <strong>lado do trabalhador</strong>,
+                      incidindo apenas sobre o salario base: subsidio de alimentacao e transporte sao isentos ate ao
+                      limite legal e entram por inteiro.
                     </p>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="percentualSegurancaLiquido">Seguranca (%) sobre salario base</Label>
+                        <Label htmlFor="percentualSegurancaLiquido">Seguranca Social do trabalhador (%)</Label>
                         <Input
                           id="percentualSegurancaLiquido"
                           type="number"
@@ -829,13 +966,14 @@ export default function FuncionariosPage() {
                           }
                           className="rounded-full"
                         />
-                        <p className="text-sm text-muted-foreground">
-                          Valor calculado: {formatCurrency(valorSegurancaLiquido)}
+                        <p className="text-xs text-muted-foreground">
+                          Taxa legal 2026: <strong>{toFixed2(TSU_TRABALHADOR)}%</strong> (TSU retida ao trabalhador).
+                          Calculado: {formatCurrency(valorSegurancaLiquido)}
                         </p>
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="percentualIRSLiquido">IRS (%) sobre salario base</Label>
+                        <Label htmlFor="percentualIRSLiquido">IRS retido na fonte (%)</Label>
                         <Input
                           id="percentualIRSLiquido"
                           type="number"
@@ -847,24 +985,42 @@ export default function FuncionariosPage() {
                           }
                           className="rounded-full"
                         />
-                        <p className="text-sm text-muted-foreground">
-                          Valor calculado: {formatCurrency(valorIRSLiquido)}
+                        <p className="text-xs text-muted-foreground">
+                          Depende do escalao, estado civil e dependentes (tabelas de retencao 2026, Despacho
+                          233-A/2026). Ate 920 EUR/mes ha isencao. Calculado: {formatCurrency(valorIRSLiquido)}
                         </p>
                       </div>
                     </div>
 
                     <div className="rounded-lg border p-4 space-y-2">
+                      <div className="text-xs font-medium text-muted-foreground uppercase">Memoria de calculo</div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Total de encargos descontados</span>
-                        <span className="font-semibold">- {formatCurrency(totalEncargosLiquido)}</span>
+                        <span>Salario base</span>
+                        <span className="font-medium">{formatCurrency(formData.salarioBase)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Custo/hora liquido</span>
-                        <span className="font-semibold">{formatCurrency(custoHoraLiquido)}</span>
+                        <span className="text-muted-foreground pl-4">
+                          Seguranca ({toFixed2(formData.percentualSegurancaLiquido)}% do salario base)
+                        </span>
+                        <span>- {formatCurrency(valorSegurancaLiquido)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground pl-4">
+                          IRS ({toFixed2(formData.percentualIRSLiquido)}% do salario base)
+                        </span>
+                        <span>- {formatCurrency(valorIRSLiquido)}</span>
                       </div>
                       <div className="flex justify-between text-sm border-t pt-2">
-                        <span className="text-muted-foreground">Valor de venda/hora (liquido + margem)</span>
-                        <span className="font-semibold">{formatCurrency(valorVendaHoraLiquido)}</span>
+                        <span className="font-medium">Salario base liquido</span>
+                        <span className="font-semibold">{formatCurrency(salarioBaseLiquido)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground pl-4">Beneficios (isento, sem desconto)</span>
+                        <span>+ {formatCurrency(formData.valorBeneficios)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground pl-4">Transporte (isento, sem desconto)</span>
+                        <span>+ {formatCurrency(formData.valorTransporte)}</span>
                       </div>
                     </div>
 
@@ -872,7 +1028,19 @@ export default function FuncionariosPage() {
                       <div className="text-sm text-muted-foreground">Salario liquido</div>
                       <div className="text-2xl font-bold">{formatCurrency(salarioTotalLiquido)}</div>
                       <div className="text-xs text-muted-foreground mt-1">
-                        Base + Beneficios + Transporte - Seguranca - IRS
+                        ({formatCurrency(formData.salarioBase)} - {formatCurrency(totalEncargosLiquido)}) +{" "}
+                        {formatCurrency(valoresIsentos)} isentos
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border p-4 space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Custo/hora liquido</span>
+                        <span className="font-semibold">{formatCurrency(custoHoraLiquido)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm border-t pt-2">
+                        <span className="text-muted-foreground">Valor de venda/hora (liquido + margem)</span>
+                        <span className="font-semibold">{formatCurrency(valorVendaHoraLiquido)}</span>
                       </div>
                     </div>
                   </TabsContent>
