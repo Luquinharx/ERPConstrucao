@@ -33,3 +33,6 @@ next-env.d.ts
 firebase-debug.log*
 firestore-debug.log*
 .firebase/
+# Planilhas de obra com dados de clientes
+*.xlsx
+*.xls
