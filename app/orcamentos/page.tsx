@@ -567,6 +567,7 @@ export default function OrcamentosPage() {
 
   const [duplicandoItem, setDuplicandoItem] = useState<ItemOrcamento | null>(null)
   const [duplicarFuncionarioId, setDuplicarFuncionarioId] = useState("")
+  const [duplicarAmbienteDestino, setDuplicarAmbienteDestino] = useState("")
 
   const { user } = useAuth()
 
@@ -809,34 +810,97 @@ export default function OrcamentosPage() {
     }
   }
 
-  const handleDuplicarMaoObra = () => {
+  /**
+   * Duplica um item para outro comodo (ou para o mesmo).
+   * Em mao de obra pode-se ainda trocar o funcionario, recalculando o valor/hora.
+   */
+  const handleDuplicarItem = () => {
     if (!duplicandoItem) return
 
-    const funcionario = funcionarios.find((item) => item.id === duplicarFuncionarioId)
-    if (!funcionario) {
-      toast({
-        title: "Selecione um funcionario",
-        description: "Escolha o funcionario que vai receber a copia da mao de obra.",
-        variant: "destructive",
-      })
-      return
-    }
+    const destino = duplicarAmbienteDestino === "__sem" ? "" : duplicarAmbienteDestino
+    let novoItem: ItemOrcamento
 
-    const novoItem = buildMaoObraItem(funcionario, duplicandoItem.quantidade, duplicandoItem.unidade)
+    if (duplicandoItem.tipo === "mao_obra") {
+      const funcionario = funcionarios.find((item) => item.id === duplicarFuncionarioId)
+      if (!funcionario) {
+        toast({
+          title: "Selecione um funcionario",
+          description: "Escolha o funcionario que vai receber a copia da mao de obra.",
+          variant: "destructive",
+        })
+        return
+      }
+      novoItem = { ...buildMaoObraItem(funcionario, duplicandoItem.quantidade, duplicandoItem.unidade), ambiente: destino }
+    } else {
+      novoItem = {
+        ...duplicandoItem,
+        id: `${duplicandoItem.tipo}-copia-${Date.now()}-${Math.round(Math.random() * 1000)}`,
+        ambiente: destino,
+      }
+    }
 
     setFormData({
       ...formData,
       itens: [...formData.itens, novoItem],
-      funcionariosSelecionados: [...new Set([...formData.funcionariosSelecionados, funcionario.id!])],
+      funcionariosSelecionados: novoItem.funcionarioId
+        ? [...new Set([...formData.funcionariosSelecionados, novoItem.funcionarioId])]
+        : formData.funcionariosSelecionados,
     })
 
     toast({
-      title: "Mao de obra duplicada",
-      description: `${toFixed2(duplicandoItem.quantidade)} ${duplicandoItem.unidade} atribuidas a ${funcionario.nome}.`,
+      title: "Item duplicado",
+      description: destino ? `Copia criada em "${destino}".` : "Copia criada sem comodo.",
     })
 
     setDuplicandoItem(null)
     setDuplicarFuncionarioId("")
+    setDuplicarAmbienteDestino("")
+  }
+
+  /** Renomeia um comodo e leva junto todos os itens que estavam nele. */
+  const renomearAmbiente = (antigo: string, novo: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      ambientes: prev.ambientes.map((nome) => (nome === antigo ? novo : nome)),
+      itens: prev.itens.map((item) => (item.ambiente === antigo ? { ...item, ambiente: novo } : item)),
+    }))
+    setAmbienteAtual((atual) => (atual === antigo ? novo : atual))
+  }
+
+  /**
+   * Duplica um comodo inteiro com todos os seus itens.
+   * Util quando o Quarto 02 leva os mesmos trabalhos do Quarto 01.
+   */
+  const duplicarAmbiente = (nome: string) => {
+    const itensOrigem = formData.itens.filter((item) => (item.ambiente || "") === (nome === SEM_AMBIENTE ? "" : nome))
+    if (itensOrigem.length === 0) return
+
+    // Encontra um nome livre: "Quarto 01" -> "Quarto 01 (copia)" -> "... (copia 2)"
+    let destino = `${nome} (copia)`
+    let sufixo = 2
+    while (formData.ambientes.includes(destino)) {
+      destino = `${nome} (copia ${sufixo})`
+      sufixo++
+    }
+
+    const carimbo = Date.now()
+    const copias = itensOrigem.map((item, indice) => ({
+      ...item,
+      id: `${item.tipo}-copia-${carimbo}-${indice}`,
+      ambiente: destino,
+    }))
+
+    setFormData({
+      ...formData,
+      ambientes: [...formData.ambientes, destino],
+      itens: [...formData.itens, ...copias],
+    })
+    setAmbienteAtual(destino)
+
+    toast({
+      title: "Comodo duplicado",
+      description: `${copias.length} item(s) copiados para "${destino}".`,
+    })
   }
 
   const handleItemUpdate = (
@@ -1636,11 +1700,34 @@ export default function OrcamentosPage() {
                   <h3 className="text-lg font-medium">Itens do Orcamento</h3>
                   {agruparPorAmbiente(formData.itens, formData.ambientes).map((grupo, indiceGrupo) => (
                   <div key={grupo.nome} className="space-y-3">
-                    <div className="flex items-center justify-between rounded-md bg-primary/10 px-3 py-2">
-                      <span className="text-sm font-semibold">
-                        {indiceGrupo + 1}. {grupo.nome}
-                      </span>
-                      <span className="text-sm font-semibold">{formatCurrency(grupo.subtotal)}</span>
+                    <div className="flex items-center justify-between gap-2 rounded-md bg-primary/10 px-3 py-2">
+                      <div className="flex flex-1 items-center gap-2">
+                        <span className="text-sm font-semibold">{indiceGrupo + 1}.</span>
+                        {grupo.nome === SEM_AMBIENTE ? (
+                          <span className="text-sm font-semibold">{grupo.nome}</span>
+                        ) : (
+                          <Input
+                            value={grupo.nome}
+                            onChange={(e) => renomearAmbiente(grupo.nome, e.target.value)}
+                            className="h-7 max-w-[240px] border-none bg-transparent px-1 text-sm font-semibold shadow-none focus-visible:bg-background"
+                            title="Clique para renomear o comodo"
+                          />
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold">{formatCurrency(grupo.subtotal)}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 gap-1 text-xs"
+                          title={`Duplicar "${grupo.nome}" com todos os itens`}
+                          onClick={() => duplicarAmbiente(grupo.nome)}
+                        >
+                          <Copy className="h-3 w-3" />
+                          Duplicar comodo
+                        </Button>
+                      </div>
                     </div>
                     {grupo.itens.map((item, indiceItem) => {
                       const indice = formData.itens.indexOf(item)
@@ -1712,21 +1799,20 @@ export default function OrcamentosPage() {
                               </div>
                             </div>
                             <div className="flex items-center gap-1">
-                              {item.tipo === "mao_obra" && (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  title="Duplicar mao de obra para outro funcionario"
-                                  onClick={() => {
-                                    setDuplicandoItem(item)
-                                    setDuplicarFuncionarioId(item.funcionarioId || "")
-                                  }}
-                                  className="h-6 w-6"
-                                >
-                                  <Copy className="h-3 w-3" />
-                                </Button>
-                              )}
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                title="Duplicar este item para outro comodo"
+                                onClick={() => {
+                                  setDuplicandoItem(item)
+                                  setDuplicarFuncionarioId(item.funcionarioId || "")
+                                  setDuplicarAmbienteDestino(item.ambiente || "__sem")
+                                }}
+                                className="h-6 w-6"
+                              >
+                                <Copy className="h-3 w-3" />
+                              </Button>
                               <Button
                                 type="button"
                                 variant="ghost"
@@ -1981,46 +2067,71 @@ export default function OrcamentosPage() {
               </div>
             </form>
 
-            {/* Duplicar mao de obra para outro funcionario */}
+            {/* Duplicar item: escolhe o comodo de destino e, na mao de obra, o funcionario */}
             <Dialog
               open={!!duplicandoItem}
               onOpenChange={(open) => {
                 if (!open) {
                   setDuplicandoItem(null)
                   setDuplicarFuncionarioId("")
+                  setDuplicarAmbienteDestino("")
                 }
               }}
             >
               <DialogContent className="sm:max-w-[480px]">
                 <DialogHeader>
-                  <DialogTitle>Duplicar Mao de Obra</DialogTitle>
+                  <DialogTitle>Duplicar item</DialogTitle>
                   <DialogDescription>
-                    Copia {toFixed2(duplicandoItem?.quantidade || 0)} {duplicandoItem?.unidade} para outro funcionario.
-                    O valor/hora usado e o do funcionario escolhido.
+                    Copia &quot;{duplicandoItem?.nome || duplicandoItem?.descricao}&quot; ({
+                      toFixed2(duplicandoItem?.quantidade || 0)
+                    }{" "}
+                    {duplicandoItem?.unidade}) para outro comodo. Util quando o Quarto 02 leva os mesmos trabalhos do
+                    Quarto 01.
                   </DialogDescription>
                 </DialogHeader>
 
-                <div className="space-y-2">
-                  <Label>Funcionario da copia</Label>
-                  <Select value={duplicarFuncionarioId} onValueChange={setDuplicarFuncionarioId}>
-                    <SelectTrigger className="rounded-full">
-                      <SelectValue placeholder="Escolha um funcionario" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {funcionarios.map((funcionario) => (
-                        <SelectItem key={funcionario.id} value={funcionario.id!}>
-                          {funcionario.nome} - {formatCurrency(funcionario.custoHora)} /hora
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Comodo de destino</Label>
+                    <Select value={duplicarAmbienteDestino} onValueChange={setDuplicarAmbienteDestino}>
+                      <SelectTrigger className="rounded-full">
+                        <SelectValue placeholder="Escolha o comodo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__sem">Sem comodo</SelectItem>
+                        {formData.ambientes.map((nome) => (
+                          <SelectItem key={nome} value={nome}>
+                            {nome}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {duplicandoItem?.tipo === "mao_obra" && (
+                    <div className="space-y-2">
+                      <Label>Funcionario da copia</Label>
+                      <Select value={duplicarFuncionarioId} onValueChange={setDuplicarFuncionarioId}>
+                        <SelectTrigger className="rounded-full">
+                          <SelectValue placeholder="Escolha um funcionario" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {funcionarios.map((funcionario) => (
+                            <SelectItem key={funcionario.id} value={funcionario.id!}>
+                              {funcionario.nome} - {formatCurrency(funcionario.custoHora)} /hora
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex justify-end gap-2 pt-4">
                   <Button type="button" variant="outline" onClick={() => setDuplicandoItem(null)}>
                     Cancelar
                   </Button>
-                  <Button type="button" onClick={handleDuplicarMaoObra} className="rounded-full">
+                  <Button type="button" onClick={handleDuplicarItem} className="rounded-full">
                     <Copy className="h-4 w-4 mr-2" />
                     Duplicar
                   </Button>
