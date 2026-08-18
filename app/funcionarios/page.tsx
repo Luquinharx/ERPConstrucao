@@ -71,6 +71,7 @@ interface FuncionarioFormState {
   percentualIRS: number
   percentualSeguroAcidentes: number
   incluiSubsidios: boolean
+  mesesSubsidioAlimentacao: number
   percentualSegurancaLiquido: number
   percentualIRSLiquido: number
   // Cada encargo pode ser lancado por percentagem ou por valor fixo
@@ -100,6 +101,8 @@ const SUBSIDIO_ALIMENTACAO_ISENTO_CARTAO = 10.46
 const SUBSIDIO_ALIMENTACAO_ISENTO_DINHEIRO = 6.15
 /** Ferias + Natal: 14 meses de salario diluidos em 12. */
 const MESES_SUBSIDIOS = 2 / 12
+/** O subsidio de alimentacao paga-se por dia trabalhado: 11 meses por ano. */
+const MESES_SUBSIDIO_ALIMENTACAO = 11
 
 function getCurrentMonthInput(): string {
   const now = new Date()
@@ -135,6 +138,7 @@ function getDefaultFormData(): FuncionarioFormState {
     percentualIRS: 0,
     percentualSeguroAcidentes: SEGURO_ACIDENTES_CONSTRUCAO,
     incluiSubsidios: true,
+    mesesSubsidioAlimentacao: MESES_SUBSIDIO_ALIMENTACAO,
     percentualSegurancaLiquido: TSU_TRABALHADOR,
     percentualIRSLiquido: 0,
     modoSeguranca: "percentual",
@@ -328,10 +332,18 @@ export default function FuncionariosPage() {
   const valorSeguroAcidentes = seguroAcidentes.valor
   // O IRS nao entra: e retido ao trabalhador, nao e custo da empresa
   const totalEncargos = round2(valorSeguranca + valorSeguroAcidentes)
+  /**
+   * O subsidio de alimentacao paga-se por dia trabalhado, entao nao ha refeicao
+   * no mes de ferias: por norma sao 11 meses por ano. Para o custo mensal medio
+   * dilui-se pelos 12 meses do ano.
+   */
+  const beneficiosMensalMedio = formData.incluiSubsidios
+    ? round2((formData.valorBeneficios * Number(formData.mesesSubsidioAlimentacao || 12)) / 12)
+    : round2(formData.valorBeneficios)
   const salarioTotal = round2(
     formData.salarioBase +
       valorSubsidiosMensal +
-      formData.valorBeneficios +
+      beneficiosMensalMedio +
       formData.valorTransporte +
       totalEncargos,
   )
@@ -461,6 +473,8 @@ export default function FuncionariosPage() {
         valorSeguroAcidentes,
         modoSeguroAcidentes: formData.modoSeguroAcidentes,
         incluiSubsidios: formData.incluiSubsidios,
+        mesesSubsidioAlimentacao: Number(formData.mesesSubsidioAlimentacao) || 12,
+        beneficiosMensalMedio,
         valorSubsidiosMensal,
         totalEncargos,
         salarioTotal,
@@ -539,6 +553,7 @@ export default function FuncionariosPage() {
       percentualIRS: funcionario.percentualIRS || 0,
       percentualSeguroAcidentes: funcionario.percentualSeguroAcidentes ?? SEGURO_ACIDENTES_CONSTRUCAO,
       incluiSubsidios: funcionario.incluiSubsidios ?? true,
+      mesesSubsidioAlimentacao: funcionario.mesesSubsidioAlimentacao ?? MESES_SUBSIDIO_ALIMENTACAO,
       percentualSegurancaLiquido: funcionario.percentualSegurancaLiquido ?? TSU_TRABALHADOR,
       percentualIRSLiquido: funcionario.percentualIRSLiquido ?? funcionario.percentualIRS ?? 0,
       modoSeguranca: funcionario.modoSeguranca ?? "percentual",
@@ -1019,6 +1034,30 @@ export default function FuncionariosPage() {
                       </span>
                     </label>
 
+                    {formData.incluiSubsidios && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="mesesSubsidioAlimentacao">Meses de subsidio de alimentacao por ano</Label>
+                          <Input
+                            id="mesesSubsidioAlimentacao"
+                            type="number"
+                            step="1"
+                            min="0"
+                            max="12"
+                            value={formData.mesesSubsidioAlimentacao}
+                            onChange={(e) =>
+                              setFormData({ ...formData, mesesSubsidioAlimentacao: Number(e.target.value) || 0 })
+                            }
+                            className="rounded-full"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Paga-se por dia trabalhado, entao no mes de ferias nao ha refeicao: por norma{" "}
+                            {MESES_SUBSIDIO_ALIMENTACAO} meses. Media mensal: {formatCurrency(beneficiosMensalMedio)}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
                     {beneficiosAcimaDoLimite > 0 && (
                       <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-xs">
                         O subsidio de alimentacao esta {formatCurrency(beneficiosAcimaDoLimite)} acima do limite isento
@@ -1056,8 +1095,13 @@ export default function FuncionariosPage() {
                         <span>+ {formatCurrency(valorSeguroAcidentes)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground pl-4">Beneficios (isento ate ao limite)</span>
-                        <span>+ {formatCurrency(formData.valorBeneficios)}</span>
+                        <span className="text-muted-foreground pl-4">
+                          Subsidio alimentacao{" "}
+                          {formData.incluiSubsidios
+                            ? `(${formData.mesesSubsidioAlimentacao} meses/ano diluidos)`
+                            : "(isento ate ao limite)"}
+                        </span>
+                        <span>+ {formatCurrency(beneficiosMensalMedio)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground pl-4">Transporte (isento)</span>

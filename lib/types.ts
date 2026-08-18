@@ -69,6 +69,10 @@ export interface Funcionario {
   /** Diluir subsidios de ferias e Natal no custo mensal (14 meses). */
   incluiSubsidios?: boolean
   valorSubsidiosMensal?: number
+  /** Meses de subsidio de alimentacao por ano (por norma 11: nao ha refeicao em ferias). */
+  mesesSubsidioAlimentacao?: number
+  /** Media mensal do subsidio de alimentacao ja diluida no ano. */
+  beneficiosMensalMedio?: number
 
   // Encargo liquido: o que o trabalhador recebe (descontos do lado do trabalhador)
   percentualSegurancaLiquido?: number
