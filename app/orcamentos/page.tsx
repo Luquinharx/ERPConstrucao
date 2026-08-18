@@ -48,6 +48,8 @@ interface OrcamentoFormState {
   funcionariosSelecionados: string[]
   servicosSelecionados: string[]
   itens: ItemOrcamento[]
+  /** Comodos do orcamento, pela ordem de apresentacao. */
+  ambientes: string[]
   margemLucro: number
   /** Custo de transporte: linha propria no final do orcamento. */
   transporte: number
@@ -109,6 +111,7 @@ function getDefaultFormData(): OrcamentoFormState {
     funcionariosSelecionados: [],
     servicosSelecionados: [],
     itens: [],
+    ambientes: [],
     margemLucro: 20,
     transporte: 0,
     taxaIVA: 23,
@@ -144,6 +147,34 @@ function getDefaultMaoObraForm(): MaoObraFormState {
 function calculateItemTotal(quantidade: number, precoUnitario: number, valorFixo?: boolean): number {
   if (valorFixo) return round2(precoUnitario)
   return round2((Number(quantidade) || 0) * (Number(precoUnitario) || 0))
+}
+
+
+/** Item sem comodo definido cai neste grupo. */
+const SEM_AMBIENTE = "Sem comodo"
+
+/**
+ * Agrupa os itens por comodo, respeitando a ordem definida no orcamento.
+ * Devolve tambem o subtotal de cada grupo, como no formato usado em obra
+ * (1 Sala, 1.1, 1.2 ... com o total da divisao no cabecalho).
+ */
+function agruparPorAmbiente(itens: ItemOrcamento[], ambientes: string[] = []) {
+  const grupos = new Map<string, ItemOrcamento[]>()
+
+  for (const nome of ambientes) grupos.set(nome, [])
+  for (const item of itens) {
+    const chave = item.ambiente?.trim() || SEM_AMBIENTE
+    if (!grupos.has(chave)) grupos.set(chave, [])
+    grupos.get(chave)!.push(item)
+  }
+
+  return Array.from(grupos.entries())
+    .filter(([, lista]) => lista.length > 0)
+    .map(([nome, lista]) => ({
+      nome,
+      itens: lista,
+      subtotal: round2(lista.reduce((acc, item) => acc + (Number(item.total) || 0), 0)),
+    }))
 }
 
 function calculateSubtotal(itens: ItemOrcamento[]): number {
@@ -308,28 +339,59 @@ function buildOrcamentoDocumentHtml(
     )
   }
 
-  const itensRows = itens
-    .map((item, indice) => {
-      const nome = getItemDescricaoDocumento(item, tipo)
-      const detalhe = item.nome && item.descricao && item.descricao !== item.nome ? item.descricao : ""
-      const totalItem = isCusto
-        ? calculateItemTotal(item.quantidade, item.custoUnitario ?? item.precoUnitario, item.valorFixo)
-        : totaisVenda[indice]
-      const precoUnitario =
-        item.valorFixo || !item.quantidade ? totalItem : round2(totalItem / Number(item.quantidade))
-      const quantidadeLabel = item.valorFixo ? "Valor fixo" : toFixed2(item.quantidade)
+  // Numeracao hierarquica por comodo: 1 Sala / 1.1, 1.2 ... como nas propostas de obra
+  const gruposDocumento = agruparPorAmbiente(itens, orcamento.ambientes)
+  const temAmbientes = gruposDocumento.length > 1 || gruposDocumento[0]?.nome !== SEM_AMBIENTE
+  const indicePorItem = new Map(itens.map((item, indice) => [item.id, indice]))
 
-      return `
+  const itensRows = gruposDocumento
+    .map((grupo, indiceGrupo) => {
+      // Subtotal do comodo ja com a margem diluida, para bater com o total do documento
+      const subtotalGrupo = grupo.itens.reduce((acc, item) => {
+        const indice = indicePorItem.get(item.id) ?? 0
+        return acc + (isCusto
+          ? calculateItemTotal(item.quantidade, item.custoUnitario ?? item.precoUnitario, item.valorFixo)
+          : totaisVenda[indice])
+      }, 0)
+
+      const cabecalho = temAmbientes
+        ? `
+        <tr class="grupo">
+          <td>${indiceGrupo + 1}</td>
+          <td colspan="4">${escapeHtml(grupo.nome)}</td>
+          <td style="text-align:right">${formatCurrency(round2(subtotalGrupo))}</td>
+        </tr>`
+        : ""
+
+      const linhas = grupo.itens
+        .map((item, indiceItem) => {
+          const indice = indicePorItem.get(item.id) ?? 0
+          const nome = getItemDescricaoDocumento(item, tipo)
+          const detalhe = item.nome && item.descricao && item.descricao !== item.nome ? item.descricao : ""
+          const totalItem = isCusto
+            ? calculateItemTotal(item.quantidade, item.custoUnitario ?? item.precoUnitario, item.valorFixo)
+            : totaisVenda[indice]
+          const precoUnitario =
+            item.valorFixo || !item.quantidade ? totalItem : round2(totalItem / Number(item.quantidade))
+          const quantidadeLabel = item.valorFixo ? "Valor fixo" : toFixed2(item.quantidade)
+          const numero = temAmbientes ? `${indiceGrupo + 1}.${indiceItem + 1}` : String(indice + 1)
+
+          return `
         <tr>
+          <td style="text-align:center; color:#64748b">${numero}</td>
           <td>
             <div style="font-weight:600">${escapeHtml(nome)}</div>
             ${detalhe ? `<div style="color:#475569; font-size:12px; margin-top:2px">${escapeHtml(detalhe)}</div>` : ""}
           </td>
-          <td>${escapeHtml(item.valorFixo ? "-" : item.unidade)}</td>
+          <td style="text-align:center">${escapeHtml(item.valorFixo ? "-" : item.unidade)}</td>
           <td style="text-align:right">${quantidadeLabel}</td>
           <td style="text-align:right">${formatCurrency(precoUnitario)}</td>
           <td style="text-align:right">${formatCurrency(totalItem)}</td>
         </tr>`
+        })
+        .join("")
+
+      return cabecalho + linhas
     })
     .join("")
 
@@ -379,7 +441,9 @@ function buildOrcamentoDocumentHtml(
         .box { border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; }
         table { width: 100%; border-collapse: collapse; margin-top: 14px; }
         th, td { border: 1px solid #cbd5e1; padding: 8px; font-size: 13px; }
-        th { background: #f8fafc; text-align: left; }
+        th { background: #1e293b; color: #fff; text-align: left; }
+        tr.grupo td { background: #ea580c; color: #fff; font-weight: 700; }
+        tr.grupo td:first-child { text-align: center; }
         .totals { margin-top: 14px; margin-left: auto; width: 360px; }
         .totals div { display: flex; justify-content: space-between; margin: 4px 0; }
         .total-final { font-weight: bold; font-size: 18px; border-top: 1px solid #cbd5e1; padding-top: 8px; margin-top: 8px; }
@@ -428,11 +492,12 @@ function buildOrcamentoDocumentHtml(
         <table>
           <thead>
             <tr>
+              <th style="width:52px; text-align:center">Item</th>
               <th>Descricao</th>
-              <th>Unidade</th>
-              <th>Qtd.</th>
-              <th>Valor Unitario</th>
-              <th>Total</th>
+              <th style="width:60px; text-align:center">UN</th>
+              <th style="width:70px; text-align:right">Qtd.</th>
+              <th style="width:100px; text-align:right">Valor Unitario</th>
+              <th style="width:110px; text-align:right">Valor Total</th>
             </tr>
           </thead>
           <tbody>
@@ -496,6 +561,10 @@ export default function OrcamentosPage() {
   const [formData, setFormData] = useState<OrcamentoFormState>(getDefaultFormData())
 
   // Duplicar mao de obra: item de origem + funcionario escolhido para a copia
+  // Comodo em que os proximos itens serao lancados
+  const [ambienteAtual, setAmbienteAtual] = useState("")
+  const [novoAmbiente, setNovoAmbiente] = useState("")
+
   const [duplicandoItem, setDuplicandoItem] = useState<ItemOrcamento | null>(null)
   const [duplicarFuncionarioId, setDuplicarFuncionarioId] = useState("")
 
@@ -656,6 +725,7 @@ export default function OrcamentosPage() {
         custoUnitario: round2(servicoForm.precoUnitario),
         total: calculateItemTotal(servicoForm.quantidade, servicoForm.precoUnitario),
         valorFixo: false,
+        ambiente: ambienteAtual,
         tipo: "servico",
         servicoId: servicoForm.servicoId,
       },
@@ -673,6 +743,7 @@ export default function OrcamentosPage() {
         custoUnitario: round2(servicoForm.precoFixo),
         total: round2(servicoForm.precoFixo),
         valorFixo: true,
+        ambiente: ambienteAtual,
         tipo: "servico",
         servicoId: servicoForm.servicoId,
       })
@@ -730,6 +801,7 @@ export default function OrcamentosPage() {
       custoUnitario,
       total: calculateItemTotal(quantidade, precoUnitario),
       valorFixo: false,
+      ambiente: ambienteAtual,
       tipo: "mao_obra",
       funcionarioId: funcionario.id,
       funcionarioNome: funcionario.nome,
@@ -792,6 +864,30 @@ export default function OrcamentosPage() {
     })
 
     setFormData({ ...formData, itens: updatedItens })
+  }
+
+  // --- Comodos (Sala, Cozinha, Quarto...): agrupam os itens no documento
+
+  const adicionarAmbiente = () => {
+    const nome = novoAmbiente.trim()
+    if (!nome) return
+    if (formData.ambientes.some((item) => item.toLowerCase() === nome.toLowerCase())) {
+      toast({ title: "Comodo ja existe", description: `"${nome}" ja esta na lista.`, variant: "destructive" })
+      return
+    }
+    setFormData({ ...formData, ambientes: [...formData.ambientes, nome] })
+    setNovoAmbiente("")
+    if (!ambienteAtual) setAmbienteAtual(nome)
+  }
+
+  const removerAmbiente = (nome: string) => {
+    setFormData({
+      ...formData,
+      ambientes: formData.ambientes.filter((item) => item !== nome),
+      // Os itens do comodo removido ficam sem comodo, nao se perdem
+      itens: formData.itens.map((item) => (item.ambiente === nome ? { ...item, ambiente: "" } : item)),
+    })
+    if (ambienteAtual === nome) setAmbienteAtual("")
   }
 
   const handleItemRemove = (itemId: string) => {
@@ -915,6 +1011,7 @@ export default function OrcamentosPage() {
         dataValidade,
         orcamentista: user.email || "",
         itens: formData.itens,
+        ambientes: formData.ambientes,
         funcionariosSelecionados: formData.funcionariosSelecionados,
         servicosSelecionados: formData.servicosSelecionados,
         subtotal,
@@ -981,6 +1078,7 @@ export default function OrcamentosPage() {
       funcionariosSelecionados: orcamento.funcionariosSelecionados || [],
       servicosSelecionados: orcamento.servicosSelecionados || [],
       itens: orcamento.itens || [],
+      ambientes: orcamento.ambientes || [],
       margemLucro: orcamento.margemLucro || 0,
       transporte: round2(orcamento.transporte || 0),
       // Orcamentos criados antes do campo de IVA ficam com 0 para nao alterar o total ja acordado
@@ -1280,6 +1378,69 @@ export default function OrcamentosPage() {
               </div>
 
               <div className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-medium">Comodos</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Organize o orcamento por divisao da casa. No documento cada comodo sai como uma seccao com o seu
+                    subtotal, e os itens ficam numerados 1.1, 1.2, 2.1...
+                  </p>
+                </div>
+
+                <Card className="p-4 border-2 border-dashed space-y-3">
+                  <div className="flex gap-2">
+                    <Input
+                      value={novoAmbiente}
+                      onChange={(e) => setNovoAmbiente(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault()
+                          adicionarAmbiente()
+                        }
+                      }}
+                      placeholder="Ex.: Sala, Hall, Cozinha, Quarto 01, Marquise"
+                      className="rounded-full"
+                    />
+                    <Button type="button" onClick={adicionarAmbiente} className="rounded-full">
+                      <Plus className="h-4 w-4 mr-1" />
+                      Adicionar
+                    </Button>
+                  </div>
+
+                  {formData.ambientes.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {formData.ambientes.map((nome) => (
+                        <Badge
+                          key={nome}
+                          variant={ambienteAtual === nome ? "default" : "outline"}
+                          className="cursor-pointer gap-1 py-1"
+                          onClick={() => setAmbienteAtual(ambienteAtual === nome ? "" : nome)}
+                        >
+                          {nome}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              removerAmbiente(nome)
+                            }}
+                            aria-label={`Remover ${nome}`}
+                            className="ml-1 opacity-70 hover:opacity-100"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+
+                  <p className="text-xs text-muted-foreground">
+                    {ambienteAtual
+                      ? `Os proximos itens vao para: ${ambienteAtual}. Clique no comodo para trocar.`
+                      : "Nenhum comodo selecionado: os proximos itens ficam sem comodo. Clique num comodo para o escolher."}
+                  </p>
+                </Card>
+              </div>
+
+              <div className="space-y-4">
                 <h3 className="text-lg font-medium">Servico no orcamento</h3>
                 <Card className="p-4 border-2 border-dashed">
                   <div className="space-y-4">
@@ -1473,20 +1634,48 @@ export default function OrcamentosPage() {
               {formData.itens.length > 0 && (
                 <div className="space-y-4">
                   <h3 className="text-lg font-medium">Itens do Orcamento</h3>
-                  <div className="space-y-3">
-                    {formData.itens.map((item, indice) => {
+                  {agruparPorAmbiente(formData.itens, formData.ambientes).map((grupo, indiceGrupo) => (
+                  <div key={grupo.nome} className="space-y-3">
+                    <div className="flex items-center justify-between rounded-md bg-primary/10 px-3 py-2">
+                      <span className="text-sm font-semibold">
+                        {indiceGrupo + 1}. {grupo.nome}
+                      </span>
+                      <span className="text-sm font-semibold">{formatCurrency(grupo.subtotal)}</span>
+                    </div>
+                    {grupo.itens.map((item, indiceItem) => {
+                      const indice = formData.itens.indexOf(item)
                       const readOnlyServico = item.tipo === "servico"
                       const custoUnitario = item.custoUnitario ?? item.precoUnitario
                       const estilo = getItemEstilo(item.tipo)
                       return (
                         <div key={item.id} className={`p-4 border rounded-lg ${estilo.card}`}>
                           <div className="flex items-center gap-2 mb-2">
-                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-background text-xs font-semibold">
-                              {indice + 1}
+                            <span className="flex h-6 shrink-0 items-center justify-center rounded-full bg-background px-2 text-xs font-semibold">
+                              {indiceGrupo + 1}.{indiceItem + 1}
                             </span>
                             <Badge variant="outline" className={`text-xs ${estilo.badge}`}>
                               {estilo.label}
                             </Badge>
+                            {formData.ambientes.length > 0 && (
+                              <Select
+                                value={item.ambiente || "__sem"}
+                                onValueChange={(value) =>
+                                  handleItemUpdate(item.id, "ambiente", value === "__sem" ? "" : value)
+                                }
+                              >
+                                <SelectTrigger className="h-6 w-auto gap-1 rounded-full border-none bg-background/60 px-2 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="__sem">Sem comodo</SelectItem>
+                                  {formData.ambientes.map((nome) => (
+                                    <SelectItem key={nome} value={nome}>
+                                      {nome}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
                             <span className="ml-auto text-sm font-semibold">{formatCurrency(item.total)}</span>
                           </div>
                           <div className="flex items-start justify-between mb-2 gap-2">
@@ -1627,6 +1816,7 @@ export default function OrcamentosPage() {
                       )
                     })}
                   </div>
+                  ))}
                 </div>
               )}
 

@@ -192,6 +192,8 @@ export interface Servico {
 
 export interface ItemOrcamento {
   id: string
+  /** Comodo/ambiente a que o item pertence (ex.: Sala, Cozinha, Quarto 01). */
+  ambiente?: string
   /** Nome curto do item (servico, funcao ou material). */
   nome?: string
   /** Descricao detalhada do item, impressa abaixo do nome. */
@@ -235,6 +237,8 @@ export interface Orcamento {
   dataValidade: Date
   orcamentista: string
   itens: ItemOrcamento[]
+  /** Comodos do orcamento, pela ordem em que devem sair no documento. */
+  ambientes?: string[]
   funcionariosSelecionados: string[]
   servicosSelecionados: string[]
   subtotal: number
