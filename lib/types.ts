@@ -71,6 +71,15 @@ export interface Funcionario {
   valorSubsidiosMensal?: number
   /** Meses de subsidio de alimentacao por ano (por norma 11: nao ha refeicao em ferias). */
   mesesSubsidioAlimentacao?: number
+  /** Subsidio de alimentacao por dia e numero de dias considerados. */
+  subsidioDiario?: number
+  diasSubsidio?: number
+  /** Tabela de retencao de IRS, dependentes e se o valor e automatico. */
+  tabelaIRS?: string
+  dependentes?: number
+  irsAutomatico?: boolean
+  /** Dias uteis usados como base do custo/hora (maior mes do ano). */
+  diasUteisBase?: number
   /** Media mensal do subsidio de alimentacao ja diluida no ano. */
   beneficiosMensalMedio?: number
 

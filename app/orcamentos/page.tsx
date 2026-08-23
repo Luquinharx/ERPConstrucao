@@ -312,8 +312,6 @@ function buildOrcamentoDocumentHtml(
   const valorIVA = round2(orcamento.valorIVA ?? 0)
   const totalCusto = round2(orcamento.valorTotalCusto ?? calculateTotalCusto(subtotalCusto, transporte))
   const total = isCusto ? totalCusto : totalVenda
-  // O IVA nao e receita da empresa, entao o lucro compara a base tributavel com o custo
-  const lucro = round2(baseTributavel - totalCusto)
 
   const termosAtivos = termos.filter((item) => item.ativo)
   const grouped = {
@@ -379,10 +377,7 @@ function buildOrcamentoDocumentHtml(
           return `
         <tr>
           <td style="text-align:center; color:#64748b">${numero}</td>
-          <td>
-            <div style="font-weight:600">${escapeHtml(nome)}</div>
-            ${detalhe ? `<div style="color:#475569; font-size:12px; margin-top:2px">${escapeHtml(detalhe)}</div>` : ""}
-          </td>
+          <td>${escapeHtml(detalhe || nome)}</td>
           <td style="text-align:center">${escapeHtml(item.valorFixo ? "-" : item.unidade)}</td>
           <td style="text-align:right">${quantidadeLabel}</td>
           <td style="text-align:right">${formatCurrency(precoUnitario)}</td>
@@ -435,6 +430,9 @@ function buildOrcamentoDocumentHtml(
       <title>Orcamento ${isCusto ? "CUSTO " : ""}${escapeHtml(orcamento.numero)}</title>
       <style>
         body { font-family: Arial, sans-serif; padding: 24px; color: #0f172a; }
+        /* Sem isto o navegador imprime os fundos a branco */
+        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        @media print { @page { margin: 12mm; } tr.grupo td { background: #ea580c !important; color: #fff !important; } }
         h1, h2, h3 { margin: 0; }
         .muted { color: #475569; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
@@ -516,7 +514,6 @@ function buildOrcamentoDocumentHtml(
           <div style="margin-top:8px"><span>Subtotal de venda:</span><span>${formatCurrency(subtotal)}</span></div>
           <div><span>Margem (${toFixed2(margem)}%):</span><span>${formatCurrency(margemValor)}</span></div>
           <div><span>Venda sem IVA (base):</span><span>${formatCurrency(baseTributavel)}</span></div>
-          <div><span>Lucro previsto:</span><span>${formatCurrency(lucro)}</span></div>
           <div><span>IVA (${toFixed2(taxaIVA)}%) a entregar:</span><span>${formatCurrency(valorIVA)}</span></div>
           <div><span>Total cobrado ao cliente:</span><span>${formatCurrency(totalVenda)}</span></div>
         `
@@ -698,10 +695,20 @@ export default function OrcamentosPage() {
       return
     }
 
-    if (formData.servicosSelecionados.includes(servicoForm.servicoId)) {
+    // O mesmo servico pode entrar em varios comodos (ex.: pintura na sala e no quarto).
+    // So se bloqueia a repeticao dentro do MESMO comodo, onde bastaria somar a quantidade.
+    const repetidoNoMesmoAmbiente = formData.itens.some(
+      (item) =>
+        item.tipo === "servico" &&
+        item.servicoId === servicoForm.servicoId &&
+        (item.ambiente || "") === (ambienteAtual || ""),
+    )
+    if (repetidoNoMesmoAmbiente) {
       toast({
-        title: "Servico ja adicionado",
-        description: "Para esse fluxo, cada servico entra apenas uma vez. Ajuste a quantidade do item existente.",
+        title: "Servico ja consta neste comodo",
+        description: ambienteAtual
+          ? `Este servico ja esta em "${ambienteAtual}". Escolha outro comodo ou ajuste a quantidade do item existente.`
+          : "Este servico ja foi adicionado. Escolha um comodo ou ajuste a quantidade do item existente.",
         variant: "destructive",
       })
       return

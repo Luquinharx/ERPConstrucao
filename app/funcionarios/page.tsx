@@ -43,6 +43,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { formatCurrency, matchesSearch, round2, toFixed2 } from "@/lib/utils"
 import { ListToolbar } from "@/components/ui/list-toolbar"
 import { useSearchQuery } from "@/hooks/use-search-query"
+import { TABELAS_IRS, calcularIRS, getTabelaIRS } from "@/lib/irs-tables"
 
 interface FuncionarioFormState {
   nome: string
@@ -72,6 +73,13 @@ interface FuncionarioFormState {
   percentualSeguroAcidentes: number
   incluiSubsidios: boolean
   mesesSubsidioAlimentacao: number
+  /** Subsidio de alimentacao: valor por dia x dias, calculado automaticamente. */
+  subsidioDiario: number
+  diasSubsidio: number
+  /** IRS: tabela de retencao, dependentes e se o valor e calculado ou manual. */
+  tabelaIRS: string
+  dependentes: number
+  irsAutomatico: boolean
   percentualSegurancaLiquido: number
   percentualIRSLiquido: number
   // Cada encargo pode ser lancado por percentagem ou por valor fixo
@@ -139,6 +147,11 @@ function getDefaultFormData(): FuncionarioFormState {
     percentualSeguroAcidentes: SEGURO_ACIDENTES_CONSTRUCAO,
     incluiSubsidios: true,
     mesesSubsidioAlimentacao: MESES_SUBSIDIO_ALIMENTACAO,
+    subsidioDiario: 0,
+    diasSubsidio: 22,
+    tabelaIRS: "I",
+    dependentes: 0,
+    irsAutomatico: true,
     percentualSegurancaLiquido: TSU_TRABALHADOR,
     percentualIRSLiquido: 0,
     modoSeguranca: "percentual",
@@ -197,6 +210,29 @@ function calculateDiasUteisMes(mesReferencia: string, diasPorSemana: number): nu
 
   return total
 }
+
+
+/**
+ * Mes do ano com mais dias uteis.
+ *
+ * O custo/hora e a base dos orcamentos, entao nao pode oscilar de mes para mes
+ * (fevereiro tem 20 dias uteis, dezembro 22: o custo/hora variava de 12,05 para
+ * 10,90). Fixando o maior mes do ano, o valor fica estavel e conservador -
+ * assume o mes com mais horas, logo o menor custo por hora.
+ */
+function calculateMaiorMesDoAno(ano: number, diasPorSemana: number): { dias: number; mes: number } {
+  let melhor = { dias: 0, mes: 1 }
+  for (let mes = 1; mes <= 12; mes++) {
+    const dias = calculateDiasUteisMes(`${ano}-${String(mes).padStart(2, "0")}`, diasPorSemana)
+    if (dias > melhor.dias) melhor = { dias, mes }
+  }
+  return melhor
+}
+
+const NOMES_MESES = [
+  "janeiro", "fevereiro", "marco", "abril", "maio", "junho",
+  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+]
 
 function calculateHorasPorMes(mesReferencia: string, horasPorDia: number, diasPorSemana: number): number {
   const diasUteis = calculateDiasUteisMes(mesReferencia, diasPorSemana)
@@ -307,9 +343,18 @@ export default function FuncionariosPage() {
 
   const [formData, setFormData] = useState<FuncionarioFormState>(getDefaultFormData())
 
-  const diasUteisMes = calculateDiasUteisMes(formData.mesReferencia, formData.diasPorSemana)
   const horasPorSemana = calculateHorasPorSemana(formData.horasPorDia, formData.diasPorSemana)
-  const horasPorMes = calculateHorasPorMes(formData.mesReferencia, formData.horasPorDia, formData.diasPorSemana)
+  // O mes escolhido serve para indicar o ano e para comparacao; a base do custo e o maior mes
+  const anoReferencia = Number(formData.mesReferencia?.split("-")[0]) || new Date().getFullYear()
+  const diasDoMesEscolhido = calculateDiasUteisMes(formData.mesReferencia, formData.diasPorSemana)
+  const maiorMes = calculateMaiorMesDoAno(anoReferencia, formData.diasPorSemana)
+  const diasUteisMes = maiorMes.dias
+  const horasPorMes = round2(diasUteisMes * (Number(formData.horasPorDia) || 0))
+
+  // Subsidio de alimentacao: valor diario x dias, para acompanhar o calendario
+  const valorBeneficiosCalculado = round2(
+    (Number(formData.subsidioDiario) || 0) * (Number(formData.diasSubsidio) || 0),
+  )
 
   // === ENCARGOS: custo real da empresa ===
   // Subsidios de ferias e Natal diluidos no mes (14 meses de salario em 12)
@@ -338,8 +383,8 @@ export default function FuncionariosPage() {
    * dilui-se pelos 12 meses do ano.
    */
   const beneficiosMensalMedio = formData.incluiSubsidios
-    ? round2((formData.valorBeneficios * Number(formData.mesesSubsidioAlimentacao || 12)) / 12)
-    : round2(formData.valorBeneficios)
+    ? round2((valorBeneficiosCalculado * Number(formData.mesesSubsidioAlimentacao || 12)) / 12)
+    : round2(valorBeneficiosCalculado)
   const salarioTotal = round2(
     formData.salarioBase +
       valorSubsidiosMensal +
@@ -358,7 +403,7 @@ export default function FuncionariosPage() {
 
   // Limite de isencao do subsidio de alimentacao, para alertar excesso
   const limiteSubsidioMes = round2(SUBSIDIO_ALIMENTACAO_ISENTO_CARTAO * diasUteisMes)
-  const beneficiosAcimaDoLimite = round2(Math.max(0, formData.valorBeneficios - limiteSubsidioMes))
+  const beneficiosAcimaDoLimite = round2(Math.max(0, valorBeneficiosCalculado - limiteSubsidioMes))
 
   // === ENCARGO LIQUIDO: o que o trabalhador recebe ===
   // Descontos do lado do trabalhador (TSU 11% + IRS), apenas sobre o salario base.
@@ -369,12 +414,16 @@ export default function FuncionariosPage() {
     formData.valorSegurancaLiquidoManual,
     formData.salarioBase,
   )
-  const irsLiquido = resolverTaxa(
-    formData.modoIRSLiquido,
-    formData.percentualIRSLiquido,
-    formData.valorIRSLiquidoManual,
-    formData.salarioBase,
-  )
+  // IRS pela tabela oficial de retencao; o utilizador pode sobrepor a mao
+  const irsCalculado = calcularIRS(formData.salarioBase, formData.tabelaIRS, formData.dependentes)
+  const irsLiquido = formData.irsAutomatico
+    ? { valor: irsCalculado.valor, percentual: irsCalculado.taxaEfetiva }
+    : resolverTaxa(
+        formData.modoIRSLiquido,
+        formData.percentualIRSLiquido,
+        formData.valorIRSLiquidoManual,
+        formData.salarioBase,
+      )
   const valorSegurancaLiquido = segurancaLiquido.valor
   const valorIRSLiquido = irsLiquido.valor
   const totalEncargosLiquido = round2(valorSegurancaLiquido + valorIRSLiquido)
@@ -382,10 +431,10 @@ export default function FuncionariosPage() {
   const taxaEfetivaDesconto =
     formData.salarioBase > 0 ? round2((totalEncargosLiquido / formData.salarioBase) * 100) : 0
   /** Total ilíquido: o que entra antes dos descontos. */
-  const totalIliquido = round2(formData.salarioBase + formData.valorBeneficios + formData.valorTransporte)
+  const totalIliquido = round2(formData.salarioBase + valorBeneficiosCalculado + formData.valorTransporte)
   /** Salario base ja com os descontos, antes de somar os valores isentos. */
   const salarioBaseLiquido = round2(formData.salarioBase - totalEncargosLiquido)
-  const valoresIsentos = round2(formData.valorBeneficios + formData.valorTransporte)
+  const valoresIsentos = round2(valorBeneficiosCalculado + formData.valorTransporte)
   const salarioTotalLiquido = round2(salarioBaseLiquido + valoresIsentos)
   const custoHoraLiquido = horasPorMes > 0 ? round2(salarioTotalLiquido / horasPorMes) : 0
   const valorVendaHoraLiquido = round2(custoHoraLiquido * (1 + Number(formData.margemLucro || 0) / 100))
@@ -461,7 +510,7 @@ export default function FuncionariosPage() {
         custoHora: valorDeVendaCalculado,
         custoHoraCalculado,
         salarioBase: round2(formData.salarioBase),
-        valorBeneficios: round2(formData.valorBeneficios),
+        valorBeneficios: round2(valorBeneficiosCalculado),
         valorTransporte: round2(formData.valorTransporte),
         // Grava a percentagem efetiva, mesmo quando foi lancado por valor fixo
         percentualSeguranca: seguranca.percentual,
@@ -474,6 +523,12 @@ export default function FuncionariosPage() {
         modoSeguroAcidentes: formData.modoSeguroAcidentes,
         incluiSubsidios: formData.incluiSubsidios,
         mesesSubsidioAlimentacao: Number(formData.mesesSubsidioAlimentacao) || 12,
+        subsidioDiario: round2(formData.subsidioDiario),
+        diasSubsidio: Number(formData.diasSubsidio) || 0,
+        tabelaIRS: formData.tabelaIRS,
+        dependentes: Number(formData.dependentes) || 0,
+        irsAutomatico: formData.irsAutomatico,
+        diasUteisBase: diasUteisMes,
         beneficiosMensalMedio,
         valorSubsidiosMensal,
         totalEncargos,
@@ -554,6 +609,15 @@ export default function FuncionariosPage() {
       percentualSeguroAcidentes: funcionario.percentualSeguroAcidentes ?? SEGURO_ACIDENTES_CONSTRUCAO,
       incluiSubsidios: funcionario.incluiSubsidios ?? true,
       mesesSubsidioAlimentacao: funcionario.mesesSubsidioAlimentacao ?? MESES_SUBSIDIO_ALIMENTACAO,
+      // Registos antigos guardavam so o total mensal: converte-se para valor/dia
+      subsidioDiario: round2(
+        funcionario.subsidioDiario ??
+          (funcionario.valorBeneficios ? funcionario.valorBeneficios / (funcionario.diasSubsidio || 22) : 0),
+      ),
+      diasSubsidio: funcionario.diasSubsidio ?? 22,
+      tabelaIRS: funcionario.tabelaIRS ?? "I",
+      dependentes: funcionario.dependentes ?? 0,
+      irsAutomatico: funcionario.irsAutomatico ?? true,
       percentualSegurancaLiquido: funcionario.percentualSegurancaLiquido ?? TSU_TRABALHADOR,
       percentualIRSLiquido: funcionario.percentualIRSLiquido ?? funcionario.percentualIRS ?? 0,
       modoSeguranca: funcionario.modoSeguranca ?? "percentual",
@@ -942,16 +1006,52 @@ export default function FuncionariosPage() {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="valorBeneficios">Valor Beneficios (EUR)</Label>
-                        <Input
-                          id="valorBeneficios"
-                          type="number"
-                          step="0.01"
-                          value={formData.valorBeneficios}
-                          onChange={(e) => setFormData({ ...formData, valorBeneficios: Number(e.target.value) || 0 })}
-                          placeholder="0.00"
-                          className="rounded-full"
-                        />
+                        <Label htmlFor="subsidioDiario">Subsidio de alimentacao por dia (EUR)</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            id="subsidioDiario"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={formData.subsidioDiario}
+                            onChange={(e) =>
+                              setFormData({ ...formData, subsidioDiario: round2(Number(e.target.value) || 0) })
+                            }
+                            placeholder="7,50"
+                            className="rounded-full"
+                          />
+                          <Input
+                            type="number"
+                            step="1"
+                            min="0"
+                            max="31"
+                            value={formData.diasSubsidio}
+                            onChange={(e) =>
+                              setFormData({ ...formData, diasSubsidio: Number(e.target.value) || 0 })
+                            }
+                            title="Dias considerados"
+                            className="w-20 rounded-full"
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {toFixed2(formData.subsidioDiario)} EUR x {formData.diasSubsidio} dias ={" "}
+                          <span className="font-medium text-foreground">
+                            {formatCurrency(valorBeneficiosCalculado)}
+                          </span>
+                          {formData.diasSubsidio !== diasUteisMes && (
+                            <>
+                              {" "}
+                              &middot;{" "}
+                              <button
+                                type="button"
+                                onClick={() => setFormData({ ...formData, diasSubsidio: diasUteisMes })}
+                                className="underline hover:text-foreground"
+                              >
+                                usar {diasUteisMes} dias (base)
+                              </button>
+                            </>
+                          )}
+                        </p>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="valorTransporte">Valor Transporte (EUR)</Label>
@@ -1169,24 +1269,110 @@ export default function FuncionariosPage() {
                         }
                       />
 
-                      <CampoTaxa
-                        id="percentualIRSLiquido"
-                        label="IRS retido na fonte"
-                        base={formData.salarioBase}
-                        modo={formData.modoIRSLiquido}
-                        percentual={formData.percentualIRSLiquido}
-                        valorManual={formData.valorIRSLiquidoManual}
-                        resolvido={irsLiquido}
-                        ajuda={<>tabelas 2026; isento ate 920 EUR/mes</>}
-                        onChange={(campos) =>
-                          setFormData({
-                            ...formData,
-                            modoIRSLiquido: campos.modo ?? formData.modoIRSLiquido,
-                            percentualIRSLiquido: campos.percentual ?? formData.percentualIRSLiquido,
-                            valorIRSLiquidoManual: campos.valorManual ?? formData.valorIRSLiquidoManual,
-                          })
-                        }
-                      />
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <Label>IRS retido na fonte</Label>
+                          <div className="flex rounded-full border p-0.5">
+                            <button
+                              type="button"
+                              onClick={() => setFormData({ ...formData, irsAutomatico: true })}
+                              className={`rounded-full px-2.5 py-0.5 text-xs transition-colors ${
+                                formData.irsAutomatico ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+                              }`}
+                            >
+                              Automatico
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setFormData({ ...formData, irsAutomatico: false })}
+                              className={`rounded-full px-2.5 py-0.5 text-xs transition-colors ${
+                                !formData.irsAutomatico ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+                              }`}
+                            >
+                              Manual
+                            </button>
+                          </div>
+                        </div>
+
+                        {formData.irsAutomatico ? (
+                          <>
+                            <Select
+                              value={formData.tabelaIRS}
+                              onValueChange={(value) => setFormData({ ...formData, tabelaIRS: value })}
+                            >
+                              <SelectTrigger className="rounded-full">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {TABELAS_IRS.map((tabela) => (
+                                  <SelectItem key={tabela.id} value={tabela.id}>
+                                    {tabela.nome} - {tabela.descricao}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+
+                            {getTabelaIRS(formData.tabelaIRS).aceitaDependentes && (
+                              <div className="flex items-center gap-2">
+                                <Label htmlFor="dependentes" className="text-xs text-muted-foreground">
+                                  Dependentes
+                                </Label>
+                                <Input
+                                  id="dependentes"
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  value={formData.dependentes}
+                                  onChange={(e) =>
+                                    setFormData({ ...formData, dependentes: Number(e.target.value) || 0 })
+                                  }
+                                  className="h-8 w-20 rounded-full"
+                                />
+                                <span className="text-xs text-muted-foreground">
+                                  - {formatCurrency(getTabelaIRS(formData.tabelaIRS).parcelaDependente)} cada
+                                </span>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={formData.valorIRSLiquidoManual}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                modoIRSLiquido: "valor",
+                                valorIRSLiquidoManual: round2(Number(e.target.value) || 0),
+                              })
+                            }
+                            placeholder="0,00 EUR"
+                            className="rounded-full"
+                          />
+                        )}
+
+                        <p className="text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">
+                            {toFixed2(irsLiquido.percentual)}% = {formatCurrency(irsLiquido.valor)}
+                          </span>
+                          {formData.irsAutomatico && (
+                            <>
+                              {" "}
+                              &middot;{" "}
+                              {irsCalculado.isento
+                                ? "isento (ate 920 EUR/mes)"
+                                : `escalao ate ${irsCalculado.escalaoAte ?? "-"} EUR, taxa marginal ${toFixed2(
+                                    irsCalculado.taxaMarginal,
+                                  )}%`}
+                            </>
+                          )}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Tabelas oficiais de 2026 (Despacho 233-A/2026). Formula: remuneracao x taxa - parcela a
+                          abater - parcela por dependente.
+                        </p>
+                      </div>
                     </div>
 
                     {/* Recibo de vencimento */}
@@ -1203,7 +1389,7 @@ export default function FuncionariosPage() {
                         </div>
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">Subsidio de alimentacao (isento)</span>
-                          <span>+ {formatCurrency(formData.valorBeneficios)}</span>
+                          <span>+ {formatCurrency(valorBeneficiosCalculado)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">Transporte (isento)</span>
