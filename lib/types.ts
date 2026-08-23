@@ -78,6 +78,8 @@ export interface Funcionario {
   tabelaIRS?: string
   dependentes?: number
   irsAutomatico?: boolean
+  /** Base de horas do custo/hora: media anual, maior mes, menor mes ou mes escolhido. */
+  baseHoras?: "media" | "maior" | "menor" | "mes"
   /** Dias uteis usados como base do custo/hora (maior mes do ano). */
   diasUteisBase?: number
   /** Media mensal do subsidio de alimentacao ja diluida no ano. */

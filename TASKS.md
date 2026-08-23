@@ -55,7 +55,10 @@ Dias úteis de 2026 (5 dias/semana) e o custo/hora resultante para um custo mens
   AGORA: fixo em 10,51 (julho, 23 dias = 184h)
 ```
 
-> ⚠️ **Atenção ao efeito:** mais horas no divisor dá o **menor** custo/hora do ano. Se a obra decorrer num mês curto (fevereiro, 160h), o custo real por hora é 12,09 € — cerca de 15% acima do orçado. É a opção mais agressiva, não a mais segura. A alternativa é a média anual (~21,3 dias, ≈11,35 €/h), que fica no meio e não subavalia nenhum mês. Trocar é uma linha de código.
+**A base passou a ser configurável** (o valor fixo no maior mês era arriscado: dá o menor custo/hora do ano e subavalia meses curtos em ~15%). Agora há um seletor na aba Horário e Valores, por funcionário:
+
+\
+Padrão: **média anual** (261 dias úteis em 2026 ÷ 12 = 21,75 dias/mês). Não subavalia nem sobreavalia nenhum mês. A tela mostra a conta e o efeito de cada opção.
 
 ---
 

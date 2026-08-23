@@ -80,6 +80,8 @@ interface FuncionarioFormState {
   tabelaIRS: string
   dependentes: number
   irsAutomatico: boolean
+  /** Base de horas usada no custo/hora. */
+  baseHoras: BaseHoras
   percentualSegurancaLiquido: number
   percentualIRSLiquido: number
   // Cada encargo pode ser lancado por percentagem ou por valor fixo
@@ -152,6 +154,7 @@ function getDefaultFormData(): FuncionarioFormState {
     tabelaIRS: "I",
     dependentes: 0,
     irsAutomatico: true,
+    baseHoras: "media",
     percentualSegurancaLiquido: TSU_TRABALHADOR,
     percentualIRSLiquido: 0,
     modoSeguranca: "percentual",
@@ -233,6 +236,52 @@ const NOMES_MESES = [
   "janeiro", "fevereiro", "marco", "abril", "maio", "junho",
   "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
 ]
+
+
+/** Como se define a quantidade de horas do mes usada no custo/hora. */
+export type BaseHoras = "media" | "maior" | "menor" | "mes"
+
+/**
+ * Dias uteis de cada mes do ano, para se poder comparar as bases.
+ */
+function calculateDiasUteisDoAno(ano: number, diasPorSemana: number): number[] {
+  return Array.from({ length: 12 }, (_, i) =>
+    calculateDiasUteisMes(`${ano}-${String(i + 1).padStart(2, "0")}`, diasPorSemana),
+  )
+}
+
+/**
+ * Resolve a base de dias uteis do mes.
+ *
+ * O custo/hora e o divisor de todos os orcamentos, entao a base tem de ser uma
+ * escolha consciente:
+ * - media  : media anual, nao subavalia nem sobreavalia nenhum mes
+ * - maior  : mes com mais horas, da o menor custo/hora (mais agressivo)
+ * - menor  : mes com menos horas, da o maior custo/hora (mais seguro)
+ * - mes    : usa exatamente o mes de referencia escolhido
+ */
+function resolverBaseDias(
+  base: BaseHoras,
+  ano: number,
+  diasPorSemana: number,
+  mesReferencia: string,
+): { dias: number; detalhe: string } {
+  const doAno = calculateDiasUteisDoAno(ano, diasPorSemana)
+  const maiorDias = Math.max(...doAno)
+  const menorDias = Math.min(...doAno)
+
+  if (base === "maior") {
+    return { dias: maiorDias, detalhe: `${NOMES_MESES[doAno.indexOf(maiorDias)]} de ${ano}` }
+  }
+  if (base === "menor") {
+    return { dias: menorDias, detalhe: `${NOMES_MESES[doAno.indexOf(menorDias)]} de ${ano}` }
+  }
+  if (base === "mes") {
+    return { dias: calculateDiasUteisMes(mesReferencia, diasPorSemana), detalhe: "mes de referencia" }
+  }
+  const total = doAno.reduce((acc, dias) => acc + dias, 0)
+  return { dias: round2(total / 12), detalhe: `${total} dias uteis em ${ano} / 12` }
+}
 
 function calculateHorasPorMes(mesReferencia: string, horasPorDia: number, diasPorSemana: number): number {
   const diasUteis = calculateDiasUteisMes(mesReferencia, diasPorSemana)
@@ -347,8 +396,13 @@ export default function FuncionariosPage() {
   // O mes escolhido serve para indicar o ano e para comparacao; a base do custo e o maior mes
   const anoReferencia = Number(formData.mesReferencia?.split("-")[0]) || new Date().getFullYear()
   const diasDoMesEscolhido = calculateDiasUteisMes(formData.mesReferencia, formData.diasPorSemana)
-  const maiorMes = calculateMaiorMesDoAno(anoReferencia, formData.diasPorSemana)
-  const diasUteisMes = maiorMes.dias
+  const baseDias = resolverBaseDias(
+    formData.baseHoras,
+    anoReferencia,
+    formData.diasPorSemana,
+    formData.mesReferencia,
+  )
+  const diasUteisMes = baseDias.dias
   const horasPorMes = round2(diasUteisMes * (Number(formData.horasPorDia) || 0))
 
   // Subsidio de alimentacao: valor diario x dias, para acompanhar o calendario
@@ -528,6 +582,7 @@ export default function FuncionariosPage() {
         tabelaIRS: formData.tabelaIRS,
         dependentes: Number(formData.dependentes) || 0,
         irsAutomatico: formData.irsAutomatico,
+        baseHoras: formData.baseHoras,
         diasUteisBase: diasUteisMes,
         beneficiosMensalMedio,
         valorSubsidiosMensal,
@@ -618,6 +673,7 @@ export default function FuncionariosPage() {
       tabelaIRS: funcionario.tabelaIRS ?? "I",
       dependentes: funcionario.dependentes ?? 0,
       irsAutomatico: funcionario.irsAutomatico ?? true,
+      baseHoras: (funcionario.baseHoras as BaseHoras) ?? "media",
       percentualSegurancaLiquido: funcionario.percentualSegurancaLiquido ?? TSU_TRABALHADOR,
       percentualIRSLiquido: funcionario.percentualIRSLiquido ?? funcionario.percentualIRS ?? 0,
       modoSeguranca: funcionario.modoSeguranca ?? "percentual",
@@ -961,11 +1017,33 @@ export default function FuncionariosPage() {
                         </div>
                       </div>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Horas/mes = dias uteis reais do mes de referencia x horas por dia ({diasUteisMes} x{" "}
-                      {toFixed2(formData.horasPorDia)} = {toFixed2(horasPorMes)}h). Os dias uteis seguem o calendario
-                      real, contando a partir de segunda-feira conforme os dias por semana definidos.
-                    </p>
+                    <div className="space-y-2">
+                      <Label htmlFor="baseHoras">Base de horas para o custo/hora</Label>
+                      <Select
+                        value={formData.baseHoras}
+                        onValueChange={(value) => setFormData({ ...formData, baseHoras: value as BaseHoras })}
+                      >
+                        <SelectTrigger className="rounded-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="media">Media anual - equilibrada</SelectItem>
+                          <SelectItem value="maior">Maior mes do ano - menor custo/hora</SelectItem>
+                          <SelectItem value="menor">Menor mes do ano - maior custo/hora</SelectItem>
+                          <SelectItem value="mes">Mes de referencia escolhido</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Base atual: <span className="font-medium text-foreground">{toFixed2(diasUteisMes)} dias</span>{" "}
+                        ({baseDias.detalhe}) x {toFixed2(formData.horasPorDia)}h ={" "}
+                        <span className="font-medium text-foreground">{toFixed2(horasPorMes)}h/mes</span>. O mes
+                        escolhido acima tem {diasDoMesEscolhido} dias uteis.
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Quanto mais horas no divisor, menor o custo/hora. A media anual nao subavalia nem sobreavalia
+                        nenhum mes; o maior mes da o valor mais agressivo e o menor mes o mais seguro.
+                      </p>
+                    </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
