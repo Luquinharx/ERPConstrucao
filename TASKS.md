@@ -6,7 +6,7 @@ Build: `npm run build` ✅ · Typecheck dos ficheiros alterados: limpo.
 | # | Task | Módulo | Status |
 |---|------|--------|--------|
 | 1 | Subsídio de alimentação = valor diário × dias | Funcionários | ✅ Feito |
-| 2 | Custo/hora deixou de oscilar com o mês | Funcionários | ✅ Feito |
+| 2 | Base de horas do custo/hora configurável | Funcionários | ✅ Feito |
 | 3 | IRS calculado automaticamente pelas tabelas oficiais | Funcionários | ✅ Feito |
 | 4 | Mesmo serviço em cômodos diferentes | Orçamentos | ✅ Feito |
 | 5 | PDF: tirar negrito do nome do item | Orçamentos | ✅ Feito |
@@ -33,32 +33,26 @@ O aviso de limite de isenção continua a funcionar (10,46 €/dia em cartão, 6
 
 ---
 
-## Task 2 — Custo/hora fixo no maior mês do ano
+## Task 2 — Base de horas do custo/hora deixou de oscilar
 
 **Pedido:** "ele muda o valor hora, fev tem 20 dias e dezembro tem 22, varia entre 10,90 para 12,05. Oscila muito, vou ter de considerar sempre o maior mês em dias úteis"
 
-**Antes:** o custo/hora usava os dias úteis do mês escolhido, então mudava conforme o mês de referência.
+**Antes:** o custo/hora usava os dias úteis do mês de referência, então mudava conforme o mês escolhido — de 12,09 € em fevereiro a 10,51 € em julho.
 
-**Agora:** o sistema varre os 12 meses do ano e usa sempre o de mais dias úteis.
-
-Dias úteis de 2026 (5 dias/semana) e o custo/hora resultante para um custo mensal de 1.933,75 €:
+**Agora:** a base é uma escolha explícita, num seletor na aba Horário e Valores, por funcionário. Para 2026, com 8h/dia e custo mensal de 1.933,75 €:
 
 ```
-  jan: 22 dias = 176h  ->  10.99        jul: 23 dias = 184h  ->  10.51
-  fev: 20 dias = 160h  ->  12.09        ago: 21 dias = 168h  ->  11.51
-  mar: 22 dias = 176h  ->  10.99        set: 22 dias = 176h  ->  10.99
-  abr: 22 dias = 176h  ->  10.99        out: 22 dias = 176h  ->  10.99
-  mai: 21 dias = 168h  ->  11.51        nov: 21 dias = 168h  ->  11.51
-  jun: 22 dias = 176h  ->  10.99        dez: 23 dias = 184h  ->  10.51
-
-  ANTES: variava de 12,09 a 10,51 conforme o mês
-  AGORA: fixo em 10,51 (julho, 23 dias = 184h)
+  Media anual           21.75 dias =    174h  ->  custo/hora 11.11 EUR   <- padrao
+  Maior mes (jul/dez)      23 dias =    184h  ->  custo/hora 10.51 EUR   mais agressivo
+  Menor mes (fev)          20 dias =    160h  ->  custo/hora 12.09 EUR   mais seguro
+  Mes de referencia        22 dias =    176h  ->  custo/hora 10.99 EUR
 ```
 
-**A base passou a ser configurável** (o valor fixo no maior mês era arriscado: dá o menor custo/hora do ano e subavalia meses curtos em ~15%). Agora há um seletor na aba Horário e Valores, por funcionário:
+O padrão é a **média anual**: 261 dias úteis em 2026 ÷ 12 = 21,75 dias/mês. Não subavalia nem sobreavalia nenhum mês.
 
-\
-Padrão: **média anual** (261 dias úteis em 2026 ÷ 12 = 21,75 dias/mês). Não subavalia nem sobreavalia nenhum mês. A tela mostra a conta e o efeito de cada opção.
+> ⚠️ Fixar no **maior mês** dá o menor custo/hora do ano. Como o custo mensal é fixo, mais horas no divisor significa menos euros por hora — e se a obra decorrer num mês curto (fevereiro, 160h), o custo real é 12,09 €/h, cerca de 15% acima do orçado. É a opção mais agressiva, não a mais segura. O **menor mês** é o inverso: garante que nunca falta, ao custo de orçar mais caro.
+
+A tela mostra sempre a conta da base ativa: `21,75 dias (261 dias úteis em 2026 / 12) × 8,00h = 174,00h/mês`.
 
 ---
 
