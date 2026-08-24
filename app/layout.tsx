@@ -6,10 +6,14 @@ import { Providers } from "./providers"
 
 const inter = Inter({ subsets: ["latin"] })
 
+/**
+ * Titulo e icone neutros: a identidade real (nome da empresa, logotipo e cores)
+ * e aplicada em tempo de execucao a partir de Configuracoes, para o sistema
+ * poder ser usado por qualquer empresa sem tocar no codigo.
+ */
 export const metadata: Metadata = {
-  title: "Sistema de Orçamentos de Pintura",
-  description: "Gerencie seus orçamentos de pintura de forma eficiente.",
-  generator: 'v0.app'
+  title: "Sistema de Orcamentos",
+  description: "Orcamentos, composicao de precos e gestao de obra.",
 }
 
 export default function RootLayout({

@@ -15,6 +15,29 @@ interface ConfiguracaoContextValue {
   prever: (novos: Partial<ConfiguracaoEmpresa>) => void
 }
 
+
+/** A identidade fica em cache para o ecra de login, que nao tem sessao. */
+const CHAVE_CACHE = "identidade-da-empresa"
+
+function lerCache(): ConfiguracaoEmpresa | null {
+  if (typeof window === "undefined") return null
+  try {
+    const guardado = window.localStorage.getItem(CHAVE_CACHE)
+    return guardado ? (JSON.parse(guardado) as ConfiguracaoEmpresa) : null
+  } catch {
+    return null
+  }
+}
+
+function gravarCache(config: ConfiguracaoEmpresa) {
+  if (typeof window === "undefined") return
+  try {
+    window.localStorage.setItem(CHAVE_CACHE, JSON.stringify(config))
+  } catch {
+    // Sem espaco ou em navegacao privada: a identidade continua a vir do Firestore
+  }
+}
+
 const ConfiguracaoContext = createContext<ConfiguracaoContextValue | undefined>(undefined)
 
 export function ConfiguracaoProvider({ children }: { children: ReactNode }) {
@@ -22,9 +45,13 @@ export function ConfiguracaoProvider({ children }: { children: ReactNode }) {
   const [configuracao, setConfiguracao] = useState<ConfiguracaoEmpresa>(CONFIGURACAO_PADRAO)
   const [carregando, setCarregando] = useState(true)
 
-  // A identidade e aplicada logo com os valores por omissao, para nao haver salto visual
+  // Aplica de imediato a ultima identidade conhecida, para nao haver salto visual
+  // nem o ecra de login aparecer com a marca errada
   useEffect(() => {
-    aplicarIdentidade(CONFIGURACAO_PADRAO)
+    const emCache = lerCache()
+    const inicial = emCache ? { ...CONFIGURACAO_PADRAO, ...emCache } : CONFIGURACAO_PADRAO
+    if (emCache) setConfiguracao(inicial)
+    aplicarIdentidade(inicial)
   }, [])
 
   useEffect(() => {
@@ -41,6 +68,7 @@ export function ConfiguracaoProvider({ children }: { children: ReactNode }) {
         const completa = { ...CONFIGURACAO_PADRAO, ...guardada }
         setConfiguracao(completa)
         aplicarIdentidade(completa)
+        gravarCache(completa)
       }
       setCarregando(false)
     }
@@ -58,6 +86,7 @@ export function ConfiguracaoProvider({ children }: { children: ReactNode }) {
       await saveConfiguracaoEmpresa(completa, user.uid)
       setConfiguracao(completa)
       aplicarIdentidade(completa)
+      gravarCache(completa)
     },
     [configuracao, user],
   )

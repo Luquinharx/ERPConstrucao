@@ -100,6 +100,66 @@ export function corDeTexto(hex: string): string {
  * Aplica a identidade ao documento: variaveis de cor do tema e a fonte.
  * Chamado no arranque e sempre que a configuracao muda.
  */
+
+/**
+ * Gera um favicon a partir das iniciais da empresa, quando nao ha logotipo.
+ * Desenhado num canvas para nao depender de nenhum ficheiro.
+ */
+function faviconDasIniciais(nome: string, corFundo: string): string {
+  if (typeof document === "undefined") return ""
+
+  const canvas = document.createElement("canvas")
+  canvas.width = 64
+  canvas.height = 64
+  const ctx = canvas.getContext("2d")
+  if (!ctx) return ""
+
+  const iniciais = (nome || "?")
+    .split(/s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((palavra) => palavra[0])
+    .join("")
+    .toUpperCase()
+
+  ctx.fillStyle = corFundo
+  ctx.beginPath()
+  ctx.roundRect(0, 0, 64, 64, 14)
+  ctx.fill()
+
+  ctx.fillStyle = corDeTexto(corFundo)
+  ctx.font = "bold 30px system-ui, sans-serif"
+  ctx.textAlign = "center"
+  ctx.textBaseline = "middle"
+  ctx.fillText(iniciais, 32, 35)
+
+  return canvas.toDataURL("image/png")
+}
+
+/** Aplica o titulo do separador e o icone do navegador. */
+function aplicarTituloEIcone(config: ConfiguracaoEmpresa) {
+  if (typeof document === "undefined") return
+
+  const titulo = [config.nome, config.slogan].filter(Boolean).join(" - ")
+  if (titulo) document.title = titulo
+
+  let icone = ""
+  try {
+    icone = config.logoUrl || faviconDasIniciais(config.nome, config.corPrimaria)
+  } catch {
+    icone = ""
+  }
+  if (!icone) return
+
+  let link = document.querySelector<HTMLLinkElement>("link[rel='icon']")
+  if (!link) {
+    link = document.createElement("link")
+    link.rel = "icon"
+    document.head.appendChild(link)
+  }
+  link.href = icone
+}
+
 export function aplicarIdentidade(config: ConfiguracaoEmpresa) {
   if (typeof document === "undefined") return
 
@@ -125,4 +185,6 @@ export function aplicarIdentidade(config: ConfiguracaoEmpresa) {
     raiz.style.setProperty("--fonte-da-marca", `'${config.fonte}', system-ui, sans-serif`)
     document.body.style.fontFamily = `var(--fonte-da-marca)`
   }
+
+  aplicarTituloEIcone(config)
 }

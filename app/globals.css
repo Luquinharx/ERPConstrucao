@@ -290,3 +290,7 @@
     transform: translateY(-3px);
   }
 }
+
+/* A fonte vem de Configuracoes; o valor abaixo e apenas o ponto de partida */
+:root { --fonte-da-marca: Inter, system-ui, sans-serif; }
+body { font-family: var(--fonte-da-marca); }

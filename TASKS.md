@@ -140,3 +140,51 @@ Linha removida. O PDF de custo mantém: subtotal de custo, transporte, total de 
 - **Registo aberto:** qualquer pessoa que descubra o endereço pode criar conta e ver tudo. Há uma lista de e-mails autorizados pronta e comentada em [firestore.rules](firestore.rules).
 - **Planilha de cliente no histórico do git**, do commit em que entrou por engano. Removida do repositório, mas recuperável por quem clonar.
 - **PDF:** ainda sem logótipo, sem numeração no formato `CO26/0033` e sem o bloco de notas com condições de pagamento que a proposta de referência tem.
+
+---
+
+# Identidade visual parametrizavel (white-label)
+
+O sistema deixou de ter marca fixa no codigo. Tudo o que identifica a empresa
+vem de **Configuracoes → Identidade e propostas** e fica guardado no Firestore,
+num documento partilhado por toda a equipa.
+
+Se o sistema for vendido a outra empresa, basta trocar esses campos — nao ha
+uma linha de codigo a alterar.
+
+## O que e configuravel
+
+| Campo | Onde aparece |
+|---|---|
+| Logotipo | menu lateral, login, registo, cabecalho das propostas, icone do separador |
+| Cor principal | botoes, destaques, barra e cabecalhos de comodo das propostas |
+| Cor secundaria | apoio nos documentos |
+| Cor escura | cabecalhos de tabela das propostas |
+| Tipo de letra | todo o sistema e as propostas (6 fontes do Google Fonts) |
+| Nome e descritivo | menu lateral, login, titulo do separador, propostas |
+| NIF, morada, contactos, website | cabecalho e rodape das propostas |
+| Prefixo, validade, margem e IVA | valores sugeridos ao criar um orcamento |
+| Notas | rodape numerado das propostas |
+
+## Como foi feito
+
+- [lib/brand.ts](lib/brand.ts) — defaults, paletas, fontes, conversao de cor e a
+  funcao que aplica a identidade ao documento (variaveis CSS, fonte, titulo e favicon)
+- [hooks/use-configuracao.tsx](hooks/use-configuracao.tsx) — carrega do Firestore,
+  aplica e guarda em cache local
+- [components/marca-da-empresa.tsx](components/marca-da-empresa.tsx) — logotipo
+  reutilizavel, com o nome como alternativa
+- [components/configuracoes/identidade-da-empresa.tsx](components/configuracoes/identidade-da-empresa.tsx) — o ecra de edicao
+
+**Favicon:** usa o logotipo quando existe; sem logotipo, e desenhado num canvas
+com as iniciais da empresa sobre a cor principal.
+
+**Cache local:** o ecra de login nao tem sessao, logo nao pode ler o Firestore.
+A ultima identidade conhecida fica em `localStorage`, para o login aparecer ja
+com a marca certa. Na primeira visita de um dispositivo novo aparecem os defaults.
+
+**Pre-visualizacao:** cor e fonte aplicam-se enquanto se mexe nos campos, antes
+de guardar, para se ver o efeito em tempo real.
+
+> Auditoria: `grep` por nomes e cores da marca no codigo devolve apenas os
+> placeholders do proprio ecra de configuracao. Nada mais esta fixo.

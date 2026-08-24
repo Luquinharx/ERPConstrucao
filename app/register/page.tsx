@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { MarcaDaEmpresa } from "@/components/marca-da-empresa"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Eye, EyeOff, Mail, Lock, User, UserPlus, AlertCircle } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
@@ -80,14 +81,10 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <div className="flex items-center justify-center mb-4">
-            <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center">
-              <UserPlus className="h-6 w-6 text-primary-foreground" />
-            </div>
-          </div>
+          <MarcaDaEmpresa tamanho="lg" comSlogan className="mb-6" />
           <CardTitle className="text-2xl font-bold text-center">Criar Conta</CardTitle>
           <CardDescription className="text-center">Crie sua conta para acessar o sistema</CardDescription>
         </CardHeader>
