@@ -16,7 +16,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Edit, Trash2, Package, RefreshCw, Search, X } from "lucide-react"
+import { Plus, Edit, Trash2, Package, Search, X } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { toast } from "@/hooks/use-toast"
 import type { Material, MaterialCategory } from "@/lib/types"
@@ -58,15 +58,11 @@ export default function MateriaisPage() {
 
     try {
       setPageLoading(true)
-      console.log("🔄 Carregando materiais e categorias...")
 
       const [materiaisData, categoriesData] = await Promise.all([
         FirebaseService.getMateriais(user.uid),
         FirebaseService.getMaterialCategories(user.uid),
       ])
-
-      console.log("✅ Materiais carregados:", materiaisData.length)
-      console.log("✅ Categorias carregadas:", categoriesData.length)
 
       setMateriais(materiaisData)
       setCategories(categoriesData)
@@ -233,10 +229,6 @@ export default function MateriaisPage() {
           <p className="text-muted-foreground mt-2">Gerir o inventário de materiais e seus custos</p>
         </div>
         <div className="flex space-x-2">
-          <Button variant="outline" onClick={loadData} className="rounded-full bg-transparent">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Atualizar
-          </Button>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button onClick={resetForm} className="rounded-full">
@@ -385,8 +377,6 @@ export default function MateriaisPage() {
           </Button>
         )}
       </ListToolbar>
-
-
 
       {/* Materiais Grouped by Category */}
       {Object.keys(materialsByCategory).length > 0 ? (

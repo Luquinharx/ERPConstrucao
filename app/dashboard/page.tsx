@@ -49,10 +49,8 @@ export default function DashboardPage() {
 
     try {
       setLoading(true)
-      console.log("🔄 Carregando estatísticas do dashboard...")
       const dashboardStats = await FirebaseService.getDashboardStats(user.uid)
       setStats(dashboardStats)
-      console.log("✅ Estatísticas carregadas:", dashboardStats)
     } catch (error) {
       console.error("❌ Erro ao carregar estatísticas:", error)
       toast({

@@ -8,6 +8,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { QueryClientProvider } from "@tanstack/react-query"
 import { queryClient } from "@/lib/react-query"
+import { ConfiguracaoProvider } from "@/hooks/use-configuracao"
 
 // Lazy load AuthProvider para evitar problemas de timeout
 const AuthProvider = dynamic(
@@ -32,8 +33,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
           </div>
         }>
           <AuthProvider>
-            {children}
-            <Toaster />
+            <ConfiguracaoProvider>
+              {children}
+              <Toaster />
+            </ConfiguracaoProvider>
           </AuthProvider>
         </Suspense>
       </QueryClientProvider>

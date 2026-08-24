@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { BarChart3, TrendingUp, Download, FileText, Users, Package, RefreshCw } from "lucide-react"
+import { BarChart3, TrendingUp, Download, FileText, Users, Package } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { FirebaseService } from "@/lib/firebase-service"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
@@ -41,7 +41,6 @@ export default function RelatoriosPage() {
 
     try {
       setLoading(true)
-      console.log("Carregando relatórios...")
 
       // Carregar todos os dados
       const [orcamentos, clientes, funcionarios, materiais, servicos] = await Promise.all([
@@ -229,10 +228,6 @@ export default function RelatoriosPage() {
               <SelectItem value="ano">Este Ano</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" onClick={loadRelatorios} className="rounded-full bg-transparent">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Atualizar
-          </Button>
           <Button variant="outline" className="rounded-full bg-transparent">
             <Download className="h-4 w-4 mr-2" />
             Exportar

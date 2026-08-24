@@ -30,12 +30,22 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/hooks/use-auth"
 import { toast } from "@/hooks/use-toast"
-import type { Orcamento, Funcionario, Servico, ItemOrcamento, Cliente, TermoServico } from "@/lib/types"
+import type {
+  Orcamento,
+  Funcionario,
+  Servico,
+  ItemOrcamento,
+  Cliente,
+  TermoServico,
+  ConfiguracaoEmpresa,
+} from "@/lib/types"
 import { FirebaseService } from "@/lib/firebase-service"
 import { formatCurrency, matchesSearch, round2, toFixed2 } from "@/lib/utils"
 import { getServiceCategoryName } from "@/lib/service-categories"
 import { ListToolbar } from "@/components/ui/list-toolbar"
 import { useSearchQuery } from "@/hooks/use-search-query"
+import { useConfiguracao } from "@/hooks/use-configuracao"
+import { CONFIGURACAO_PADRAO, corDeTexto } from "@/lib/brand"
 
 /** Documento gerado: venda (cliente) ou custo (interno). */
 type TipoDocumento = "venda" | "custo"
@@ -148,7 +158,6 @@ function calculateItemTotal(quantidade: number, precoUnitario: number, valorFixo
   if (valorFixo) return round2(precoUnitario)
   return round2((Number(quantidade) || 0) * (Number(precoUnitario) || 0))
 }
-
 
 /** Item sem comodo definido cai neste grupo. */
 const SEM_AMBIENTE = "Sem comodo"
@@ -296,6 +305,7 @@ function buildOrcamentoDocumentHtml(
   orcamento: Orcamento,
   termos: TermoServico[],
   tipo: TipoDocumento = "venda",
+  config?: ConfiguracaoEmpresa,
 ): string {
   const isCusto = tipo === "custo"
   const itens = orcamento.itens || []
@@ -422,89 +432,172 @@ function buildOrcamentoDocumentHtml(
     </section>
   `
 
+  const marca = { ...CONFIGURACAO_PADRAO, ...(config || {}) }
+  const corPrimaria = marca.corPrimaria
+  const corEscura = marca.corEscura
+  const textoPrimaria = corDeTexto(corPrimaria)
+  const moradaEmpresa = [marca.morada, [marca.codigoPostal, marca.cidade].filter(Boolean).join(" ")]
+    .filter(Boolean)
+    .join(", ")
+  const contactosEmpresa = [marca.telefone, marca.email, marca.website].filter(Boolean).join(" · ")
+
+  const notas = (marca.notasOrcamento || []).filter((nota) => nota.trim())
+  const notasHtml = notas.length
+    ? `
+      <section class="notas">
+        <div class="notas-titulo">Notas</div>
+        <ol>
+          ${notas.map((nota) => `<li>${escapeHtml(nota)}</li>`).join("")}
+        </ol>
+      </section>`
+    : ""
+
   return `
   <!doctype html>
-  <html>
+  <html lang="pt">
     <head>
       <meta charset="utf-8" />
-      <title>Orcamento ${isCusto ? "CUSTO " : ""}${escapeHtml(orcamento.numero)}</title>
+      <title>${escapeHtml(marca.nome)} - Proposta ${isCusto ? "CUSTO " : ""}${escapeHtml(orcamento.numero)}</title>
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link href="https://fonts.googleapis.com/css2?family=${encodeURIComponent(
+        marca.fonte || "Montserrat",
+      )}:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
       <style>
-        body { font-family: Arial, sans-serif; padding: 24px; color: #0f172a; }
         /* Sem isto o navegador imprime os fundos a branco */
-        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-        @media print { @page { margin: 12mm; } tr.grupo td { background: #ea580c !important; color: #fff !important; } }
+        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing: border-box; }
+        @page { size: A4; margin: 12mm 10mm 16mm 10mm; }
+
+        body {
+          font-family: '${marca.fonte || "Montserrat"}', Arial, sans-serif;
+          margin: 0;
+          padding: 0 4px;
+          color: #111827;
+          font-size: 12px;
+        }
         h1, h2, h3 { margin: 0; }
-        .muted { color: #475569; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
-        .box { border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 14px; }
-        th, td { border: 1px solid #cbd5e1; padding: 8px; font-size: 13px; }
-        th { background: #1e293b; color: #fff; text-align: left; }
-        tr.grupo td { background: #ea580c; color: #fff; font-weight: 700; }
-        tr.grupo td:first-child { text-align: center; }
-        .totals { margin-top: 14px; margin-left: auto; width: 360px; }
-        .totals div { display: flex; justify-content: space-between; margin: 4px 0; }
-        .total-final { font-weight: bold; font-size: 18px; border-top: 1px solid #cbd5e1; padding-top: 8px; margin-top: 8px; }
-        .footer { margin-top: 24px; font-size: 12px; color: #64748b; }
+        .muted { color: #6b7280; }
+
+        /* Cabecalho */
+        .topo { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; }
+        .topo-dados { line-height: 1.5; }
+        .topo-dados .ref { font-size: 17px; font-weight: 800; letter-spacing: .3px; }
+        .logo { max-height: 58px; max-width: 230px; object-fit: contain; }
+        .empresa { text-align: right; font-size: 10px; color: #4b5563; line-height: 1.5; }
+        .empresa .nome { font-size: 13px; font-weight: 700; color: #111827; }
+        .barra { height: 4px; background: ${corPrimaria}; margin: 10px 0 14px; border-radius: 2px; }
+
+        .selo {
+          display: inline-block; padding: 2px 10px; border-radius: 999px;
+          font-size: 10px; font-weight: 700; letter-spacing: .4px;
+        }
+        .selo-venda { background: #dcfce7; color: #166534; }
+        .selo-custo { background: #fee2e2; color: #991b1b; }
+
+        /* Tabela */
+        table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+        th, td { border: 1px solid #d1d5db; padding: 6px 8px; font-size: 11px; vertical-align: middle; }
+        thead th {
+          background: ${corEscura}; color: #fff; text-align: left;
+          font-size: 10px; text-transform: uppercase; letter-spacing: .4px;
+        }
+        thead { display: table-header-group; }
+        tr { page-break-inside: avoid; }
+        tr.grupo td {
+          background: ${corPrimaria} !important; color: ${textoPrimaria} !important;
+          font-weight: 700; font-size: 11px;
+        }
+        tr.grupo td:first-child, tr.grupo td:last-child { text-align: center; }
+        tr.grupo td:last-child { text-align: right; }
+        tbody tr:nth-child(even):not(.grupo) td { background: #f9fafb; }
+
+        /* Totais */
+        .totais { margin-top: 14px; margin-left: auto; width: 320px; font-size: 12px; }
+        .totais div { display: flex; justify-content: space-between; padding: 3px 0; }
+        .total-final {
+          font-weight: 800; font-size: 15px; border-top: 2px solid ${corEscura};
+          padding-top: 6px !important; margin-top: 4px;
+        }
+
+        /* Blocos de texto */
+        section { page-break-inside: avoid; }
+        .observacoes { margin-top: 18px; font-size: 11px; line-height: 1.6; }
+        .notas { margin-top: 18px; border: 1px solid #d1d5db; border-radius: 6px; padding: 10px 12px; }
+        .notas-titulo {
+          font-size: 10px; font-weight: 700; text-transform: uppercase;
+          letter-spacing: .5px; color: ${corPrimaria};
+        }
+        .notas ol { margin: 6px 0 0; padding-left: 18px; font-size: 10px; line-height: 1.6; color: #374151; }
+        .termos { margin-top: 18px; page-break-before: always; }
+        .termos h2 { font-size: 14px; border-bottom: 2px solid ${corPrimaria}; padding-bottom: 4px; margin-bottom: 10px; }
+        .termos h3 { font-size: 12px; margin-top: 12px; color: ${corPrimaria}; }
+        .termo { margin-top: 8px; font-size: 11px; line-height: 1.55; }
+        .termo strong { display: block; }
+
+        .rodape {
+          margin-top: 20px; padding-top: 8px; border-top: 1px solid #e5e7eb;
+          display: flex; justify-content: space-between; font-size: 9px; color: #9ca3af;
+        }
       </style>
     </head>
     <body>
-      <header style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid #cbd5e1; padding-bottom: 12px;">
-        <div>
-          <h1>Orcamento #${escapeHtml(orcamento.numero)}</h1>
-          <div style="margin-top:6px; display:inline-block; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:700; ${
-            isCusto ? "background:#fee2e2; color:#991b1b;" : "background:#dcfce7; color:#166534;"
-          }">${isCusto ? "ORCAMENTO DE CUSTO - USO INTERNO" : "ORCAMENTO DE VENDA - CLIENTE"}</div>
-          <p class="muted">Data: ${new Date(orcamento.dataOrcamento).toLocaleDateString("pt-PT")}</p>
-          <p class="muted">Validade: ${new Date(orcamento.dataValidade).toLocaleDateString("pt-PT")}</p>
+      <header class="topo">
+        <div class="topo-dados">
+          <div class="ref">${escapeHtml(marca.prefixoOrcamento || "CO")}${escapeHtml(orcamento.numero)}</div>
+          <div>Cliente: <strong>${escapeHtml(orcamento.cliente.nome)}</strong></div>
+          ${
+            orcamento.cliente.morada
+              ? `<div>Morada: ${escapeHtml(
+                  [orcamento.cliente.morada, orcamento.cliente.cidade, orcamento.cliente.codigoPostal]
+                    .filter(Boolean)
+                    .join(", "),
+                )}</div>`
+              : ""
+          }
+          ${orcamento.cliente.nif ? `<div>NIF: ${escapeHtml(orcamento.cliente.nif)}</div>` : ""}
+          <div>Responsavel: ${escapeHtml(orcamento.orcamentista)}</div>
+          <div class="muted">
+            Data: ${new Date(orcamento.dataOrcamento).toLocaleDateString("pt-PT")} &nbsp;·&nbsp;
+            Validade: ${new Date(orcamento.dataValidade).toLocaleDateString("pt-PT")}
+          </div>
+          <div style="margin-top:6px">
+            <span class="selo ${isCusto ? "selo-custo" : "selo-venda"}">
+              ${isCusto ? "USO INTERNO - NAO ENVIAR AO CLIENTE" : "PROPOSTA"}
+            </span>
+          </div>
         </div>
-        <div style="text-align:right">
-          <div style="font-weight:700; font-size:20px">${formatCurrency(total)}</div>
-          <div class="muted">Status: ${escapeHtml(getStatusLabel(orcamento.status))}</div>
+
+        <div class="empresa">
+          ${
+            marca.logoUrl
+              ? `<img class="logo" src="${escapeHtml(marca.logoUrl)}" alt="${escapeHtml(marca.nome)}" />`
+              : `<div class="nome">${escapeHtml(marca.nome)}</div>`
+          }
+          ${marca.slogan ? `<div style="margin-top:4px">${escapeHtml(marca.slogan)}</div>` : ""}
+          ${moradaEmpresa ? `<div>${escapeHtml(moradaEmpresa)}</div>` : ""}
+          ${marca.nif ? `<div>NIF ${escapeHtml(marca.nif)}</div>` : ""}
+          ${contactosEmpresa ? `<div>${escapeHtml(contactosEmpresa)}</div>` : ""}
         </div>
       </header>
 
-      <section class="grid">
-        <div class="box">
-          <h3>Cliente</h3>
-          <div style="margin-top: 8px; line-height:1.6;">
-            <div><strong>${escapeHtml(orcamento.cliente.nome)}</strong></div>
-            <div>${escapeHtml(orcamento.cliente.email)}</div>
-            <div>${escapeHtml(orcamento.cliente.telefone)}</div>
-            <div>${escapeHtml(orcamento.cliente.morada)}</div>
-            <div>${escapeHtml(orcamento.cliente.cidade)} ${escapeHtml(orcamento.cliente.codigoPostal)}</div>
-            <div>${escapeHtml(orcamento.cliente.nif || "")}</div>
-          </div>
-        </div>
-        <div class="box">
-          <h3>Responsavel</h3>
-          <div style="margin-top: 8px; line-height:1.6;">
-            <div>${escapeHtml(orcamento.orcamentista)}</div>
-            <div>Itens: ${(orcamento.itens || []).length}</div>
-          </div>
-        </div>
-      </section>
+      <div class="barra"></div>
 
-      <section style="margin-top: 18px;">
-        <h2>Itens</h2>
-        <table>
-          <thead>
-            <tr>
-              <th style="width:52px; text-align:center">Item</th>
-              <th>Descricao</th>
-              <th style="width:60px; text-align:center">UN</th>
-              <th style="width:70px; text-align:right">Qtd.</th>
-              <th style="width:100px; text-align:right">Valor Unitario</th>
-              <th style="width:110px; text-align:right">Valor Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${itensRows}
-          </tbody>
-        </table>
-      </section>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:46px; text-align:center">Item</th>
+            <th>Descricao</th>
+            <th style="width:44px; text-align:center">UN</th>
+            <th style="width:62px; text-align:right">Qtd.</th>
+            <th style="width:86px; text-align:right">Valor unitario</th>
+            <th style="width:92px; text-align:right">Valor total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itensRows}
+        </tbody>
+      </table>
 
-      <section class="totals">
+      <section class="totais">
         ${
           isCusto
             ? `
@@ -527,14 +620,20 @@ function buildOrcamentoDocumentHtml(
 
       ${
         orcamento.observacoes
-          ? `<section style="margin-top:20px;"><h3>Observacoes</h3><p style="line-height:1.5;">${escapeHtml(orcamento.observacoes)}</p></section>`
+          ? `<section class="observacoes"><strong>Observacoes</strong><div>${escapeHtml(
+              orcamento.observacoes,
+            )}</div></section>`
           : ""
       }
 
+      ${isCusto ? "" : notasHtml}
       ${isCusto ? "" : termosHtml}
 
-      <div class="footer">
-        Documento gerado automaticamente em ${new Date().toLocaleDateString("pt-PT")}
+      <div class="rodape">
+        <span>${escapeHtml(marca.nome)}${marca.website ? ` · ${escapeHtml(marca.website)}` : ""}</span>
+        <span>${escapeHtml(marca.prefixoOrcamento || "CO")}${escapeHtml(
+          orcamento.numero,
+        )} · emitido em ${new Date().toLocaleDateString("pt-PT")}</span>
       </div>
     </body>
   </html>
@@ -550,6 +649,7 @@ export default function OrcamentosPage() {
   const [editingOrcamento, setEditingOrcamento] = useState<Orcamento | null>(null)
   const [loading, setLoading] = useState(false)
   const { searchTerm, setSearchTerm, clearSearch } = useSearchQuery()
+  const { configuracao } = useConfiguracao()
   const [statusFilter, setStatusFilter] = useState("all")
   const [generatingDocId, setGeneratingDocId] = useState<string | null>(null)
 
@@ -624,10 +724,22 @@ export default function OrcamentosPage() {
     return filtered
   }, [orcamentos, searchTerm, statusFilter])
 
+  /**
+   * Numeracao no formato das propostas de obra: 26/0001 (o prefixo da empresa,
+   * por exemplo "CO", e acrescentado na impressao).
+   *
+   * O contador olha para o maior numero ja existente no ano, para nao repetir
+   * quando um orcamento e apagado.
+   */
   const generateOrcamentoNumber = () => {
-    const year = new Date().getFullYear()
-    const count = orcamentos.length + 1
-    return `${year}-${count.toString().padStart(3, "0")}`
+    const ano = String(new Date().getFullYear()).slice(-2)
+    const doAno = orcamentos
+      .map((item) => item.numero || "")
+      .filter((numero) => numero.startsWith(`${ano}/`))
+      .map((numero) => Number(numero.split("/")[1]) || 0)
+
+    const proximo = (doAno.length ? Math.max(...doAno) : 0) + 1
+    return `${ano}/${String(proximo).padStart(4, "0")}`
   }
 
   const handleClientSelect = (selectedValue: string) => {
@@ -1192,7 +1304,7 @@ export default function OrcamentosPage() {
     try {
       setGeneratingDocId(orcamento.id)
       const termos = tipo === "venda" ? await FirebaseService.getTermosServico(user.uid, true) : []
-      const html = buildOrcamentoDocumentHtml(orcamento, termos, tipo)
+      const html = buildOrcamentoDocumentHtml(orcamento, termos, tipo, configuracao)
       const popup = window.open("", "_blank", "width=1024,height=720")
 
       if (!popup) {
@@ -1225,7 +1337,15 @@ export default function OrcamentosPage() {
   }
 
   const resetForm = () => {
-    setFormData(getDefaultFormData())
+    // Margem, IVA e validade vem dos padroes definidos em Configuracoes
+    const base = getDefaultFormData()
+    const hoje = new Date()
+    setFormData({
+      ...base,
+      margemLucro: configuracao.margemPadrao ?? base.margemLucro,
+      taxaIVA: configuracao.taxaIVAPadrao ?? base.taxaIVA,
+      dataValidade: toDateInput(addDays(hoje, configuracao.validadeDiasPadrao ?? 30)),
+    })
     setEditingOrcamento(null)
     setServicoForm(getDefaultServicoForm())
     setMaoObraForm(getDefaultMaoObraForm())

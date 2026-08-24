@@ -33,18 +33,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    console.log("Configurando listener de autenticação...")
     
     // Timeout de segurança para evitar loading infinito
     const timeoutId = setTimeout(() => {
       if (loading) {
-        console.warn("Timeout de autenticação atingido, continuando sem usuário")
         setLoading(false)
       }
     }, 5000) // 5 segundos de timeout
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      console.log("Estado de autenticação mudou:", user ? `Usuário: ${user.email}` : "Nenhum usuário")
       clearTimeout(timeoutId)
       setUser(user)
       setLoading(false)
@@ -62,9 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string) => {
     try {
-      console.log("Tentando fazer login com:", email)
       const result = await signInWithEmailAndPassword(auth, email, password)
-      console.log("Login bem-sucedido:", result.user.uid)
 
       toast({
         title: "Login realizado com sucesso",
@@ -111,15 +106,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const register = async (email: string, password: string, name?: string) => {
     try {
-      console.log("Tentando registrar usuário:", email)
       const userCredential = await createUserWithEmailAndPassword(auth, email, password)
-      console.log("Registro bem-sucedido:", userCredential.user.uid)
 
       if (name && userCredential.user) {
         await updateProfile(userCredential.user, {
           displayName: name,
         })
-        console.log("Perfil atualizado com nome:", name)
       }
 
       toast({
@@ -158,9 +150,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      console.log("Fazendo logout...")
       await signOut(auth)
-      console.log("Logout bem-sucedido")
 
       toast({
         title: "Logout realizado",
@@ -179,7 +169,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const resetPassword = async (email: string) => {
     try {
-      console.log("Enviando email de recuperação para:", email)
       await sendPasswordResetEmail(auth, email)
 
       toast({

@@ -25,7 +25,6 @@ import {
   Edit,
   Trash2,
   User,
-  RefreshCw,
   Calendar,
   Mail,
   Phone,
@@ -214,7 +213,6 @@ function calculateDiasUteisMes(mesReferencia: string, diasPorSemana: number): nu
   return total
 }
 
-
 /**
  * Mes do ano com mais dias uteis.
  *
@@ -236,7 +234,6 @@ const NOMES_MESES = [
   "janeiro", "fevereiro", "marco", "abril", "maio", "junho",
   "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
 ]
-
 
 /** Como se define a quantidade de horas do mes usada no custo/hora. */
 export type BaseHoras = "media" | "maior" | "menor" | "mes"
@@ -731,10 +728,6 @@ export default function FuncionariosPage() {
           <p className="text-muted-foreground mt-2">Gerir equipe, encargos e custo real de mao de obra</p>
         </div>
         <div className="flex space-x-2">
-          <Button variant="outline" onClick={loadFuncionarios} className="rounded-full bg-transparent">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Atualizar
-          </Button>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button onClick={resetForm} className="rounded-full">

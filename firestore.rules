@@ -54,6 +54,10 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
+    match /configuracoes/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+
     // Tudo o resto continua fechado.
     match /{document=**} {
       allow read, write: if false;

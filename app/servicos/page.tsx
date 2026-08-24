@@ -22,7 +22,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, Edit, Trash2, Search, RefreshCw, X, Minus } from "lucide-react"
+import { Plus, Edit, Trash2, Search, X, Minus } from "lucide-react"
 import { FirebaseService } from "@/lib/firebase-service"
 import type { Servico, Material, Funcionario, ServicoComposicaoItem, ServicoGrupoComposicao } from "@/lib/types"
 import {
@@ -349,10 +349,6 @@ export default function ServicosPage() {
           <p className="text-muted-foreground">Gerencie servicos com categoria e composicao de custo</p>
         </div>
         <div className="flex space-x-2">
-          <Button variant="outline" onClick={loadServicos} className="rounded-full bg-transparent">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Atualizar
-          </Button>
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
             if (!open) resetForm()
             setIsDialogOpen(open)
@@ -700,7 +696,6 @@ export default function ServicosPage() {
                       </div>
                     </div>
                   </TabsContent>
-
 
                   <DialogFooter className="pt-4">
                     <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>

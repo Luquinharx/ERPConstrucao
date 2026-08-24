@@ -10,6 +10,8 @@ import { useAuth } from "@/hooks/use-auth"
 import { toast } from "@/hooks/use-toast"
 import { useState } from "react"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { IdentidadeDaEmpresa } from "@/components/configuracoes/identidade-da-empresa"
 
 export default function ConfiguracoesPage() {
   const { user, updateEmail, updatePassword } = useAuth()
@@ -87,8 +89,19 @@ export default function ConfiguracoesPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">Configurações</h1>
-      <p className="text-muted-foreground">Gerencie as configurações da sua conta e do sistema.</p>
+      <p className="text-muted-foreground">Identidade da empresa, padrões das propostas e dados da sua conta.</p>
 
+      <Tabs defaultValue="identidade" className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="identidade">Identidade e propostas</TabsTrigger>
+          <TabsTrigger value="conta">Minha conta</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="identidade" className="mt-6">
+          <IdentidadeDaEmpresa />
+        </TabsContent>
+
+        <TabsContent value="conta" className="mt-6 space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>Informações da Conta</CardTitle>
@@ -161,7 +174,8 @@ export default function ConfiguracoesPage() {
         </CardContent>
       </Card>
 
-      {/* Adicione outras seções de configuração aqui, se necessário */}
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

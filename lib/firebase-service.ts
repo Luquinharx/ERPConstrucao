@@ -12,6 +12,7 @@ import {
   orderBy,
   startAfter,
   getCountFromServer,
+  setDoc,
   DocumentSnapshot,
 } from "firebase/firestore"
 import { db } from "./firebase"
@@ -37,6 +38,7 @@ import type {
   Orcamento,
   MaterialCategory,
   TermoServico,
+  ConfiguracaoEmpresa,
 } from "./types"
 
 // Função para gerar número único
@@ -51,10 +53,8 @@ function generateUniqueNumber(prefix: string): string {
 // Função para testar conexão
 export async function testFirebaseConnection(): Promise<boolean> {
   try {
-    console.log("🔄 Testando conexão com Firebase...")
     const testCollection = collection(db, "test")
     await getDocs(query(testCollection, limit(1)))
-    console.log("✅ Conexão com Firebase estabelecida com sucesso")
     return true
   } catch (error) {
     console.error("❌ Erro na conexão com Firebase:", error)
@@ -68,7 +68,6 @@ export async function addCliente(
   userId: string,
 ): Promise<string> {
   try {
-    console.log("🔄 Adicionando cliente:", cliente.nome)
 
     const numeroUnico = generateUniqueNumber("CLI")
     const now = new Date()
@@ -82,7 +81,6 @@ export async function addCliente(
     }
 
     const docRef = await addDoc(collection(db, "clientes"), clienteData)
-    console.log("✅ Cliente adicionado com ID:", docRef.id)
     return docRef.id
   } catch (error) {
     console.error("❌ Erro ao adicionar cliente:", error)
@@ -103,7 +101,6 @@ export async function getClientesPaginated(
   lastDoc: unknown = null,
 ): Promise<PaginatedResult<Cliente>> {
   try {
-    console.log("🔄 Buscando clientes paginados para usuário:", userId)
 
     let q = query(
       collection(db, "clientes"),
@@ -126,7 +123,6 @@ export async function getClientesPaginated(
     } catch (error: any) {
       if (error.code === 'failed-precondition') {
         // Fallback para quando o índice composto ainda não existe
-        console.warn("⚠️ Índice composto ausente. Buscando sem ordenação no servidor.", error.message)
         const fallbackQuery = query(
           collection(db, "clientes"), 
           limit(pageSize)
@@ -156,8 +152,6 @@ export async function getClientesPaginated(
     const lastVisible = querySnapshot.docs.length > 0 ? querySnapshot.docs[querySnapshot.docs.length - 1] : null
     const hasMore = querySnapshot.docs.length === pageSize
 
-    console.log(`✅ ${clientes.length} clientes encontrados (paginado)`)
-    
     return {
       data: clientes,
       lastVisible,
@@ -171,7 +165,6 @@ export async function getClientesPaginated(
 
 export async function getClientes(userId: string): Promise<Cliente[]> {
   try {
-    console.log("🔄 Buscando clientes para usuário:", userId)
 
     const q = query(collection(db, "clientes"))
     const querySnapshot = await getDocs(q)
@@ -188,7 +181,6 @@ export async function getClientes(userId: string): Promise<Cliente[]> {
     })
 
     clientes.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-    console.log(`✅ ${clientes.length} clientes encontrados`)
     return clientes
   } catch (error) {
     console.error("❌ Erro ao buscar clientes:", error)
@@ -198,13 +190,11 @@ export async function getClientes(userId: string): Promise<Cliente[]> {
 
 export async function updateCliente(id: string, cliente: Partial<Cliente>): Promise<void> {
   try {
-    console.log("🔄 Atualizando cliente:", id)
     const clienteRef = doc(db, "clientes", id)
     await updateDoc(clienteRef, {
       ...cliente,
       updatedAt: Timestamp.fromDate(new Date()),
     })
-    console.log("✅ Cliente atualizado com sucesso")
   } catch (error) {
     console.error("❌ Erro ao atualizar cliente:", error)
     throw error
@@ -213,9 +203,7 @@ export async function updateCliente(id: string, cliente: Partial<Cliente>): Prom
 
 export async function deleteCliente(id: string): Promise<void> {
   try {
-    console.log("🔄 Deletando cliente:", id)
     await deleteDoc(doc(db, "clientes", id))
-    console.log("✅ Cliente deletado com sucesso")
   } catch (error) {
     console.error("❌ Erro ao deletar cliente:", error)
     throw error
@@ -228,7 +216,6 @@ export async function addFuncionario(
   userId: string,
 ): Promise<string> {
   try {
-    console.log("🔄 Adicionando funcionário:", funcionario.nome)
 
     const now = new Date()
     const funcionarioData = {
@@ -239,7 +226,6 @@ export async function addFuncionario(
     }
 
     const docRef = await addDoc(collection(db, "funcionarios"), funcionarioData)
-    console.log("✅ Funcionário adicionado com ID:", docRef.id)
     return docRef.id
   } catch (error) {
     console.error("❌ Erro ao adicionar funcionário:", error)
@@ -249,7 +235,6 @@ export async function addFuncionario(
 
 export async function getFuncionarios(userId: string): Promise<Funcionario[]> {
   try {
-    console.log("🔄 Buscando funcionários para usuário:", userId)
 
     const q = query(collection(db, "funcionarios"))
     const querySnapshot = await getDocs(q)
@@ -266,7 +251,6 @@ export async function getFuncionarios(userId: string): Promise<Funcionario[]> {
     })
 
     funcionarios.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-    console.log(`✅ ${funcionarios.length} funcionários encontrados`)
     return funcionarios
   } catch (error) {
     console.error("❌ Erro ao buscar funcionários:", error)
@@ -276,13 +260,11 @@ export async function getFuncionarios(userId: string): Promise<Funcionario[]> {
 
 export async function updateFuncionario(id: string, funcionario: Partial<Funcionario>): Promise<void> {
   try {
-    console.log("🔄 Atualizando funcionário:", id)
     const funcionarioRef = doc(db, "funcionarios", id)
     await updateDoc(funcionarioRef, {
       ...funcionario,
       updatedAt: Timestamp.fromDate(new Date()),
     })
-    console.log("✅ Funcionário atualizado com sucesso")
   } catch (error) {
     console.error("❌ Erro ao atualizar funcionário:", error)
     throw error
@@ -291,9 +273,7 @@ export async function updateFuncionario(id: string, funcionario: Partial<Funcion
 
 export async function deleteFuncionario(id: string): Promise<void> {
   try {
-    console.log("🔄 Deletando funcionário:", id)
     await deleteDoc(doc(db, "funcionarios", id))
-    console.log("✅ Funcionário deletado com sucesso")
   } catch (error) {
     console.error("❌ Erro ao deletar funcionário:", error)
     throw error
@@ -306,7 +286,6 @@ export async function addMaterial(
   userId: string,
 ): Promise<string> {
   try {
-    console.log("🔄 Adicionando material:", material.nome)
 
     const now = new Date()
     const materialData = {
@@ -317,7 +296,6 @@ export async function addMaterial(
     }
 
     const docRef = await addDoc(collection(db, "materiais"), materialData)
-    console.log("✅ Material adicionado com ID:", docRef.id)
     return docRef.id
   } catch (error) {
     console.error("❌ Erro ao adicionar material:", error)
@@ -327,7 +305,6 @@ export async function addMaterial(
 
 export async function getMateriais(userId: string): Promise<Material[]> {
   try {
-    console.log("🔄 Buscando materiais para usuário:", userId)
 
     const q = query(collection(db, "materiais"))
     const querySnapshot = await getDocs(q)
@@ -344,7 +321,6 @@ export async function getMateriais(userId: string): Promise<Material[]> {
     })
 
     materiais.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-    console.log(`✅ ${materiais.length} materiais encontrados`)
     return materiais
   } catch (error) {
     console.error("❌ Erro ao buscar materiais:", error)
@@ -354,13 +330,11 @@ export async function getMateriais(userId: string): Promise<Material[]> {
 
 export async function updateMaterial(id: string, material: Partial<Material>): Promise<void> {
   try {
-    console.log("🔄 Atualizando material:", id)
     const materialRef = doc(db, "materiais", id)
     await updateDoc(materialRef, {
       ...material,
       updatedAt: Timestamp.fromDate(new Date()),
     })
-    console.log("✅ Material atualizado com sucesso")
   } catch (error) {
     console.error("❌ Erro ao atualizar material:", error)
     throw error
@@ -369,9 +343,7 @@ export async function updateMaterial(id: string, material: Partial<Material>): P
 
 export async function deleteMaterial(id: string): Promise<void> {
   try {
-    console.log("🔄 Deletando material:", id)
     await deleteDoc(doc(db, "materiais", id))
-    console.log("✅ Material deletado com sucesso")
   } catch (error) {
     console.error("❌ Erro ao deletar material:", error)
     throw error
@@ -384,7 +356,6 @@ export async function addMaterialCategory(
   userId: string,
 ): Promise<string> {
   try {
-    console.log("🔄 Adicionando categoria de material:", categoria.nome)
 
     const now = new Date()
     const categoriaData = {
@@ -395,7 +366,6 @@ export async function addMaterialCategory(
     }
 
     const docRef = await addDoc(collection(db, "material-categories"), categoriaData)
-    console.log("✅ Categoria de material adicionada com ID:", docRef.id)
     return docRef.id
   } catch (error) {
     console.error("❌ Erro ao adicionar categoria de material:", error)
@@ -405,7 +375,6 @@ export async function addMaterialCategory(
 
 export async function getMaterialCategories(userId: string): Promise<MaterialCategory[]> {
   try {
-    console.log("🔄 Buscando categorias de materiais para usuário:", userId)
 
     const q = query(collection(db, "material-categories"))
     const querySnapshot = await getDocs(q)
@@ -422,7 +391,6 @@ export async function getMaterialCategories(userId: string): Promise<MaterialCat
     })
 
     categorias.sort((a, b) => a.nome.localeCompare(b.nome))
-    console.log(`✅ ${categorias.length} categorias de materiais encontradas`)
     return categorias
   } catch (error) {
     console.error("❌ Erro ao buscar categorias de materiais:", error)
@@ -432,13 +400,11 @@ export async function getMaterialCategories(userId: string): Promise<MaterialCat
 
 export async function updateMaterialCategory(id: string, categoria: Partial<MaterialCategory>): Promise<void> {
   try {
-    console.log("🔄 Atualizando categoria de material:", id)
     const categoriaRef = doc(db, "material-categories", id)
     await updateDoc(categoriaRef, {
       ...categoria,
       updatedAt: Timestamp.fromDate(new Date()),
     })
-    console.log("✅ Categoria de material atualizada com sucesso")
   } catch (error) {
     console.error("❌ Erro ao atualizar categoria de material:", error)
     throw error
@@ -447,9 +413,7 @@ export async function updateMaterialCategory(id: string, categoria: Partial<Mate
 
 export async function deleteMaterialCategory(id: string): Promise<void> {
   try {
-    console.log("🔄 Deletando categoria de material:", id)
     await deleteDoc(doc(db, "material-categories", id))
-    console.log("✅ Categoria de material deletada com sucesso")
   } catch (error) {
     console.error("❌ Erro ao deletar categoria de material:", error)
     throw error
@@ -462,7 +426,6 @@ export async function addCategoria(
   userId: string,
 ): Promise<string> {
   try {
-    console.log("🔄 Adicionando categoria:", categoria.nome)
 
     const now = new Date()
     const categoriaData = {
@@ -473,7 +436,6 @@ export async function addCategoria(
     }
 
     const docRef = await addDoc(collection(db, "categorias"), categoriaData)
-    console.log("✅ Categoria adicionada com ID:", docRef.id)
     return docRef.id
   } catch (error) {
     console.error("❌ Erro ao adicionar categoria:", error)
@@ -483,7 +445,6 @@ export async function addCategoria(
 
 export async function getCategorias(userId: string): Promise<Categoria[]> {
   try {
-    console.log("🔄 Buscando categorias para usuário:", userId)
 
     const q = query(collection(db, "categorias"))
     const querySnapshot = await getDocs(q)
@@ -500,7 +461,6 @@ export async function getCategorias(userId: string): Promise<Categoria[]> {
     })
 
     categorias.sort((a, b) => a.nome.localeCompare(b.nome))
-    console.log(`✅ ${categorias.length} categorias encontradas`)
     return categorias
   } catch (error) {
     console.error("❌ Erro ao buscar categorias:", error)
@@ -510,13 +470,11 @@ export async function getCategorias(userId: string): Promise<Categoria[]> {
 
 export async function updateCategoria(id: string, categoria: Partial<Categoria>): Promise<void> {
   try {
-    console.log("🔄 Atualizando categoria:", id)
     const categoriaRef = doc(db, "categorias", id)
     await updateDoc(categoriaRef, {
       ...categoria,
       updatedAt: Timestamp.fromDate(new Date()),
     })
-    console.log("✅ Categoria atualizada com sucesso")
   } catch (error) {
     console.error("❌ Erro ao atualizar categoria:", error)
     throw error
@@ -525,9 +483,7 @@ export async function updateCategoria(id: string, categoria: Partial<Categoria>)
 
 export async function deleteCategoria(id: string): Promise<void> {
   try {
-    console.log("🔄 Deletando categoria:", id)
     await deleteDoc(doc(db, "categorias", id))
-    console.log("✅ Categoria deletada com sucesso")
   } catch (error) {
     console.error("❌ Erro ao deletar categoria:", error)
     throw error
@@ -540,7 +496,6 @@ export async function addServico(
   userId: string,
 ): Promise<string> {
   try {
-    console.log("🔄 Adicionando serviço:", servico.nome)
 
     const now = new Date()
     const servicoData = {
@@ -551,7 +506,6 @@ export async function addServico(
     }
 
     const docRef = await addDoc(collection(db, "servicos"), servicoData)
-    console.log("✅ Serviço adicionado com ID:", docRef.id)
     return docRef.id
   } catch (error) {
     console.error("❌ Erro ao adicionar serviço:", error)
@@ -561,7 +515,6 @@ export async function addServico(
 
 export async function getServicos(userId: string): Promise<Servico[]> {
   try {
-    console.log("🔄 Buscando serviços para usuário:", userId)
 
     const q = query(collection(db, "servicos"))
     const querySnapshot = await getDocs(q)
@@ -578,7 +531,6 @@ export async function getServicos(userId: string): Promise<Servico[]> {
     })
 
     servicos.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-    console.log(`✅ ${servicos.length} serviços encontrados`)
     return servicos
   } catch (error) {
     console.error("❌ Erro ao buscar serviços:", error)
@@ -588,13 +540,11 @@ export async function getServicos(userId: string): Promise<Servico[]> {
 
 export async function updateServico(id: string, servico: Partial<Servico>): Promise<void> {
   try {
-    console.log("🔄 Atualizando serviço:", id)
     const servicoRef = doc(db, "servicos", id)
     await updateDoc(servicoRef, {
       ...servico,
       updatedAt: Timestamp.fromDate(new Date()),
     })
-    console.log("✅ Serviço atualizado com sucesso")
   } catch (error) {
     console.error("❌ Erro ao atualizar serviço:", error)
     throw error
@@ -603,9 +553,7 @@ export async function updateServico(id: string, servico: Partial<Servico>): Prom
 
 export async function deleteServico(id: string): Promise<void> {
   try {
-    console.log("🔄 Deletando serviço:", id)
     await deleteDoc(doc(db, "servicos", id))
-    console.log("✅ Serviço deletado com sucesso")
   } catch (error) {
     console.error("❌ Erro ao deletar serviço:", error)
     throw error
@@ -618,7 +566,6 @@ export async function addOrcamento(
   userId: string,
 ): Promise<string> {
   try {
-    console.log("🔄 Adicionando orçamento:", orcamento.numero)
 
     const now = new Date()
     const orcamentoData = {
@@ -631,7 +578,6 @@ export async function addOrcamento(
     }
 
     const docRef = await addDoc(collection(db, "orcamentos"), orcamentoData)
-    console.log("✅ Orçamento adicionado com ID:", docRef.id)
     return docRef.id
   } catch (error) {
     console.error("❌ Erro ao adicionar orçamento:", error)
@@ -641,7 +587,6 @@ export async function addOrcamento(
 
 export async function getOrcamentos(userId: string): Promise<Orcamento[]> {
   try {
-    console.log("🔄 Buscando orçamentos para usuário:", userId)
 
     const q = query(collection(db, "orcamentos"))
     const querySnapshot = await getDocs(q)
@@ -660,7 +605,6 @@ export async function getOrcamentos(userId: string): Promise<Orcamento[]> {
     })
 
     orcamentos.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-    console.log(`✅ ${orcamentos.length} orçamentos encontrados`)
     return orcamentos
   } catch (error) {
     console.error("❌ Erro ao buscar orçamentos:", error)
@@ -670,7 +614,6 @@ export async function getOrcamentos(userId: string): Promise<Orcamento[]> {
 
 export async function updateOrcamento(id: string, orcamento: Partial<Orcamento>): Promise<void> {
   try {
-    console.log("🔄 Atualizando orçamento:", id)
 
     const orcamentoRef = doc(db, "orcamentos", id)
     const updateData = {
@@ -686,7 +629,6 @@ export async function updateOrcamento(id: string, orcamento: Partial<Orcamento>)
     }
 
     await updateDoc(orcamentoRef, updateData)
-    console.log("✅ Orçamento atualizado com sucesso")
   } catch (error) {
     console.error("❌ Erro ao atualizar orçamento:", error)
     throw error
@@ -695,9 +637,7 @@ export async function updateOrcamento(id: string, orcamento: Partial<Orcamento>)
 
 export async function deleteOrcamento(id: string): Promise<void> {
   try {
-    console.log("🔄 Deletando orçamento:", id)
     await deleteDoc(doc(db, "orcamentos", id))
-    console.log("✅ Orçamento deletado com sucesso")
   } catch (error) {
     console.error("❌ Erro ao deletar orçamento:", error)
     throw error
@@ -707,7 +647,6 @@ export async function deleteOrcamento(id: string): Promise<void> {
 // TERMOS DE SERVICO
 export async function getTermosServico(userId: string, onlyActive: boolean = false): Promise<TermoServico[]> {
   try {
-    console.log("🔄 Buscando termos de servico para usuario:", userId)
 
     const q = query(collection(db, "termos_servico"))
     const querySnapshot = await getDocs(q)
@@ -732,7 +671,6 @@ export async function getTermosServico(userId: string, onlyActive: boolean = fal
       return (a.ordem || 0) - (b.ordem || 0)
     })
 
-    console.log(`✅ ${filtered.length} termos encontrados`)
     return filtered
   } catch (error) {
     console.error("❌ Erro ao buscar termos de servico:", error)
@@ -751,7 +689,6 @@ export interface DashboardStats {
 
 export async function getDashboardStats(userId: string): Promise<DashboardStats> {
   try {
-    console.log("🔄 Calculando estatísticas do dashboard para usuário:", userId)
 
     const [clientes, orcamentos] = await Promise.all([getClientes(userId), getOrcamentos(userId)])
 
@@ -767,7 +704,6 @@ export async function getDashboardStats(userId: string): Promise<DashboardStats>
       taxaConversao,
     }
 
-    console.log("✅ Estatísticas calculadas:", stats)
     return stats
   } catch (error) {
     console.error("❌ Erro ao calcular estatísticas:", error)
@@ -789,7 +725,6 @@ export function subscribeToCollection<T>(
   orderByField?: string,
 ) {
   try {
-    console.log(`🔄 Iniciando subscription para ${collectionName}`)
 
     const q = query(collection(db, collectionName))
 
@@ -815,7 +750,6 @@ export function subscribeToCollection<T>(
         })
       }
 
-      console.log(`✅ ${data.length} documentos recebidos para ${collectionName}`)
       callback(data)
     })
   } catch (error) {
@@ -972,4 +906,43 @@ export class FirebaseService {
   static async testConnection() {
     return testFirebaseConnection()
   }
+}
+
+// ============================================================
+// CONFIGURACAO DA EMPRESA (identidade visual e dados fiscais)
+// ============================================================
+
+/** Documento unico, partilhado por toda a equipa. */
+const CONFIGURACAO_DOC_ID = "empresa"
+
+export async function getConfiguracaoEmpresa(): Promise<ConfiguracaoEmpresa | null> {
+  try {
+    const snap = await getDocs(query(collection(db, "configuracoes"), limit(5)))
+    const alvo = snap.docs.find((d) => d.id === CONFIGURACAO_DOC_ID) || snap.docs[0]
+    if (!alvo) return null
+    const data = alvo.data()
+    return {
+      id: alvo.id,
+      ...data,
+      updatedAt: data.updatedAt?.toDate?.() || new Date(),
+    } as ConfiguracaoEmpresa
+  } catch (error) {
+    console.error("Erro ao carregar configuracao da empresa:", error)
+    return null
+  }
+}
+
+export async function saveConfiguracaoEmpresa(
+  configuracao: Partial<ConfiguracaoEmpresa>,
+  userId: string,
+): Promise<void> {
+  await setDoc(
+    doc(db, "configuracoes", CONFIGURACAO_DOC_ID),
+    {
+      ...configuracao,
+      userId,
+      updatedAt: Timestamp.now(),
+    },
+    { merge: true },
+  )
 }

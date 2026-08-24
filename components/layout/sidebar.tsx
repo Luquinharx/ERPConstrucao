@@ -20,6 +20,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/hooks/use-auth"
+import { useConfiguracao } from "@/hooks/use-configuracao"
 import { ThemeToggle } from "@/components/theme-toggle"
 
 const navigation = [
@@ -39,6 +40,7 @@ export function Sidebar() {
   const [isOpen, setIsOpen] = useState(false)
   const pathname = usePathname()
   const { user, logout } = useAuth()
+  const { configuracao } = useConfiguracao()
 
   return (
     <>
@@ -64,7 +66,16 @@ export function Sidebar() {
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="flex items-center justify-center h-20 px-4 border-b border-border">
-            <h1 className="text-xl font-bold text-primary">ERP</h1>
+            {configuracao.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={configuracao.logoUrl}
+                alt={configuracao.nome}
+                className="max-h-12 max-w-full object-contain"
+              />
+            ) : (
+              <h1 className="text-xl font-bold text-primary">{configuracao.nome || "ERP"}</h1>
+            )}
           </div>
 
           {/* User info */}

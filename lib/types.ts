@@ -1,3 +1,38 @@
+
+/** Identidade visual e dados da empresa, editaveis em Configuracoes. */
+export interface ConfiguracaoEmpresa {
+  id?: string
+  nome: string
+  slogan?: string
+  /** URL publica ou data URL do logotipo. */
+  logoUrl?: string
+
+  corPrimaria: string
+  corSecundaria: string
+  corEscura: string
+  fonte: string
+
+  nif?: string
+  morada?: string
+  codigoPostal?: string
+  cidade?: string
+  telefone?: string
+  email?: string
+  website?: string
+
+  /** Prefixo da numeracao dos orcamentos (ex.: CO -> CO26/0033). */
+  prefixoOrcamento?: string
+  validadeDiasPadrao?: number
+  margemPadrao?: number
+  taxaIVAPadrao?: number
+
+  /** Notas impressas no rodape da proposta. */
+  notasOrcamento?: string[]
+
+  updatedAt?: Date
+  userId?: string
+}
+
 export interface Cliente {
   id?: string
   numeroUnico: string

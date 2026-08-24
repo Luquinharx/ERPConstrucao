@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Edit, Trash2, Tag, RefreshCw } from "lucide-react"
+import { Plus, Edit, Trash2, Tag } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { toast } from "@/hooks/use-toast"
 import type { MaterialCategory } from "@/lib/types"
@@ -65,11 +65,9 @@ export default function CategoriasPage() {
 
     try {
       setPageLoading(true)
-      console.log("🔄 Carregando categorias...")
 
       const categoriesData = await FirebaseService.getMaterialCategories(user.uid)
 
-      console.log("✅ Categorias carregadas:", categoriesData.length)
       setCategories(categoriesData)
     } catch (error) {
       console.error("❌ Erro ao carregar categorias:", error)
@@ -224,10 +222,6 @@ export default function CategoriasPage() {
               Adicionar Categorias Padrão
             </Button>
           )}
-          <Button variant="outline" onClick={loadCategories} className="rounded-full bg-transparent">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Atualizar
-          </Button>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button onClick={resetForm} className="rounded-full">
@@ -300,8 +294,6 @@ export default function CategoriasPage() {
           </Dialog>
         </div>
       </div>
-
-
 
       <ListToolbar
         searchTerm={searchTerm}
