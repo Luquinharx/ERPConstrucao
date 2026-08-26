@@ -462,14 +462,7 @@ function buildOrcamentoDocumentHtml(
    */
   const cabecalhoCondicoes = `
     <div class="condicoes-topo">
-      <div>
-        <div class="condicoes-titulo">Condicoes gerais da ${escapeHtml(marca.nome)}</div>
-      </div>
-      ${
-        marca.logoUrl
-          ? `<img class="logo" src="${escapeHtml(marca.logoUrl)}" alt="${escapeHtml(marca.nome)}" />`
-          : ""
-      }
+      <div class="condicoes-titulo">Condicoes gerais da ${escapeHtml(marca.nome)}</div>
     </div>
     <div class="condicoes-dados">
       <div>
@@ -550,12 +543,18 @@ function buildOrcamentoDocumentHtml(
         table.moldura > thead > tr > td,
         table.moldura > tfoot > tr > td,
         table.moldura > tbody > tr > td { border: none; padding: 0; background: none; }
-        .espaco-topo { height: 12mm; }
-        .espaco-fundo { height: 10mm; }
+        /* Faixa de marca e rodape: vivem no thead/tfoot da moldura, por isso
+           repetem-se no topo e no fundo de todas as paginas impressas. */
+        .faixa-marca {
+          display: flex; justify-content: flex-end; align-items: center;
+          height: 16mm; padding-bottom: 4mm;
+        }
+        .logo-faixa { max-height: 11mm; max-width: 52mm; object-fit: contain; }
+        .nome-faixa { font-size: 13px; font-weight: 800; color: ${corEscura}; }
         .muted { color: #6b7280; }
 
         /* Cabecalho */
-        .topo { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; }
+        .topo { display: block; }
         .topo-dados { line-height: 1.5; }
         .topo-dados .ref { font-size: 17px; font-weight: 800; letter-spacing: .3px; }
         .logo { max-height: 58px; max-width: 230px; object-fit: contain; }
@@ -620,15 +619,35 @@ function buildOrcamentoDocumentHtml(
         .termo strong { display: block; color: ${corEscura}; margin-bottom: 2px; }
 
         .rodape {
-          margin-top: 20px; padding-top: 8px; border-top: 1px solid #e5e7eb;
-          display: flex; justify-content: space-between; font-size: 9px; color: #9ca3af;
+          height: 10mm; padding-top: 3mm; border-top: 1px solid #e5e7eb;
+          display: flex; justify-content: space-between; align-items: flex-start;
+          font-size: 8.5px; color: #9ca3af;
         }
       </style>
     </head>
     <body>
       <table class="moldura">
-        <thead><tr><td><div class="espaco-topo"></div></td></tr></thead>
-        <tfoot><tr><td><div class="espaco-fundo"></div></td></tr></tfoot>
+        <thead>
+          <tr><td>
+            <div class="faixa-marca">
+              ${
+                marca.logoUrl
+                  ? `<img class="logo-faixa" src="${escapeHtml(marca.logoUrl)}" alt="${escapeHtml(marca.nome)}" />`
+                  : `<span class="nome-faixa">${escapeHtml(marca.nome)}</span>`
+              }
+            </div>
+          </td></tr>
+        </thead>
+        <tfoot>
+          <tr><td>
+            <div class="rodape">
+              <span>${escapeHtml(marca.nome)}${marca.website ? ` · ${escapeHtml(marca.website)}` : ""}</span>
+              <span>${escapeHtml(marca.prefixoOrcamento || "")}${escapeHtml(orcamento.numero)}${escapeHtml(
+                marca.sufixoOrcamento || "",
+              )} · emitido em ${new Date().toLocaleDateString("pt-PT")}</span>
+            </div>
+          </td></tr>
+        </tfoot>
         <tbody><tr><td>
       <header class="topo">
         <div class="topo-dados">
@@ -656,13 +675,6 @@ function buildOrcamentoDocumentHtml(
           </div>
         </div>
 
-        <div class="empresa">
-          ${
-            marca.logoUrl
-              ? `<img class="logo" src="${escapeHtml(marca.logoUrl)}" alt="${escapeHtml(marca.nome)}" />`
-              : `<div class="nome">${escapeHtml(marca.nome)}</div>`
-          }
-        </div>
       </header>
 
       <div class="barra"></div>
@@ -715,12 +727,6 @@ function buildOrcamentoDocumentHtml(
       ${isCusto ? "" : notasHtml}
       ${isCusto ? "" : termosHtml}
 
-      <div class="rodape">
-        <span>${escapeHtml(marca.nome)}${marca.website ? ` · ${escapeHtml(marca.website)}` : ""}</span>
-        <span>${escapeHtml(marca.prefixoOrcamento || "")}${escapeHtml(orcamento.numero)}${escapeHtml(
-          marca.sufixoOrcamento || "",
-        )} · emitido em ${new Date().toLocaleDateString("pt-PT")}</span>
-      </div>
         </td></tr></tbody>
       </table>
     </body>

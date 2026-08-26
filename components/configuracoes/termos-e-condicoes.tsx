@@ -256,66 +256,45 @@ export function TermosECondicoes() {
     ]),
   )
 
+  /**
+   * Pre-visualizacao com o mesmo formato do documento impresso.
+   *
+   * Os titulos ja trazem a numeracao (1.1, 2.3...), entao nao se acrescenta
+   * outra por cima, que era o que fazia sair "1. 1.1 Recursos Humanos".
+   */
   const generatePreview = () => {
     const termosAtivos = termos.filter((t) => t.ativo)
-    const termosAgrupados = {
-      termos: termosAtivos.filter((t) => t.tipo === "termos"),
-      regras: termosAtivos.filter((t) => t.tipo === "regras"),
-      condicoes: termosAtivos.filter((t) => t.tipo === "condicoes"),
-    }
+    const seccoes = [
+      { titulo: "1. Inclusoes", itens: termosAtivos.filter((t) => t.tipo === "termos") },
+      { titulo: "2. Exclusoes", itens: termosAtivos.filter((t) => t.tipo === "regras") },
+      { titulo: "3. Condicoes gerais", itens: termosAtivos.filter((t) => t.tipo === "condicoes") },
+    ].filter((seccao) => seccao.itens.length > 0)
 
     return (
-      <div className="space-y-6 p-6 bg-white text-black max-h-[70vh] overflow-y-auto">
-        <div className="text-center border-b pb-4">
-          <h1 className="text-2xl font-bold">TERMOS E CONDIÇÕES DE SERVIÇO</h1>
-          <p className="text-sm text-gray-600 mt-2">Serviços de Pintura Profissional</p>
+      <div className="space-y-5 bg-white p-6 text-black max-h-[70vh] overflow-y-auto">
+        <div className="flex items-center justify-between gap-4 border-b pb-3">
+          <h1 className="text-lg font-bold">Condicoes gerais da {configuracao.nome}</h1>
+          {configuracao.logoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={configuracao.logoUrl} alt={configuracao.nome} className="max-h-10 w-auto object-contain" />
+          )}
         </div>
 
-        {termosAgrupados.termos.length > 0 && (
-          <div>
-            <h2 className="text-lg font-semibold mb-3">TERMOS DE SERVIÇO</h2>
-            {termosAgrupados.termos.map((termo, index) => (
-              <div key={termo.id} className="mb-4">
-                <h3 className="font-medium mb-2">
-                  {index + 1}. {termo.titulo}
-                </h3>
-                <div className="text-sm text-gray-700 whitespace-pre-line pl-4">{termo.conteudo}</div>
+        {seccoes.map((seccao) => (
+          <div key={seccao.titulo}>
+            <h2 className="mb-2 border-b pb-1 text-sm font-bold text-orange-600">{seccao.titulo}</h2>
+            {seccao.itens.map((termo) => (
+              <div key={termo.id} className="mb-3">
+                <h3 className="text-sm font-semibold">{termo.titulo}</h3>
+                <div className="whitespace-pre-line text-sm text-gray-700">{termo.conteudo}</div>
               </div>
             ))}
           </div>
-        )}
+        ))}
 
-        {termosAgrupados.regras.length > 0 && (
-          <div>
-            <h2 className="text-lg font-semibold mb-3">REGRAS E POLÍTICAS</h2>
-            {termosAgrupados.regras.map((termo, index) => (
-              <div key={termo.id} className="mb-4">
-                <h3 className="font-medium mb-2">
-                  {index + 1}. {termo.titulo}
-                </h3>
-                <div className="text-sm text-gray-700 whitespace-pre-line pl-4">{termo.conteudo}</div>
-              </div>
-            ))}
-          </div>
+        {seccoes.length === 0 && (
+          <p className="text-sm text-gray-500">Nenhum termo ativo. Ative pelo menos um para aparecer na proposta.</p>
         )}
-
-        {termosAgrupados.condicoes.length > 0 && (
-          <div>
-            <h2 className="text-lg font-semibold mb-3">CONDIÇÕES GERAIS</h2>
-            {termosAgrupados.condicoes.map((termo, index) => (
-              <div key={termo.id} className="mb-4">
-                <h3 className="font-medium mb-2">
-                  {index + 1}. {termo.titulo}
-                </h3>
-                <div className="text-sm text-gray-700 whitespace-pre-line pl-4">{termo.conteudo}</div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="border-t pt-4 text-xs text-gray-500">
-          <p>Documento gerado automaticamente em {new Date().toLocaleDateString("pt-PT")}</p>
-        </div>
       </div>
     )
   }
