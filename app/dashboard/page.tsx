@@ -287,7 +287,7 @@ export default function DashboardPage() {
         <CardContent>
           <div className="grid gap-4 md:grid-cols-3">
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">{stats.totalOrcamentos}</div>
+              <div className="text-2xl font-bold text-primary">{stats.totalOrcamentos}</div>
               <p className="text-sm text-muted-foreground">Orçamentos Criados</p>
             </div>
             <div className="text-center">

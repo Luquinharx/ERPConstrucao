@@ -29,7 +29,9 @@ const toastVariants = cva(
   {
     variants: {
       variant: {
-        default: "border bg-background text-foreground",
+        // Barra lateral na cor da empresa, para o aviso ficar identificado com a marca
+        default: "border border-l-4 border-l-primary bg-background text-foreground",
+        marca: "border-none bg-primary text-primary-foreground",
         destructive: "destructive border-destructive bg-destructive text-destructive-foreground",
       },
     },

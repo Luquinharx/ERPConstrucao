@@ -79,6 +79,19 @@ export function ConfiguracaoProvider({ children }: { children: ReactNode }) {
     }
   }, [user])
 
+  /**
+   * Os tokens de apoio dependem do tema (claro/escuro), entao a identidade tem
+   * de ser reaplicada quando o utilizador troca de tema. O next-themes muda a
+   * classe do <html>, e e isso que se observa aqui.
+   */
+  useEffect(() => {
+    if (typeof document === "undefined") return
+
+    const observador = new MutationObserver(() => aplicarIdentidade(configuracao))
+    observador.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] })
+    return () => observador.disconnect()
+  }, [configuracao])
+
   const guardar = useCallback(
     async (novos: Partial<ConfiguracaoEmpresa>) => {
       if (!user) throw new Error("Utilizador nao autenticado")

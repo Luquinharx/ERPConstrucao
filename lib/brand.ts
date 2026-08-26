@@ -165,12 +165,38 @@ export function aplicarIdentidade(config: ConfiguracaoEmpresa) {
   if (typeof document === "undefined") return
 
   const raiz = document.documentElement
-  raiz.style.setProperty("--primary", hexParaHsl(config.corPrimaria))
+  const hsl = hexParaHsl(config.corPrimaria)
+  const [matiz, saturacao] = hsl.split(" ")
+  const escuro = raiz.classList.contains("dark")
+
+  // Tokens principais
+  raiz.style.setProperty("--primary", hsl)
   raiz.style.setProperty("--primary-foreground", corDeTexto(config.corPrimaria) === "#111111" ? "0 0% 7%" : "0 0% 100%")
-  raiz.style.setProperty("--ring", hexParaHsl(config.corPrimaria))
+  raiz.style.setProperty("--ring", hsl)
+
+  /**
+   * Tokens de apoio tingidos com a cor da empresa.
+   *
+   * O tema base usa cinzentos-azulados; sem isto, menus, estados de rato em
+   * cima, separadores e barras ficavam azulados mesmo com a marca laranja.
+   * Mantem-se a luminosidade original de cada token, so muda a matiz.
+   */
+  const tingir = (luzClara: string, luzEscura: string) =>
+    `${matiz} ${escuro ? "25%" : "40%"} ${escuro ? luzEscura : luzClara}`
+
+  raiz.style.setProperty("--accent", tingir("95%", "20%"))
+  raiz.style.setProperty("--accent-foreground", escuro ? "0 0% 98%" : `${matiz} 40% 15%`)
+  raiz.style.setProperty("--secondary", tingir("96%", "18%"))
+  raiz.style.setProperty("--secondary-foreground", escuro ? "0 0% 98%" : `${matiz} 40% 15%`)
+  raiz.style.setProperty("--muted", tingir("96%", "18%"))
+  raiz.style.setProperty("--border", `${matiz} ${escuro ? "18%" : "25%"} ${escuro ? "24%" : "88%"}`)
+  raiz.style.setProperty("--input", `${matiz} ${escuro ? "18%" : "25%"} ${escuro ? "24%" : "88%"}`)
+
+  // Disponiveis para uso direto (documentos, graficos)
   raiz.style.setProperty("--marca-primaria", config.corPrimaria)
   raiz.style.setProperty("--marca-secundaria", config.corSecundaria)
   raiz.style.setProperty("--marca-escura", config.corEscura)
+  void saturacao
 
   if (config.fonte) {
     const id = "fonte-da-marca"
