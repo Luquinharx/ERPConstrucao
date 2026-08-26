@@ -6,6 +6,12 @@ export interface ConfiguracaoEmpresa {
   slogan?: string
   /** URL publica ou data URL do logotipo. */
   logoUrl?: string
+  /**
+   * Fundo por tras do logotipo, para ele ser legivel em qualquer tema:
+   * auto = placa clara so no modo escuro; claro/escuro = placa sempre;
+   * nenhum = sem placa (logotipo ja preparado para os dois fundos).
+   */
+  logoFundo?: "auto" | "claro" | "escuro" | "nenhum"
 
   corPrimaria: string
   corSecundaria: string

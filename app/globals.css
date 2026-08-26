@@ -294,3 +294,34 @@
 /* A fonte vem de Configuracoes; o valor abaixo e apenas o ponto de partida */
 :root { --fonte-da-marca: Inter, system-ui, sans-serif; }
 body { font-family: var(--fonte-da-marca); }
+
+/* ---------------------------------------------------------
+   Setas dos campos numericos
+   As nativas sao minusculas e mudam de aspeto entre navegadores.
+   Ficam sempre visiveis, maiores e alinhadas com o tema.
+   --------------------------------------------------------- */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: inner-spin-button;
+  appearance: auto;
+  opacity: 1;
+  height: 1.9rem;
+  width: 1.1rem;
+  margin-left: 0.25rem;
+  cursor: pointer;
+}
+
+/* Firefox mostra as setas so em foco por omissao */
+input[type="number"] {
+  -moz-appearance: number-input;
+}
+
+/* Numeros alinhados, para comparar valores em coluna */
+input[type="number"] {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Campos onde o passo e inteiro ganham mais respiro a direita */
+input[type="number"].passo-inteiro {
+  padding-right: 0.35rem;
+}

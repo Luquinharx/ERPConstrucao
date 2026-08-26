@@ -419,7 +419,6 @@ export default function ServicosPage() {
                                 {category.nome}
                               </SelectItem>
                             ))}
-                            <SelectItem value="outros">Outra categoria</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -523,10 +522,10 @@ export default function ServicosPage() {
                                   <TableRow className="bg-muted/60">
                                     <TableHead className="min-w-[220px]">Descricao</TableHead>
                                     <TableHead className="w-[90px]">UN</TableHead>
-                                    <TableHead className="w-[100px] text-center">Qtd padrao</TableHead>
-                                    <TableHead className="w-[100px] text-center">Qtd pontual</TableHead>
-                                    <TableHead className="w-[110px] text-right">V. UN</TableHead>
-                                    <TableHead className="w-[110px] text-right">V. TOTAL</TableHead>
+                                    <TableHead className="w-[120px] text-center">Qtd padrao</TableHead>
+                                    <TableHead className="w-[120px] text-center">Qtd pontual</TableHead>
+                                    <TableHead className="w-[130px] text-right">V. UN</TableHead>
+                                    <TableHead className="w-[120px] text-right">V. TOTAL</TableHead>
                                     <TableHead className="w-[40px]"></TableHead>
                                   </TableRow>
                                 </TableHeader>
@@ -601,7 +600,7 @@ export default function ServicosPage() {
                                         <TableCell>
                                           <Input
                                             type="number"
-                                            step="0.01"
+                                            step="1"
                                             min="0"
                                             value={linha.quantidadePadrao}
                                             onChange={(e) =>
@@ -615,7 +614,7 @@ export default function ServicosPage() {
                                         <TableCell>
                                           <Input
                                             type="number"
-                                            step="0.01"
+                                            step="1"
                                             min="0"
                                             value={linha.quantidadePontual}
                                             onChange={(e) =>

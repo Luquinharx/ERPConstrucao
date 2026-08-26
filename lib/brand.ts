@@ -10,6 +10,7 @@ export const CONFIGURACAO_PADRAO: ConfiguracaoEmpresa = {
   nome: "TEC KNOW HOW",
   slogan: "Construcao Civil e Remodelacoes",
   logoUrl: "/marca/logo-tecknowhow.png",
+  logoFundo: "auto",
 
   // Laranja da marca (hsl 24 95% 53%), azul-marinho do simbolo e cinza escuro
   corPrimaria: "#F97316",

@@ -12,7 +12,8 @@ export const SERVICE_CATEGORY_PRESETS: ServiceCategoryPreset[] = [
   { id: "manutencao", nome: "Manutencao" },
   { id: "limpeza-tecnica", nome: "Limpeza Tecnica" },
   { id: "transporte-logistica", nome: "Transporte e Logistica" },
-  { id: "outros", nome: "Outros" },
+  // Escolher esta opcao abre o campo para escrever o nome da categoria
+  { id: "outros", nome: "Outra categoria" },
 ]
 
 export function getServiceCategoryName(categoriaId?: string, categoriaNome?: string): string {

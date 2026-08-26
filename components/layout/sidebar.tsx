@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/hooks/use-auth"
 import { useConfiguracao } from "@/hooks/use-configuracao"
+import { MarcaDaEmpresa } from "@/components/marca-da-empresa"
 import { ThemeToggle } from "@/components/theme-toggle"
 
 const navigation = [
@@ -67,12 +68,7 @@ export function Sidebar() {
           {/* Header */}
           <div className="flex items-center justify-center h-20 px-4 border-b border-border">
             {configuracao.logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={configuracao.logoUrl}
-                alt={configuracao.nome}
-                className="max-h-12 max-w-full object-contain"
-              />
+              <MarcaDaEmpresa tamanho="md" />
             ) : (
               <h1 className="text-xl font-bold text-primary">{configuracao.nome || "ERP"}</h1>
             )}

@@ -73,10 +73,20 @@ export function IdentidadeDaEmpresa() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center gap-4">
-            <div className="flex h-24 w-56 items-center justify-center rounded-lg border bg-white p-3">
+            <div className="flex h-24 w-56 items-center justify-center rounded-lg border bg-background p-3">
               {form.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={form.logoUrl} alt={form.nome} className="max-h-full max-w-full object-contain" />
+                <span
+                  className={
+                    form.logoFundo === "escuro"
+                      ? "rounded-md bg-neutral-900 p-2"
+                      : form.logoFundo === "nenhum"
+                        ? ""
+                        : "rounded-md p-2 dark:bg-white/95"
+                  }
+                >
+                  <img src={form.logoUrl} alt={form.nome} className="max-h-16 max-w-full object-contain" />
+                </span>
               ) : (
                 <span className="text-xs text-muted-foreground">Sem logotipo</span>
               )}
@@ -105,6 +115,27 @@ export function IdentidadeDaEmpresa() {
               )}
               <p className="text-xs text-muted-foreground">PNG, JPG, SVG ou WEBP ate {LIMITE_LOGO_KB} KB.</p>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="logoFundo">Fundo por tras do logotipo</Label>
+            <Select
+              value={form.logoFundo || "auto"}
+              onValueChange={(valor) => alterar({ logoFundo: valor as ConfiguracaoEmpresa["logoFundo"] })}
+            >
+              <SelectTrigger className="rounded-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto">Automatico - placa clara so no tema escuro</SelectItem>
+                <SelectItem value="claro">Sempre claro</SelectItem>
+                <SelectItem value="escuro">Sempre escuro</SelectItem>
+                <SelectItem value="nenhum">Sem fundo</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Logotipos com tinta escura desaparecem sobre fundo escuro. A placa resolve isso sem alterar a imagem.
+            </p>
           </div>
 
           <div className="space-y-2">
