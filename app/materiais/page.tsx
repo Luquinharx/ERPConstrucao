@@ -394,15 +394,17 @@ export default function MateriaisPage() {
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
+                        <div className="w-10 h-10 shrink-0 bg-primary rounded-full flex items-center justify-center self-start">
                           <Package className="h-5 w-5 text-primary-foreground" />
                         </div>
-                        <div>
-                          <CardTitle className="text-lg">{material.nome}</CardTitle>
-                          <CardDescription>{material.fornecedor || "Sem fornecedor"}</CardDescription>
+                        <div className="min-w-0">
+                          <CardTitle className="text-base leading-snug break-words">{material.nome}</CardTitle>
+                          <CardDescription className="truncate">
+                            {material.fornecedor || "Sem fornecedor"}
+                          </CardDescription>
                         </div>
                       </div>
-                      <Badge variant="secondary">{material.unidade}</Badge>
+                      <Badge variant="secondary" className="shrink-0">{material.unidade}</Badge>
                     </div>
                   </CardHeader>
                   <CardContent>

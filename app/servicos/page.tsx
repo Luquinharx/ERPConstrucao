@@ -37,6 +37,7 @@ import { formatCurrency, matchesSearch, round2, toFixed2 } from "@/lib/utils"
 import { ListToolbar } from "@/components/ui/list-toolbar"
 import { useSearchQuery } from "@/hooks/use-search-query"
 import { Checkbox } from "@/components/ui/checkbox"
+import { SeletorComBusca } from "@/components/ui/seletor-com-busca"
 import { SERVICE_CATEGORY_PRESETS, getServiceCategoryName } from "@/lib/service-categories"
 import { v4 as uuidv4 } from "uuid"
 
@@ -359,7 +360,7 @@ export default function ServicosPage() {
                 Novo Servico
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-[1100px] max-h-[92vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{editingServico ? "Editar Servico" : "Novo Servico"}</DialogTitle>
                 <DialogDescription>
@@ -392,7 +393,7 @@ export default function ServicosPage() {
                           <SelectTrigger>
                             <SelectValue placeholder="Selecione a unidade" />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="max-h-72">
                             {UNIDADES_MEDIDA.map((unidade) => (
                               <SelectItem key={unidade} value={unidade}>
                                 {unidade}
@@ -413,7 +414,7 @@ export default function ServicosPage() {
                           <SelectTrigger>
                             <SelectValue placeholder="Selecione a categoria" />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="max-h-72">
                             {SERVICE_CATEGORY_PRESETS.map((category) => (
                               <SelectItem key={category.id} value={category.id}>
                                 {category.nome}
@@ -542,42 +543,35 @@ export default function ServicosPage() {
                                             className="h-8 text-sm"
                                           />
                                           {grupo.id === "mao_obra" ? (
-                                            <Select
-                                              value={linha.funcionarioId || ""}
-                                              onValueChange={(value) => aplicarFuncionario(linha.id, value)}
-                                            >
-                                              <SelectTrigger className="h-7 text-xs">
-                                                <SelectValue placeholder="Puxar de um funcionario..." />
-                                              </SelectTrigger>
-                                              <SelectContent>
-                                                {funcionarios.map((funcionario) => (
-                                                  <SelectItem key={funcionario.id} value={funcionario.id!}>
-                                                    {funcionario.nome} ({funcionario.funcao}) - custo{" "}
-                                                    {formatCurrency(
-                                                      funcionario.custoHoraCalculado ?? funcionario.custoHora ?? 0,
-                                                    )}
-                                                    /h
-                                                  </SelectItem>
-                                                ))}
-                                              </SelectContent>
-                                            </Select>
+                                            <SeletorComBusca
+                                              compacto
+                                              valor={linha.funcionarioId || ""}
+                                              onChange={(value) => aplicarFuncionario(linha.id, value)}
+                                              placeholder="Puxar de um funcionario..."
+                                              placeholderBusca="Procurar funcionario..."
+                                              vazio="Nenhum funcionario encontrado."
+                                              opcoes={funcionarios.map((funcionario) => ({
+                                                valor: funcionario.id!,
+                                                rotulo: funcionario.nome,
+                                                detalhe: `${funcionario.funcao} - custo ${formatCurrency(
+                                                  funcionario.custoHoraCalculado ?? funcionario.custoHora ?? 0,
+                                                )}/h`,
+                                              }))}
+                                            />
                                           ) : (
-                                            <Select
-                                              value={linha.materialId || ""}
-                                              onValueChange={(value) => aplicarMaterial(linha.id, value)}
-                                            >
-                                              <SelectTrigger className="h-7 text-xs">
-                                                <SelectValue placeholder="Puxar de um material..." />
-                                              </SelectTrigger>
-                                              <SelectContent>
-                                                {materiais.map((material) => (
-                                                  <SelectItem key={material.id} value={material.id!}>
-                                                    {material.nome} ({formatCurrency(material.precoUnitario)}/
-                                                    {material.unidade})
-                                                  </SelectItem>
-                                                ))}
-                                              </SelectContent>
-                                            </Select>
+                                            <SeletorComBusca
+                                              compacto
+                                              valor={linha.materialId || ""}
+                                              onChange={(value) => aplicarMaterial(linha.id, value)}
+                                              placeholder="Puxar de um material..."
+                                              placeholderBusca="Procurar material..."
+                                              vazio="Nenhum material encontrado."
+                                              opcoes={materiais.map((material) => ({
+                                                valor: material.id!,
+                                                rotulo: material.nome,
+                                                detalhe: `${formatCurrency(material.precoUnitario)} / ${material.unidade}`,
+                                              }))}
+                                            />
                                           )}
                                         </TableCell>
                                         <TableCell>
@@ -588,7 +582,7 @@ export default function ServicosPage() {
                                             <SelectTrigger className="h-8 text-sm">
                                               <SelectValue />
                                             </SelectTrigger>
-                                            <SelectContent>
+                                            <SelectContent className="max-h-72">
                                               {UNIDADES_LINHA.map((unidade) => (
                                                 <SelectItem key={unidade} value={unidade}>
                                                   {unidade}

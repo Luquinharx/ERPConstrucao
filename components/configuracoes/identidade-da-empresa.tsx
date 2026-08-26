@@ -374,7 +374,7 @@ export function IdentidadeDaEmpresa() {
           <CardDescription>Valores sugeridos ao criar um orcamento e notas do rodape.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-5">
             <div className="space-y-2">
               <Label htmlFor="prefixoOrcamento">Prefixo</Label>
               <Input
@@ -384,7 +384,19 @@ export function IdentidadeDaEmpresa() {
                 placeholder="CO"
                 className="rounded-full"
               />
-              <p className="text-xs text-muted-foreground">Gera {form.prefixoOrcamento || "CO"}26/0001</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="sufixoOrcamento">Sufixo</Label>
+              <Input
+                id="sufixoOrcamento"
+                value={form.sufixoOrcamento || ""}
+                onChange={(e) => alterar({ sufixoOrcamento: e.target.value })}
+                placeholder="/2026"
+                className="rounded-full"
+              />
+              <p className="text-xs text-muted-foreground">
+                Gera {form.prefixoOrcamento || ""}26/0001{form.sufixoOrcamento || ""}
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="validadeDiasPadrao">Validade (dias)</Label>

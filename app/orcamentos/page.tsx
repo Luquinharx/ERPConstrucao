@@ -18,8 +18,22 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Edit, Trash2, Calculator, Search, FileText, Download, X, Loader2, Copy } from "lucide-react"
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Calculator,
+  Search,
+  FileText,
+  Download,
+  X,
+  Loader2,
+  Copy,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
+import { SeletorComBusca } from "@/components/ui/seletor-com-busca"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,6 +65,8 @@ import { CONFIGURACAO_PADRAO, corDeTexto } from "@/lib/brand"
 type TipoDocumento = "venda" | "custo"
 
 interface OrcamentoFormState {
+  /** Numero da proposta, editavel para corrigir sequencias. */
+  numero: string
   clienteId: string
   cliente: Orcamento["cliente"]
   dataOrcamento: string
@@ -106,6 +122,7 @@ function addDays(date: Date, days: number): Date {
 function getDefaultFormData(): OrcamentoFormState {
   const today = new Date()
   return {
+    numero: "",
     clienteId: "",
     cliente: {
       nome: "",
@@ -246,6 +263,25 @@ function getServicoPrecos(servico: Servico) {
     precoFixo: temSplit ? round2(servico.precoFixo ?? 0) : 0,
     transporte,
   }
+}
+
+
+/**
+ * Cor de cada comodo, atribuida pela ordem em que aparece.
+ * Serve para distinguir as seccoes de relance, sobretudo no tema escuro.
+ * A lista repete-se se houver mais comodos do que cores.
+ */
+const CORES_AMBIENTE = [
+  { cabecalho: "bg-sky-500/15 text-sky-700 dark:text-sky-300", barra: "border-l-sky-500" },
+  { cabecalho: "bg-violet-500/15 text-violet-700 dark:text-violet-300", barra: "border-l-violet-500" },
+  { cabecalho: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300", barra: "border-l-emerald-500" },
+  { cabecalho: "bg-amber-500/15 text-amber-700 dark:text-amber-300", barra: "border-l-amber-500" },
+  { cabecalho: "bg-rose-500/15 text-rose-700 dark:text-rose-300", barra: "border-l-rose-500" },
+  { cabecalho: "bg-teal-500/15 text-teal-700 dark:text-teal-300", barra: "border-l-teal-500" },
+]
+
+function getCorAmbiente(indice: number) {
+  return CORES_AMBIENTE[indice % CORES_AMBIENTE.length]
 }
 
 /** Cor de fundo e borda por tipo de item, para distinguir a olho na lista. */
@@ -596,7 +632,7 @@ function buildOrcamentoDocumentHtml(
         <tbody><tr><td>
       <header class="topo">
         <div class="topo-dados">
-          <div class="ref">${escapeHtml(marca.prefixoOrcamento || "CO")}${escapeHtml(orcamento.numero)}</div>
+          <div class="ref">${escapeHtml(marca.prefixoOrcamento || "")}${escapeHtml(orcamento.numero)}${escapeHtml(marca.sufixoOrcamento || "")}</div>
           <div>Cliente: <strong>${escapeHtml(orcamento.cliente.nome)}</strong></div>
           ${
             orcamento.cliente.morada
@@ -681,8 +717,8 @@ function buildOrcamentoDocumentHtml(
 
       <div class="rodape">
         <span>${escapeHtml(marca.nome)}${marca.website ? ` · ${escapeHtml(marca.website)}` : ""}</span>
-        <span>${escapeHtml(marca.prefixoOrcamento || "CO")}${escapeHtml(
-          orcamento.numero,
+        <span>${escapeHtml(marca.prefixoOrcamento || "")}${escapeHtml(orcamento.numero)}${escapeHtml(
+          marca.sufixoOrcamento || "",
         )} · emitido em ${new Date().toLocaleDateString("pt-PT")}</span>
       </div>
         </td></tr></tbody>
@@ -713,6 +749,8 @@ export default function OrcamentosPage() {
   // Comodo em que os proximos itens serao lancados
   const [ambienteAtual, setAmbienteAtual] = useState("")
   const [novoAmbiente, setNovoAmbiente] = useState("")
+  /** Comodos recolhidos, para nao ter de rolar tanto em orcamentos grandes. */
+  const [ambientesRecolhidos, setAmbientesRecolhidos] = useState<string[]>([])
 
   const [duplicandoItem, setDuplicandoItem] = useState<ItemOrcamento | null>(null)
   const [duplicarFuncionarioId, setDuplicarFuncionarioId] = useState("")
@@ -1125,6 +1163,12 @@ export default function OrcamentosPage() {
     if (ambienteAtual === nome) setAmbienteAtual("")
   }
 
+  const alternarAmbiente = (nome: string) => {
+    setAmbientesRecolhidos((atual) =>
+      atual.includes(nome) ? atual.filter((item) => item !== nome) : [...atual, nome],
+    )
+  }
+
   const handleItemRemove = (itemId: string) => {
     const target = formData.itens.find((item) => item.id === itemId)
     const updatedItens = formData.itens.filter((item) => item.id !== itemId)
@@ -1231,7 +1275,7 @@ export default function OrcamentosPage() {
       const dataValidade = new Date(formData.dataValidade)
 
       const orcamentoData: Omit<Orcamento, "id"> = {
-        numero: editingOrcamento?.numero || generateOrcamentoNumber(),
+        numero: formData.numero.trim() || editingOrcamento?.numero || generateOrcamentoNumber(),
         clienteId,
         cliente: {
           nome: formData.cliente.nome.trim(),
@@ -1298,6 +1342,7 @@ export default function OrcamentosPage() {
   const handleEdit = (orcamento: Orcamento) => {
     setEditingOrcamento(orcamento)
     setFormData({
+      numero: orcamento.numero || "",
       clienteId: orcamento.clienteId || "",
       cliente: {
         nome: orcamento.cliente.nome,
@@ -1595,7 +1640,22 @@ export default function OrcamentosPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="numero">Numero da proposta</Label>
+                  <Input
+                    id="numero"
+                    value={formData.numero}
+                    onChange={(e) => setFormData({ ...formData, numero: e.target.value })}
+                    placeholder={generateOrcamentoNumber()}
+                    className="rounded-full"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Sai como {configuracao.prefixoOrcamento || ""}
+                    {formData.numero || generateOrcamentoNumber()}
+                    {configuracao.sufixoOrcamento || ""}. Deixe vazio para numerar automaticamente.
+                  </p>
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="dataOrcamento">Data do Orcamento</Label>
                   <Input
@@ -1689,19 +1749,21 @@ export default function OrcamentosPage() {
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <Label>Selecionar servico</Label>
-                      <Select value={servicoForm.servicoId} onValueChange={handleServicoSelect}>
-                        <SelectTrigger className="rounded-full">
-                          <SelectValue placeholder="Escolha um servico" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {servicos.map((servico) => (
-                            <SelectItem key={servico.id} value={servico.id!}>
-                              {servico.nome} ({getServiceCategoryName(servico.categoriaId, servico.categoriaNome)}) -{" "}
-                              {formatCurrency(servico.preco || 0)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <SeletorComBusca
+                        valor={servicoForm.servicoId}
+                        onChange={handleServicoSelect}
+                        placeholder="Escolha um servico"
+                        placeholderBusca="Procurar servico..."
+                        vazio="Nenhum servico encontrado."
+                        className="rounded-full"
+                        opcoes={servicos.map((servico) => ({
+                          valor: servico.id!,
+                          rotulo: servico.nome,
+                          detalhe: `${getServiceCategoryName(servico.categoriaId, servico.categoriaNome)} - ${formatCurrency(
+                            servico.preco || 0,
+                          )} / ${servico.unidade}`,
+                        }))}
+                      />
                     </div>
 
                     {servicoForm.servicoId && (
@@ -1789,18 +1851,19 @@ export default function OrcamentosPage() {
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <Label>Selecionar funcionario</Label>
-                      <Select value={maoObraForm.funcionarioId} onValueChange={handleFuncionarioSelect}>
-                        <SelectTrigger className="rounded-full">
-                          <SelectValue placeholder="Escolha um funcionario" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {funcionarios.map((funcionario) => (
-                            <SelectItem key={funcionario.id} value={funcionario.id!}>
-                              {funcionario.nome} - {formatCurrency(funcionario.custoHora)} /hora
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <SeletorComBusca
+                        valor={maoObraForm.funcionarioId}
+                        onChange={handleFuncionarioSelect}
+                        placeholder="Escolha um funcionario"
+                        placeholderBusca="Procurar funcionario..."
+                        vazio="Nenhum funcionario encontrado."
+                        className="rounded-full"
+                        opcoes={funcionarios.map((funcionario) => ({
+                          valor: funcionario.id!,
+                          rotulo: funcionario.nome,
+                          detalhe: `${funcionario.funcao} - ${formatCurrency(funcionario.custoHora)}/hora`,
+                        }))}
+                      />
                     </div>
 
                     {maoObraForm.funcionarioId && (
@@ -1877,10 +1940,26 @@ export default function OrcamentosPage() {
               {formData.itens.length > 0 && (
                 <div className="space-y-4">
                   <h3 className="text-lg font-medium">Itens do Orcamento</h3>
-                  {agruparPorAmbiente(formData.itens, formData.ambientes).map((grupo, indiceGrupo) => (
+                  {agruparPorAmbiente(formData.itens, formData.ambientes).map((grupo, indiceGrupo) => {
+                  const recolhido = ambientesRecolhidos.includes(grupo.nome)
+                  return (
                   <div key={grupo.nome} className="space-y-3">
-                    <div className="flex items-center justify-between gap-2 rounded-md bg-primary/10 px-3 py-2">
+                    <div
+                      className={`flex items-center justify-between gap-2 rounded-md px-3 py-2 ${
+                        getCorAmbiente(indiceGrupo).cabecalho
+                      }`}
+                    >
                       <div className="flex flex-1 items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 shrink-0"
+                          title={recolhido ? "Expandir comodo" : "Recolher comodo"}
+                          onClick={() => alternarAmbiente(grupo.nome)}
+                        >
+                          {recolhido ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </Button>
                         <span className="text-sm font-semibold">{indiceGrupo + 1}.</span>
                         {grupo.nome === SEM_AMBIENTE ? (
                           <span className="text-sm font-semibold">{grupo.nome}</span>
@@ -1894,6 +1973,11 @@ export default function OrcamentosPage() {
                         )}
                       </div>
                       <div className="flex items-center gap-2">
+                        {recolhido && (
+                          <span className="text-xs opacity-80">
+                            {grupo.itens.length} {grupo.itens.length === 1 ? "item" : "itens"}
+                          </span>
+                        )}
                         <span className="text-sm font-semibold">{formatCurrency(grupo.subtotal)}</span>
                         <Button
                           type="button"
@@ -1908,7 +1992,7 @@ export default function OrcamentosPage() {
                         </Button>
                       </div>
                     </div>
-                    {grupo.itens.map((item, indiceItem) => {
+                    {!recolhido && grupo.itens.map((item, indiceItem) => {
                       const indice = formData.itens.indexOf(item)
                       const readOnlyServico = item.tipo === "servico"
                       const custoUnitario = item.custoUnitario ?? item.precoUnitario
@@ -2081,7 +2165,8 @@ export default function OrcamentosPage() {
                       )
                     })}
                   </div>
-                  ))}
+                  )
+                  })}
                 </div>
               )}
 

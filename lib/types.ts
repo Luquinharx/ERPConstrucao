@@ -32,6 +32,8 @@ export interface ConfiguracaoEmpresa {
 
   /** Prefixo da numeracao dos orcamentos (ex.: CO -> CO26/0033). */
   prefixoOrcamento?: string
+  /** Sufixo da numeracao, ex.: "/2026" ou "-PT". */
+  sufixoOrcamento?: string
   validadeDiasPadrao?: number
   margemPadrao?: number
   taxaIVAPadrao?: number
