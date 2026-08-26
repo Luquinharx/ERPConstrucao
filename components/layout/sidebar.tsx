@@ -8,7 +8,6 @@ import {
   Users,
   Package,
   Settings,
-  FileText,
   LogOut,
   Menu,
   X,
@@ -33,7 +32,6 @@ const navigation = [
   { name: "Categorias", href: "/categorias", icon: Tags },
   { name: "Serviços", href: "/servicos", icon: Wrench },
   { name: "Relatórios", href: "/relatorios", icon: BarChart3 },
-  { name: "Termos", href: "/termos", icon: FileText },
   { name: "Configurações", href: "/configuracoes", icon: Settings },
 ]
 

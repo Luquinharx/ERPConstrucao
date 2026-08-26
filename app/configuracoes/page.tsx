@@ -8,12 +8,22 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/hooks/use-auth"
 import { toast } from "@/hooks/use-toast"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { IdentidadeDaEmpresa } from "@/components/configuracoes/identidade-da-empresa"
+import { TermosECondicoes } from "@/components/configuracoes/termos-e-condicoes"
 
 export default function ConfiguracoesPage() {
+  // A aba inicial pode vir da URL (?aba=termos), usada pelo redirecionamento antigo
+  const [abaInicial, setAbaInicial] = useState("identidade")
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const aba = new URLSearchParams(window.location.search).get("aba")
+    if (aba === "termos" || aba === "conta") setAbaInicial(aba)
+  }, [])
+
   const { user, updateEmail, updatePassword } = useAuth()
   const [newEmail, setNewEmail] = useState(user?.email || "")
   const [currentPassword, setCurrentPassword] = useState("")
@@ -91,14 +101,19 @@ export default function ConfiguracoesPage() {
       <h1 className="text-3xl font-bold">Configurações</h1>
       <p className="text-muted-foreground">Identidade da empresa, padrões das propostas e dados da sua conta.</p>
 
-      <Tabs defaultValue="identidade" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
+      <Tabs defaultValue={abaInicial} className="w-full">
+        <TabsList className="grid w-full max-w-2xl grid-cols-3">
           <TabsTrigger value="identidade">Identidade e propostas</TabsTrigger>
+          <TabsTrigger value="termos">Termos e condições</TabsTrigger>
           <TabsTrigger value="conta">Minha conta</TabsTrigger>
         </TabsList>
 
         <TabsContent value="identidade" className="mt-6">
           <IdentidadeDaEmpresa />
+        </TabsContent>
+
+        <TabsContent value="termos" className="mt-6">
+          <TermosECondicoes />
         </TabsContent>
 
         <TabsContent value="conta" className="mt-6 space-y-6">
