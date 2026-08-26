@@ -325,3 +325,6 @@ input[type="number"] {
 input[type="number"].passo-inteiro {
   padding-right: 0.35rem;
 }
+
+/* Largura da barra lateral; a propria barra atualiza este valor */
+:root { --largura-barra: 16rem; }

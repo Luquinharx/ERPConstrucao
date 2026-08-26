@@ -28,13 +28,21 @@ service cloud.firestore {
     }
 
     /**
-     * Enquanto nao existir nenhum utilizador, a primeira conta a entrar tem de
-     * se poder registar a si propria como administrador. Depois disso, so quem
-     * tem a permissao mexe em utilizadores.
+     * Permissoes que uma conta se pode atribuir a si propria no primeiro acesso.
+     *
+     * Sem este limite, qualquer pessoa que se registasse podia criar o seu
+     * documento ja com todas as permissoes e tornar-se administradora sozinha.
+     * O primeiro administrador e atribuido de fora, nao pela propria conta.
      */
-    function sistemaSemDono() {
-      return !exists(/databases/$(database)/documents/utilizadores/$(request.auth.uid))
-        && request.auth != null;
+    function permissoesDeConsulta() {
+      return ['clientes.ver', 'materiais.ver', 'servicos.ver', 'orcamentos.ver', 'relatorios.ver'];
+    }
+
+    function autoRegistoSeguro(uid) {
+      return autenticado()
+        && uid == request.auth.uid
+        && request.resource.data.cargo == 'consulta'
+        && request.resource.data.permissoes.hasOnly(permissoesDeConsulta());
     }
 
     match /utilizadores/{uid} {
@@ -42,8 +50,9 @@ service cloud.firestore {
       allow get: if autenticado() && (uid == request.auth.uid || pode('utilizadores.gerir'));
       allow list: if autenticado();
 
-      // O proprio cria o seu registo no primeiro acesso; alterar cargos exige permissao
-      allow create: if autenticado() && (uid == request.auth.uid || pode('utilizadores.gerir'));
+      // O proprio cria o seu registo no primeiro acesso, mas so como Consulta.
+      // Atribuir cargos com mais permissoes exige quem gere utilizadores.
+      allow create: if autoRegistoSeguro(uid) || pode('utilizadores.gerir');
       allow update: if pode('utilizadores.gerir')
         || (autenticado() && uid == request.auth.uid
             && request.resource.data.cargo == resource.data.cargo
