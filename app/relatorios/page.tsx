@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { BarChart3, TrendingUp, Download, FileText, Users, Package } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { FirebaseService } from "@/lib/firebase-service"
+import { normalizarFase } from "@/lib/orcamento-fases"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { toast } from "@/hooks/use-toast"
 
@@ -77,8 +78,10 @@ export default function RelatoriosPage() {
       const clientesPeriodo = clientes.filter((c) => new Date(c.createdAt) >= dataInicio)
 
       // Calcular estatísticas
-      const orcamentosAprovados = orcamentosPeriodo.filter((o) => o.status === "aprovado")
-      const orcamentosPendentes = orcamentosPeriodo.filter((o) => o.status === "rascunho" || o.status === "enviado")
+      const orcamentosAprovados = orcamentosPeriodo.filter((o) => normalizarFase(o.status) === "emitido")
+      const orcamentosPendentes = orcamentosPeriodo.filter((o) =>
+        ["rascunho", "em_revisao", "em_negociacao"].includes(normalizarFase(o.status)),
+      )
       const receitaTotal = orcamentosAprovados.reduce((sum, o) => sum + (o.valorTotal || 0), 0)
       const taxaConversao =
         orcamentosPeriodo.length > 0 ? (orcamentosAprovados.length / orcamentosPeriodo.length) * 100 : 0

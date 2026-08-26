@@ -31,6 +31,8 @@ import {
   Copy,
   ChevronDown,
   ChevronRight,
+  ArrowRightLeft,
+  Lock,
 } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { SeletorComBusca } from "@/components/ui/seletor-com-busca"
@@ -52,6 +54,7 @@ import type {
   Cliente,
   TermoServico,
   ConfiguracaoEmpresa,
+  StatusOrcamento,
 } from "@/lib/types"
 import { FirebaseService } from "@/lib/firebase-service"
 import { formatCurrency, matchesSearch, round2, toFixed2 } from "@/lib/utils"
@@ -59,6 +62,14 @@ import { getServiceCategoryName } from "@/lib/service-categories"
 import { ListToolbar } from "@/components/ui/list-toolbar"
 import { useSearchQuery } from "@/hooks/use-search-query"
 import { useConfiguracao } from "@/hooks/use-configuracao"
+import {
+  FASES_ORCAMENTO,
+  getFase,
+  nomeDaVersao,
+  normalizarFase,
+  podeCriarRevisao,
+  podeEditar,
+} from "@/lib/orcamento-fases"
 import { CONFIGURACAO_PADRAO, corDeTexto } from "@/lib/brand"
 
 /** Documento gerado: venda (cliente) ou custo (interno). */
@@ -327,14 +338,7 @@ function escapeHtml(input?: string): string {
 }
 
 function getStatusLabel(status: Orcamento["status"]): string {
-  const labels: Record<Orcamento["status"], string> = {
-    rascunho: "Rascunho",
-    enviado: "Enviado",
-    aprovado: "Aprovado",
-    rejeitado: "Rejeitado",
-  }
-
-  return labels[status] || status
+  return getFase(status).nome
 }
 
 function buildOrcamentoDocumentHtml(
@@ -652,6 +656,7 @@ function buildOrcamentoDocumentHtml(
       <header class="topo">
         <div class="topo-dados">
           <div class="ref">${escapeHtml(marca.prefixoOrcamento || "")}${escapeHtml(orcamento.numero)}${escapeHtml(marca.sufixoOrcamento || "")}</div>
+          <div class="muted">Versao: ${escapeHtml(nomeDaVersao(orcamento.revisao))}</div>
           <div>Cliente: <strong>${escapeHtml(orcamento.cliente.nome)}</strong></div>
           ${
             orcamento.cliente.morada
@@ -814,7 +819,7 @@ export default function OrcamentosPage() {
     }
 
     if (statusFilter !== "all") {
-      filtered = filtered.filter((orcamento) => orcamento.status === statusFilter)
+      filtered = filtered.filter((orcamento) => normalizarFase(orcamento.status) === statusFilter)
     }
 
     return filtered
@@ -1400,6 +1405,102 @@ export default function OrcamentosPage() {
     }
   }
 
+  // --- Fases da proposta
+
+  /** Muda a fase, registando quem mudou e quando. */
+  const mudarFase = async (orcamento: Orcamento, novaFase: StatusOrcamento, motivo?: string) => {
+    if (!user || !orcamento.id) return
+
+    const registo = {
+      estado: novaFase,
+      data: new Date(),
+      utilizador: user.email || user.uid,
+      ...(motivo ? { nota: motivo } : {}),
+    }
+
+    const alteracoes: Partial<Orcamento> = {
+      status: novaFase,
+      historicoFases: [...(orcamento.historicoFases || []), registo],
+      updatedAt: new Date(),
+    }
+
+    // Emitir congela a versao: guarda-se a data e fixa-se o numero base
+    if (novaFase === "emitido" && !orcamento.dataEmissao) {
+      alteracoes.dataEmissao = new Date()
+      alteracoes.revisao = orcamento.revisao ?? 0
+      alteracoes.numeroBase = orcamento.numeroBase || orcamento.numero
+    }
+    if (novaFase === "cancelado" && motivo) alteracoes.motivoPerda = motivo
+
+    try {
+      await FirebaseService.updateOrcamento(orcamento.id, alteracoes)
+      toast({
+        title: `Proposta em ${getFase(novaFase).nome}`,
+        description: getFase(novaFase).descricao,
+      })
+      await loadData()
+    } catch (error) {
+      toast({ title: "Erro ao mudar de fase", description: "Tente novamente.", variant: "destructive" })
+    }
+  }
+
+  /**
+   * Cria uma revisao a partir de uma proposta emitida.
+   *
+   * A original fica intacta (e o que o cliente recebeu) e a copia nasce em
+   * Rascunho, com o mesmo numero base e a letra da revisao seguinte.
+   */
+  const criarRevisao = async (orcamento: Orcamento) => {
+    if (!user || !orcamento.id) return
+
+    const proximaRevisao = (orcamento.revisao ?? 0) + 1
+    const numeroBase = orcamento.numeroBase || orcamento.numero
+
+    if (
+      !confirm(
+        `Criar a ${nomeDaVersao(proximaRevisao)} desta proposta?
+
+A versao atual fica guardada como foi entregue ao cliente, e a nova abre em Rascunho para poder ser alterada.`,
+      )
+    )
+      return
+
+    try {
+      const { id, ...dados } = orcamento
+      await FirebaseService.addOrcamento(
+        {
+          ...dados,
+          numero: `${numeroBase}${String.fromCharCode(64 + proximaRevisao)}`,
+          numeroBase,
+          revisao: proximaRevisao,
+          orcamentoOrigemId: orcamento.id,
+          status: "rascunho",
+          dataEmissao: undefined,
+          motivoPerda: "",
+          historicoFases: [
+            {
+              estado: "rascunho" as StatusOrcamento,
+              data: new Date(),
+              utilizador: user.email || user.uid,
+              nota: `Revisao criada a partir de ${orcamento.numero}`,
+            },
+          ],
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        } as Omit<Orcamento, "id">,
+        user.uid,
+      )
+
+      toast({
+        title: `${nomeDaVersao(proximaRevisao)} criada`,
+        description: "A nova versao abriu em Rascunho. A anterior fica como esta.",
+      })
+      await loadData()
+    } catch (error) {
+      toast({ title: "Erro ao criar revisao", description: "Tente novamente.", variant: "destructive" })
+    }
+  }
+
   const handleOpenDocument = async (orcamento: Orcamento, shouldPrint: boolean, tipo: TipoDocumento) => {
     if (!user) return
     if (!orcamento.id) return
@@ -1467,14 +1568,12 @@ export default function OrcamentosPage() {
     formData.clienteId && clientes.some((cliente) => cliente.id === formData.clienteId) ? formData.clienteId : "__novo"
 
   const getStatusBadge = (status: Orcamento["status"]) => {
-    const variants: Record<Orcamento["status"], "default" | "secondary" | "destructive" | "outline"> = {
-      rascunho: "secondary",
-      enviado: "default",
-      aprovado: "default",
-      rejeitado: "destructive",
-    }
-
-    return <Badge variant={variants[status] || "secondary"}>{getStatusLabel(status)}</Badge>
+    const fase = getFase(status)
+    return (
+      <Badge variant="outline" className={fase.cor} title={fase.descricao}>
+        {fase.nome}
+      </Badge>
+    )
   }
 
   return (
@@ -2426,10 +2525,11 @@ export default function OrcamentosPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos os status</SelectItem>
-            <SelectItem value="rascunho">Rascunho</SelectItem>
-            <SelectItem value="enviado">Enviado</SelectItem>
-            <SelectItem value="aprovado">Aprovado</SelectItem>
-            <SelectItem value="rejeitado">Rejeitado</SelectItem>
+            {FASES_ORCAMENTO.map((fase) => (
+              <SelectItem key={fase.id} value={fase.id}>
+                {fase.nome}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </ListToolbar>
@@ -2443,8 +2543,18 @@ export default function OrcamentosPage() {
                   <CardTitle className="flex items-center gap-2">
                     <Calculator className="h-5 w-5" />
                     Orcamento #{orcamento.numero}
+                    {(orcamento.revisao ?? 0) > 0 && (
+                      <Badge variant="secondary" className="text-xs">
+                        {nomeDaVersao(orcamento.revisao)}
+                      </Badge>
+                    )}
                   </CardTitle>
-                  <CardDescription>{orcamento.cliente.nome}</CardDescription>
+                  <CardDescription>
+                    {orcamento.cliente.nome}
+                    {orcamento.dataEmissao && (
+                      <> · emitida em {new Date(orcamento.dataEmissao).toLocaleDateString("pt-PT")}</>
+                    )}
+                  </CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
                   {getStatusBadge(orcamento.status)}
@@ -2458,6 +2568,9 @@ export default function OrcamentosPage() {
                   <p>Data: {new Date(orcamento.dataOrcamento).toLocaleDateString("pt-PT")}</p>
                   <p>Validade: {new Date(orcamento.dataValidade).toLocaleDateString("pt-PT")}</p>
                   <p>Itens: {orcamento.itens.length}</p>
+                  {orcamento.motivoPerda && (
+                    <p className="text-destructive">Motivo: {orcamento.motivoPerda}</p>
+                  )}
                   <p>
                     Custo:{" "}
                     {formatCurrency(
@@ -2510,8 +2623,61 @@ export default function OrcamentosPage() {
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                  <Button variant="outline" size="icon" onClick={() => handleEdit(orcamento)} className="rounded-full">
-                    <Edit className="h-4 w-4" />
+                  {/* Mudar de fase: so aparecem as transicoes permitidas */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="icon" className="rounded-full" title="Mudar de fase">
+                        <ArrowRightLeft className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>
+                        Fase atual: {getFase(orcamento.status).nome}
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {getFase(orcamento.status).seguintes.map((proxima) => (
+                        <DropdownMenuItem
+                          key={proxima}
+                          onClick={() => {
+                            if (proxima === "cancelado") {
+                              const motivo = window.prompt(
+                                "Motivo do cancelamento (fica registado para analise):",
+                              )
+                              if (motivo === null) return
+                              void mudarFase(orcamento, proxima, motivo.trim() || "Nao indicado")
+                              return
+                            }
+                            void mudarFase(orcamento, proxima)
+                          }}
+                        >
+                          {getFase(proxima).nome}
+                        </DropdownMenuItem>
+                      ))}
+                      {podeCriarRevisao(orcamento.status) && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => void criarRevisao(orcamento)}>
+                            <Copy className="h-4 w-4 mr-2" />
+                            Criar {nomeDaVersao((orcamento.revisao ?? 0) + 1)}
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleEdit(orcamento)}
+                    disabled={!podeEditar(orcamento.status)}
+                    title={
+                      podeEditar(orcamento.status)
+                        ? "Editar proposta"
+                        : `Bloqueada em ${getFase(orcamento.status).nome}. Crie uma revisao para alterar.`
+                    }
+                    className="rounded-full"
+                  >
+                    {podeEditar(orcamento.status) ? <Edit className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
                   </Button>
                   <Button
                     variant="outline"

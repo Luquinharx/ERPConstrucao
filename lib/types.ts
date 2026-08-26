@@ -248,6 +248,17 @@ export interface Servico {
   userId: string
 }
 
+/** Fases de orcamentacao (pre-venda). */
+export type StatusOrcamento = "rascunho" | "em_revisao" | "emitido" | "em_negociacao" | "cancelado"
+
+/** Registo de cada mudanca de fase, para se saber o percurso da proposta. */
+export interface RegistoDeFase {
+  estado: StatusOrcamento
+  data: Date
+  utilizador: string
+  nota?: string
+}
+
 export interface ItemOrcamento {
   id: string
   /** Comodo/ambiente a que o item pertence (ex.: Sala, Cozinha, Quarto 01). */
@@ -317,7 +328,19 @@ export interface Orcamento {
   /** Total pelo custo real (custo dos itens + transporte). Nao leva IVA. */
   valorTotalCusto?: number
   observacoes?: string
-  status: "rascunho" | "enviado" | "aprovado" | "rejeitado"
+  status: StatusOrcamento
+  /** Numero da revisao: 0 = versao base (1.0), 1 = Rev. A, 2 = Rev. B... */
+  revisao?: number
+  /** Proposta de onde esta revisao saiu. */
+  orcamentoOrigemId?: string
+  /** Numero base, partilhado por todas as revisoes da mesma proposta. */
+  numeroBase?: string
+  /** Data em que foi emitida (congela a versao). */
+  dataEmissao?: Date
+  /** Motivo do cancelamento, para analise posterior. */
+  motivoPerda?: string
+  /** Percurso da proposta pelas fases. */
+  historicoFases?: RegistoDeFase[]
   localidade?: string
   createdAt: Date
   updatedAt: Date

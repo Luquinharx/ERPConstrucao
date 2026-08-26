@@ -16,6 +16,7 @@ import {
   DocumentSnapshot,
 } from "firebase/firestore"
 import { db } from "./firebase"
+import { normalizarFase } from "./orcamento-fases"
 
 /**
  * BASE COMPARTILHADA
@@ -692,13 +693,17 @@ export async function getDashboardStats(userId: string): Promise<DashboardStats>
 
     const [clientes, orcamentos] = await Promise.all([getClientes(userId), getOrcamentos(userId)])
 
-    const orcamentosAprovados = orcamentos.filter((o) => o.status === "aprovado")
-    const receitaTotal = orcamentosAprovados.reduce((sum, o) => sum + (o.valorTotal || 0), 0)
-    const taxaConversao = orcamentos.length > 0 ? Math.round((orcamentosAprovados.length / orcamentos.length) * 100) : 0
+    // Sem fase de adjudicacao, a referencia passa a ser a proposta emitida:
+    // e o ponto em que o documento foi entregue ao cliente
+    const emitidos = orcamentos.filter((o) => normalizarFase(o.status) === "emitido")
+    const receitaTotal = emitidos.reduce((sum, o) => sum + (o.valorTotal || 0), 0)
+    const cancelados = orcamentos.filter((o) => normalizarFase(o.status) === "cancelado").length
+    const decididos = emitidos.length + cancelados
+    const taxaConversao = decididos > 0 ? Math.round((emitidos.length / decididos) * 100) : 0
 
     const stats: DashboardStats = {
       totalOrcamentos: orcamentos.length,
-      orcamentosAprovados: orcamentosAprovados.length,
+      orcamentosAprovados: emitidos.length,
       receitaTotal,
       clientesAtivos: clientes.length,
       taxaConversao,
