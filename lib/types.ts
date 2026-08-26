@@ -1,4 +1,24 @@
 
+/** Utilizador do sistema, com o cargo e as permissoes ja resolvidas. */
+export interface UtilizadorSistema {
+  /** Igual ao uid da autenticacao. */
+  id?: string
+  email: string
+  nome?: string
+  cargo: string
+  /**
+   * Permissoes efetivas, gravadas para as regras do Firestore as poderem
+   * verificar sem saber o que cada cargo significa.
+   */
+  permissoes: string[]
+  ativo: boolean
+  /** Ultimo acesso registado pela aplicacao. */
+  ultimoAcesso?: Date
+  createdAt?: Date
+  updatedAt?: Date
+}
+
+
 /** Identidade visual e dados da empresa, editaveis em Configuracoes. */
 export interface ConfiguracaoEmpresa {
   id?: string

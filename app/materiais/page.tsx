@@ -18,6 +18,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Plus, Edit, Trash2, Package, Search, X } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
+import { usePermissoes } from "@/hooks/use-permissoes"
 import { toast } from "@/hooks/use-toast"
 import type { Material, MaterialCategory } from "@/lib/types"
 import { FirebaseService } from "@/lib/firebase-service"
@@ -34,6 +35,7 @@ export default function MateriaisPage() {
   const [loading, setLoading] = useState(false)
   const [pageLoading, setPageLoading] = useState(true)
   const { user } = useAuth()
+  const { pode } = usePermissoes()
 
   // Estados para busca e filtros (termo sincronizado com a URL)
   const { searchTerm, setSearchTerm, clearSearch } = useSearchQuery()
@@ -231,7 +233,7 @@ export default function MateriaisPage() {
         <div className="flex space-x-2">
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={resetForm} className="rounded-full">
+              <Button disabled={!pode("materiais.gerir")} onClick={resetForm} className="rounded-full">
                 <Plus className="h-4 w-4 mr-2" />
                 Novo Material
               </Button>

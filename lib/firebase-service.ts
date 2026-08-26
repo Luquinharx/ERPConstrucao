@@ -12,6 +12,7 @@ import {
   orderBy,
   startAfter,
   getCountFromServer,
+  getDoc,
   setDoc,
   DocumentSnapshot,
 } from "firebase/firestore"
@@ -40,6 +41,7 @@ import type {
   MaterialCategory,
   TermoServico,
   ConfiguracaoEmpresa,
+  UtilizadorSistema,
 } from "./types"
 
 // Função para gerar número único
@@ -950,4 +952,50 @@ export async function saveConfiguracaoEmpresa(
     },
     { merge: true },
   )
+}
+
+// ============================================================
+// UTILIZADORES E PERMISSOES
+// ============================================================
+
+export async function getUtilizadores(): Promise<UtilizadorSistema[]> {
+  const snap = await getDocs(query(collection(db, "utilizadores")))
+  const lista: UtilizadorSistema[] = []
+  snap.forEach((d) => {
+    const data = d.data()
+    lista.push({
+      id: d.id,
+      ...data,
+      ultimoAcesso: data.ultimoAcesso?.toDate?.(),
+      createdAt: data.createdAt?.toDate?.(),
+      updatedAt: data.updatedAt?.toDate?.(),
+    } as UtilizadorSistema)
+  })
+  lista.sort((a, b) => (a.email || "").localeCompare(b.email || ""))
+  return lista
+}
+
+export async function getUtilizador(uid: string): Promise<UtilizadorSistema | null> {
+  const snap = await getDoc(doc(db, "utilizadores", uid))
+  if (!snap.exists()) return null
+  const data = snap.data()
+  return {
+    id: snap.id,
+    ...data,
+    ultimoAcesso: data.ultimoAcesso?.toDate?.(),
+  } as UtilizadorSistema
+}
+
+export async function guardarUtilizador(uid: string, dados: Partial<UtilizadorSistema>): Promise<void> {
+  await setDoc(
+    doc(db, "utilizadores", uid),
+    { ...dados, updatedAt: Timestamp.now() },
+    { merge: true },
+  )
+}
+
+/** Quantos utilizadores existem: usado para saber se o sistema ainda nao tem dono. */
+export async function contarUtilizadores(): Promise<number> {
+  const snap = await getCountFromServer(collection(db, "utilizadores"))
+  return snap.data().count
 }

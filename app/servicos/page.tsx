@@ -3,6 +3,7 @@
 import type React from "react"
 import { useState, useEffect, useMemo } from "react"
 import { useAuth } from "@/hooks/use-auth"
+import { usePermissoes } from "@/hooks/use-permissoes"
 import { toast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -92,6 +93,7 @@ export default function ServicosPage() {
   const [pageLoading, setPageLoading] = useState(true)
   const { searchTerm, setSearchTerm, clearSearch } = useSearchQuery()
   const { user } = useAuth()
+  const { pode } = usePermissoes()
 
   const [formData, setFormData] = useState<ServicoFormState>(getDefaultFormData())
   const [activeTab, setActiveTab] = useState("sobre")
@@ -355,7 +357,7 @@ export default function ServicosPage() {
             setIsDialogOpen(open)
           }}>
             <DialogTrigger asChild>
-              <Button onClick={resetForm}>
+              <Button disabled={!pode("servicos.gerir")} onClick={resetForm}>
                 <Plus className="mr-2 h-4 w-4" />
                 Novo Servico
               </Button>

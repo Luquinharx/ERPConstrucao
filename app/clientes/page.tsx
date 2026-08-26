@@ -37,6 +37,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { toast } from "@/hooks/use-toast"
 
 import { useAuth } from "@/hooks/use-auth"
+import { usePermissoes } from "@/hooks/use-permissoes"
 import { useClientes } from "@/hooks/use-clientes"
 import { useSearchQuery } from "@/hooks/use-search-query"
 import { ListToolbar } from "@/components/ui/list-toolbar"
@@ -46,6 +47,7 @@ import type { Cliente } from "@/lib/types"
 
 export default function ClientesPage() {
   const { user } = useAuth()
+  const { pode } = usePermissoes()
   const {
     clientes,
     fetchNextPage,
@@ -264,7 +266,7 @@ export default function ClientesPage() {
         <div className="flex space-x-2">
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={() => setIsDialogOpen(true)} className="rounded-full shadow-lg hover:shadow-xl transition-all">
+              <Button disabled={!pode("clientes.gerir")} onClick={() => setIsDialogOpen(true)} className="rounded-full shadow-lg hover:shadow-xl transition-all">
                 <Plus className="mr-2 h-4 w-4" />
                 Novo Cliente
               </Button>

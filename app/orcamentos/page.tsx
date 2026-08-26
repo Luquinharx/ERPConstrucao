@@ -62,6 +62,7 @@ import { getServiceCategoryName } from "@/lib/service-categories"
 import { ListToolbar } from "@/components/ui/list-toolbar"
 import { useSearchQuery } from "@/hooks/use-search-query"
 import { useConfiguracao } from "@/hooks/use-configuracao"
+import { usePermissoes } from "@/hooks/use-permissoes"
 import {
   FASES_ORCAMENTO,
   getFase,
@@ -749,6 +750,7 @@ export default function OrcamentosPage() {
   const [loading, setLoading] = useState(false)
   const { searchTerm, setSearchTerm, clearSearch } = useSearchQuery()
   const { configuracao } = useConfiguracao()
+  const { pode } = usePermissoes()
   const [statusFilter, setStatusFilter] = useState("all")
   const [generatingDocId, setGeneratingDocId] = useState<string | null>(null)
 
@@ -1403,6 +1405,15 @@ export default function OrcamentosPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  /** A permissao necessaria depende da transicao pretendida. */
+  const podeMudarPara = (destino: StatusOrcamento) => {
+    if (destino === "cancelado") return pode("orcamentos.cancelar")
+    if (destino === "emitido") return pode("orcamentos.aprovar")
+    if (destino === "em_revisao") return pode("orcamentos.submeter")
+    // Devolver a rascunho e reabrir sao actos de quem aprova
+    return pode("orcamentos.aprovar") || pode("orcamentos.editar")
   }
 
   // --- Fases da proposta
@@ -2571,6 +2582,7 @@ A versao atual fica guardada como foi entregue ao cliente, e a nova abre em Rasc
                   {orcamento.motivoPerda && (
                     <p className="text-destructive">Motivo: {orcamento.motivoPerda}</p>
                   )}
+                  {pode("orcamentos.verCusto") && (
                   <p>
                     Custo:{" "}
                     {formatCurrency(
@@ -2579,6 +2591,7 @@ A versao atual fica guardada como foi entregue ao cliente, e a nova abre em Rasc
                     )}
                     {orcamento.transporte ? ` | Transporte: ${formatCurrency(orcamento.transporte)}` : ""}
                   </p>
+                  )}
                 </div>
                 <div className="flex space-x-2">
                   <DropdownMenu>
@@ -2607,6 +2620,8 @@ A versao atual fica guardada como foi entregue ao cliente, e a nova abre em Rasc
                         <Download className="h-4 w-4 mr-2" />
                         Imprimir / PDF de venda
                       </DropdownMenuItem>
+                      {pode("orcamentos.verCusto") && (
+                      <>
                       <DropdownMenuSeparator />
                       <DropdownMenuLabel>Orcamento de Custo (interno)</DropdownMenuLabel>
                       <DropdownMenuItem onClick={() => handleOpenDocument(orcamento, false, "custo")}>
@@ -2621,6 +2636,8 @@ A versao atual fica guardada como foi entregue ao cliente, e a nova abre em Rasc
                         <Download className="h-4 w-4 mr-2" />
                         Imprimir / PDF de custo
                       </DropdownMenuItem>
+                      </>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                   {/* Mudar de fase: so aparecem as transicoes permitidas */}
@@ -2635,7 +2652,7 @@ A versao atual fica guardada como foi entregue ao cliente, e a nova abre em Rasc
                         Fase atual: {getFase(orcamento.status).nome}
                       </DropdownMenuLabel>
                       <DropdownMenuSeparator />
-                      {getFase(orcamento.status).seguintes.map((proxima) => (
+                      {getFase(orcamento.status).seguintes.filter(podeMudarPara).map((proxima) => (
                         <DropdownMenuItem
                           key={proxima}
                           onClick={() => {
@@ -2653,7 +2670,7 @@ A versao atual fica guardada como foi entregue ao cliente, e a nova abre em Rasc
                           {getFase(proxima).nome}
                         </DropdownMenuItem>
                       ))}
-                      {podeCriarRevisao(orcamento.status) && (
+                      {podeCriarRevisao(orcamento.status) && pode("orcamentos.criar") && (
                         <>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => void criarRevisao(orcamento)}>
@@ -2669,11 +2686,13 @@ A versao atual fica guardada como foi entregue ao cliente, e a nova abre em Rasc
                     variant="outline"
                     size="icon"
                     onClick={() => handleEdit(orcamento)}
-                    disabled={!podeEditar(orcamento.status)}
+                    disabled={!podeEditar(orcamento.status) || !pode("orcamentos.editar")}
                     title={
-                      podeEditar(orcamento.status)
-                        ? "Editar proposta"
-                        : `Bloqueada em ${getFase(orcamento.status).nome}. Crie uma revisao para alterar.`
+                      !pode("orcamentos.editar")
+                        ? "O seu cargo nao permite editar propostas"
+                        : podeEditar(orcamento.status)
+                          ? "Editar proposta"
+                          : `Bloqueada em ${getFase(orcamento.status).nome}. Crie uma revisao para alterar.`
                     }
                     className="rounded-full"
                   >
@@ -2683,6 +2702,7 @@ A versao atual fica guardada como foi entregue ao cliente, e a nova abre em Rasc
                     variant="outline"
                     size="icon"
                     onClick={() => handleDelete(orcamento.id)}
+                    disabled={!pode("orcamentos.apagar")}
                     className="rounded-full text-destructive hover:text-destructive"
                   >
                     <Trash2 className="h-4 w-4" />

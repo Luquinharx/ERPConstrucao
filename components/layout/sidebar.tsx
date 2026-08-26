@@ -15,24 +15,29 @@ import {
   Wrench,
   Tags,
   BarChart3,
+  ShieldCheck,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/hooks/use-auth"
 import { useConfiguracao } from "@/hooks/use-configuracao"
+import { usePermissoes } from "@/hooks/use-permissoes"
+import { getCargo, type Permissao } from "@/lib/permissoes"
 import { MarcaDaEmpresa } from "@/components/marca-da-empresa"
 import { ThemeToggle } from "@/components/theme-toggle"
 
-const navigation = [
+/** Cada entrada exige uma permissao; sem ela, nao aparece no menu. */
+const navigation: Array<{ name: string; href: string; icon: typeof Home; permissao?: Permissao }> = [
   { name: "Dashboard", href: "/dashboard", icon: Home },
-  { name: "Orçamentos", href: "/orcamentos", icon: Calculator },
-  { name: "Clientes", href: "/clientes", icon: Users },
-  { name: "Funcionários", href: "/funcionarios", icon: Users },
-  { name: "Materiais", href: "/materiais", icon: Package },
-  { name: "Categorias", href: "/categorias", icon: Tags },
-  { name: "Serviços", href: "/servicos", icon: Wrench },
-  { name: "Relatórios", href: "/relatorios", icon: BarChart3 },
-  { name: "Configurações", href: "/configuracoes", icon: Settings },
+  { name: "Orçamentos", href: "/orcamentos", icon: Calculator, permissao: "orcamentos.ver" },
+  { name: "Clientes", href: "/clientes", icon: Users, permissao: "clientes.ver" },
+  { name: "Funcionários", href: "/funcionarios", icon: Users, permissao: "funcionarios.ver" },
+  { name: "Materiais", href: "/materiais", icon: Package, permissao: "materiais.ver" },
+  { name: "Categorias", href: "/categorias", icon: Tags, permissao: "materiais.ver" },
+  { name: "Serviços", href: "/servicos", icon: Wrench, permissao: "servicos.ver" },
+  { name: "Relatórios", href: "/relatorios", icon: BarChart3, permissao: "relatorios.ver" },
+  { name: "Utilizadores", href: "/utilizadores", icon: ShieldCheck, permissao: "utilizadores.gerir" },
+  { name: "Configurações", href: "/configuracoes", icon: Settings, permissao: "configuracoes.ver" },
 ]
 
 export function Sidebar() {
@@ -40,6 +45,9 @@ export function Sidebar() {
   const pathname = usePathname()
   const { user, logout } = useAuth()
   const { configuracao } = useConfiguracao()
+  const { pode, perfil } = usePermissoes()
+
+  const entradasVisiveis = navigation.filter((item) => !item.permissao || pode(item.permissao))
 
   return (
     <>
@@ -82,14 +90,14 @@ export function Sidebar() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{user?.email}</p>
-                <p className="text-xs text-muted-foreground">{configuracao.nome}</p>
+                <p className="text-xs text-muted-foreground">{perfil ? getCargo(perfil.cargo).nome : configuracao.nome}</p>
               </div>
             </div>
           </div>
 
           {/* Navigation */}
           <nav className="flex-1 px-4 py-4 space-y-2">
-            {navigation.map((item) => {
+            {entradasVisiveis.map((item) => {
               const isActive = pathname === item.href
               return (
                 <Link

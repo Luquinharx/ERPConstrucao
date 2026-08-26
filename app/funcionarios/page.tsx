@@ -35,6 +35,7 @@ import {
   Shield,
 } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
+import { usePermissoes } from "@/hooks/use-permissoes"
 import { toast } from "@/hooks/use-toast"
 import type { Funcionario, ModoTaxa } from "@/lib/types"
 import { FirebaseService } from "@/lib/firebase-service"
@@ -385,6 +386,7 @@ export default function FuncionariosPage() {
   const [pageLoading, setPageLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("pessoais")
   const { user } = useAuth()
+  const { pode } = usePermissoes()
   const { searchTerm, setSearchTerm, clearSearch } = useSearchQuery()
 
   const [formData, setFormData] = useState<FuncionarioFormState>(getDefaultFormData())
@@ -730,7 +732,7 @@ export default function FuncionariosPage() {
         <div className="flex space-x-2">
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={resetForm} className="rounded-full">
+              <Button disabled={!pode("funcionarios.gerir")} onClick={resetForm} className="rounded-full">
                 <Plus className="h-4 w-4 mr-2" />
                 Novo Funcionario
               </Button>

@@ -1,61 +1,107 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // BASE COMPARTILHADA
-    // Qualquer conta autenticada le e escreve toda a base (decisao de negocio:
-    // a equipa partilha clientes, funcionarios, servicos e orcamentos).
-    // O campo userId continua a ser gravado em cada documento, mas serve apenas
-    // como registo de quem criou - nao restringe o acesso.
+    // BASE PARTILHADA COM PERMISSOES POR CARGO
     //
-    // ATENCAO: o registo de novas contas esta aberto em /register, entao qualquer
-    // pessoa que se cadastre passa a ver toda a base. Para limitar, trocar
-    // isAuthenticated() por isAutorizado() nas regras abaixo e preencher a lista.
-    function isAuthenticated() {
+    // A base e da empresa, nao de cada conta. O que limita cada pessoa sao as
+    // permissoes gravadas no seu documento em /utilizadores/{uid}, atribuidas
+    // no ecra de Utilizadores e cargos.
+    //
+    // As permissoes sao verificadas aqui, no servidor: esconder botoes na
+    // aplicacao nao impede ninguem de chamar a base de dados diretamente.
+
+    function autenticado() {
       return request.auth != null;
     }
 
-    // Alternativa mais restrita (nao ativa): apenas emails autorizados.
-    // function isAutorizado() {
-    //   return isAuthenticated() && request.auth.token.email in [
-    //     'email-da-equipa-1@exemplo.com',
-    //     'email-da-equipa-2@exemplo.com'
-    //   ];
-    // }
+    function perfil() {
+      return get(/databases/$(database)/documents/utilizadores/$(request.auth.uid)).data;
+    }
+
+    function temPerfil() {
+      return autenticado() && exists(/databases/$(database)/documents/utilizadores/$(request.auth.uid));
+    }
+
+    /** Conta ativa e com a permissao pedida. */
+    function pode(permissao) {
+      return temPerfil() && perfil().ativo == true && permissao in perfil().permissoes;
+    }
+
+    /**
+     * Enquanto nao existir nenhum utilizador, a primeira conta a entrar tem de
+     * se poder registar a si propria como administrador. Depois disso, so quem
+     * tem a permissao mexe em utilizadores.
+     */
+    function sistemaSemDono() {
+      return !exists(/databases/$(database)/documents/utilizadores/$(request.auth.uid))
+        && request.auth != null;
+    }
+
+    match /utilizadores/{uid} {
+      // Cada um le o seu perfil; quem gere utilizadores le todos
+      allow get: if autenticado() && (uid == request.auth.uid || pode('utilizadores.gerir'));
+      allow list: if autenticado();
+
+      // O proprio cria o seu registo no primeiro acesso; alterar cargos exige permissao
+      allow create: if autenticado() && (uid == request.auth.uid || pode('utilizadores.gerir'));
+      allow update: if pode('utilizadores.gerir')
+        || (autenticado() && uid == request.auth.uid
+            && request.resource.data.cargo == resource.data.cargo
+            && request.resource.data.permissoes == resource.data.permissoes);
+      allow delete: if pode('utilizadores.gerir');
+    }
 
     match /clientes/{docId} {
-      allow read, write: if isAuthenticated();
+      allow read: if pode('clientes.ver');
+      allow write: if pode('clientes.gerir');
     }
 
     match /funcionarios/{docId} {
-      allow read, write: if isAuthenticated();
+      allow read: if pode('funcionarios.ver');
+      allow write: if pode('funcionarios.gerir');
     }
 
     match /materiais/{docId} {
-      allow read, write: if isAuthenticated();
+      allow read: if pode('materiais.ver');
+      allow write: if pode('materiais.gerir');
     }
 
     match /material-categories/{docId} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /servicos/{docId} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /orcamentos/{docId} {
-      allow read, write: if isAuthenticated();
+      allow read: if pode('materiais.ver');
+      allow write: if pode('materiais.gerir');
     }
 
     match /categorias/{docId} {
-      allow read, write: if isAuthenticated();
+      allow read: if pode('materiais.ver');
+      allow write: if pode('materiais.gerir');
+    }
+
+    match /servicos/{docId} {
+      allow read: if pode('servicos.ver');
+      allow write: if pode('servicos.gerir');
+    }
+
+    match /orcamentos/{docId} {
+      allow read: if pode('orcamentos.ver');
+      allow create: if pode('orcamentos.criar');
+      allow delete: if pode('orcamentos.apagar');
+      // Editar, submeter, aprovar ou cancelar: basta uma das permissoes de
+      // escrita. A fase concreta e validada na aplicacao, que conhece a
+      // transicao pretendida.
+      allow update: if pode('orcamentos.editar')
+        || pode('orcamentos.submeter')
+        || pode('orcamentos.aprovar')
+        || pode('orcamentos.cancelar');
     }
 
     match /termos_servico/{docId} {
-      allow read, write: if isAuthenticated();
+      allow read: if autenticado();
+      allow write: if pode('configuracoes.gerir');
     }
 
     match /configuracoes/{docId} {
-      allow read, write: if isAuthenticated();
+      allow read: if autenticado();
+      allow write: if pode('configuracoes.gerir');
     }
 
     // Tudo o resto continua fechado.
