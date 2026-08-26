@@ -18,6 +18,8 @@ export const CONFIGURACAO_PADRAO: ConfiguracaoEmpresa = {
   corEscura: "#262626",
   fonte: "Montserrat",
 
+  razaoSocial: "TECKNOWHOW, Lda.",
+  capitalSocial: "5.000,00 euros",
   nif: "519208609",
   morada: "Rua Aquario do Mirante, n.o 18, porta 26, 1.o",
   codigoPostal: "2745-019",

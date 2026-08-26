@@ -287,6 +287,26 @@ export function IdentidadeDaEmpresa() {
               />
             </div>
             <div className="space-y-2">
+              <Label htmlFor="razaoSocial">Denominacao social</Label>
+              <Input
+                id="razaoSocial"
+                value={form.razaoSocial || ""}
+                onChange={(e) => alterar({ razaoSocial: e.target.value })}
+                placeholder="EMPRESA, Lda."
+                className="rounded-full"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="capitalSocial">Capital social</Label>
+              <Input
+                id="capitalSocial"
+                value={form.capitalSocial || ""}
+                onChange={(e) => alterar({ capitalSocial: e.target.value })}
+                placeholder="5.000,00 euros"
+                className="rounded-full"
+              />
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="nif">NIF</Label>
               <Input
                 id="nif"

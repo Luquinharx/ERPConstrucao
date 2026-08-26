@@ -400,38 +400,6 @@ function buildOrcamentoDocumentHtml(
     })
     .join("")
 
-  const renderTermSection = (title: string, items: TermoServico[]) => {
-    if (items.length === 0) return ""
-    const content = items
-      .map(
-        (item, index) => `
-          <div style="margin-bottom: 10px;">
-            <div style="font-weight: 600;">${index + 1}. ${escapeHtml(item.titulo)}</div>
-            <div style="margin-top: 4px; color: #334155; line-height: 1.5;">${escapeHtml(item.conteudo)}</div>
-          </div>
-        `,
-      )
-      .join("")
-    return `<section style="margin-top:16px;"><h3 style="margin:0 0 8px 0;">${title}</h3>${content}</section>`
-  }
-
-  const termosHtml =
-    termosAtivos.length > 0
-      ? `
-    <section style="margin-top: 28px; page-break-before: always;">
-      <h2 style="margin-bottom: 12px; border-bottom: 1px solid #cbd5e1; padding-bottom: 6px;">Termos e Condicoes</h2>
-      ${renderTermSection("Termos de Servico", grouped.termos)}
-      ${renderTermSection("Regras e Politicas", grouped.regras)}
-      ${renderTermSection("Condicoes Gerais", grouped.condicoes)}
-    </section>
-  `
-      : `
-    <section style="margin-top: 28px;">
-      <h2 style="margin-bottom: 8px;">Termos e Condicoes</h2>
-      <p style="color:#475569;">Nenhum termo ativo configurado.</p>
-    </section>
-  `
-
   const marca = { ...CONFIGURACAO_PADRAO, ...(config || {}) }
   const corPrimaria = marca.corPrimaria
   const corEscura = marca.corEscura
@@ -440,6 +408,70 @@ function buildOrcamentoDocumentHtml(
     .filter(Boolean)
     .join(", ")
   const contactosEmpresa = [marca.telefone, marca.email, marca.website].filter(Boolean).join(" · ")
+
+  const renderTermSection = (title: string, items: TermoServico[]) => {
+    if (items.length === 0) return ""
+    const content = items
+      .map(
+        (item) => `
+          <div class="termo">
+            <strong>${escapeHtml(item.titulo)}</strong>
+            <div>${escapeHtml(item.conteudo)}</div>
+          </div>
+        `,
+      )
+      .join("")
+    return `<section><h3>${title}</h3>${content}</section>`
+  }
+
+  /**
+   * Cabecalho das condicoes gerais, no formato do documento oficial da empresa:
+   * titulo a esquerda, logotipo a direita e os dados fiscais em duas colunas.
+   */
+  const cabecalhoCondicoes = `
+    <div class="condicoes-topo">
+      <div>
+        <div class="condicoes-titulo">Condicoes gerais da ${escapeHtml(marca.nome)}</div>
+      </div>
+      ${
+        marca.logoUrl
+          ? `<img class="logo" src="${escapeHtml(marca.logoUrl)}" alt="${escapeHtml(marca.nome)}" />`
+          : ""
+      }
+    </div>
+    <div class="condicoes-dados">
+      <div>
+        ${marca.razaoSocial ? `<div><strong>${escapeHtml(marca.razaoSocial)}</strong></div>` : ""}
+        ${marca.morada ? `<div>${escapeHtml(marca.morada)}</div>` : ""}
+        ${
+          marca.codigoPostal || marca.cidade
+            ? `<div>${escapeHtml([marca.codigoPostal, marca.cidade].filter(Boolean).join(" "))}</div>`
+            : ""
+        }
+        ${marca.nif ? `<div>Contribuinte n.o ${escapeHtml(marca.nif)}</div>` : ""}
+        ${marca.capitalSocial ? `<div>Capital Social ${escapeHtml(marca.capitalSocial)}</div>` : ""}
+      </div>
+      <div style="text-align:right">
+        ${marca.telefone ? `<div>Tel: ${escapeHtml(marca.telefone)}</div>` : ""}
+        ${marca.email ? `<div>E-mail: ${escapeHtml(marca.email)}</div>` : ""}
+        ${marca.website ? `<div>Homepage: ${escapeHtml(marca.website)}</div>` : ""}
+      </div>
+    </div>
+    <div class="barra"></div>
+  `
+
+  const termosHtml =
+    termosAtivos.length > 0
+      ? `
+    <section class="termos">
+      ${cabecalhoCondicoes}
+      ${renderTermSection("1. Inclusoes", grouped.termos)}
+      ${renderTermSection("2. Exclusoes", grouped.regras)}
+      ${renderTermSection("3. Condicoes gerais", grouped.condicoes)}
+    </section>
+  `
+      : ""
+
 
   const notas = (marca.notasOrcamento || []).filter((nota) => nota.trim())
   const notasHtml = notas.length
@@ -530,11 +562,20 @@ function buildOrcamentoDocumentHtml(
           letter-spacing: .5px; color: ${corPrimaria};
         }
         .notas ol { margin: 6px 0 0; padding-left: 18px; font-size: 10px; line-height: 1.6; color: #374151; }
-        .termos { margin-top: 18px; page-break-before: always; }
-        .termos h2 { font-size: 14px; border-bottom: 2px solid ${corPrimaria}; padding-bottom: 4px; margin-bottom: 10px; }
-        .termos h3 { font-size: 12px; margin-top: 12px; color: ${corPrimaria}; }
-        .termo { margin-top: 8px; font-size: 11px; line-height: 1.55; }
-        .termo strong { display: block; }
+        /* Pagina das condicoes gerais, no formato do documento oficial */
+        .termos { page-break-before: always; padding-top: 4px; }
+        .condicoes-topo { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
+        .condicoes-titulo { font-size: 16px; font-weight: 800; color: ${corEscura}; }
+        .condicoes-dados {
+          display: flex; justify-content: space-between; gap: 20px;
+          margin-top: 6px; font-size: 9px; color: #4b5563; line-height: 1.5;
+        }
+        .termos h3 {
+          font-size: 12px; margin-top: 16px; color: ${corPrimaria};
+          border-bottom: 1px solid #e5e7eb; padding-bottom: 3px;
+        }
+        .termo { margin-top: 9px; font-size: 10.5px; line-height: 1.55; page-break-inside: avoid; }
+        .termo strong { display: block; color: ${corEscura}; margin-bottom: 2px; }
 
         .rodape {
           margin-top: 20px; padding-top: 8px; border-top: 1px solid #e5e7eb;

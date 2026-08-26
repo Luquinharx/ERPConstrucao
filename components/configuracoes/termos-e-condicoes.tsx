@@ -9,6 +9,13 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Save, FileText, Eye, Edit, Plus, Trash2 } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
@@ -52,6 +59,7 @@ export function TermosECondicoes() {
   const [notas, setNotas] = useState<string[]>([])
   const [guardandoNotas, setGuardandoNotas] = useState(false)
   const [carregandoModelo, setCarregandoModelo] = useState(false)
+  const [formAberto, setFormAberto] = useState(false)
 
   const [formData, setFormData] = useState({
     titulo: "",
@@ -182,6 +190,7 @@ export function TermosECondicoes() {
       }
 
       resetForm()
+      setFormAberto(false)
       await loadTermos()
     } catch (error) {
       console.error("Erro ao salvar termo:", error)
@@ -196,6 +205,7 @@ export function TermosECondicoes() {
   }
 
   const handleEdit = (termo: TermoServico) => {
+    setFormAberto(true)
     setEditingTermo(termo)
     setFormData({
       titulo: termo.titulo,
@@ -364,9 +374,15 @@ export function TermosECondicoes() {
             <Eye className="h-4 w-4 mr-2" />
             Pré-visualizar
           </Button>
-          <Button onClick={resetForm} className="rounded-full">
+          <Button
+            onClick={() => {
+              resetForm()
+              setFormAberto(true)
+            }}
+            className="rounded-full"
+          >
             <Plus className="h-4 w-4 mr-2" />
-            Novo Termo
+            Novo termo
           </Button>
         </div>
       </div>
@@ -386,19 +402,17 @@ export function TermosECondicoes() {
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Form */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              {editingTermo ? "Editar Termo" : "Novo Termo"}
-            </CardTitle>
-            <CardDescription>
-              {editingTermo ? "Atualize o termo selecionado" : "Adicione um novo termo ou condição"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+      {/* Formulario num dialogo: a lista fica a vista e o ecra deixa de ter
+          duas colunas a competir pela atencao */}
+      <Dialog open={formAberto} onOpenChange={(aberto) => { if (!aberto) { setFormAberto(false); resetForm() } }}>
+        <DialogContent className="sm:max-w-[640px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingTermo ? "Editar termo" : "Novo termo"}</DialogTitle>
+            <DialogDescription>
+              {editingTermo ? "Atualize o termo selecionado." : "Adicione um novo termo ou condição."}
+            </DialogDescription>
+          </DialogHeader>
+        <div>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -482,8 +496,11 @@ export function TermosECondicoes() {
                 </Button>
               </div>
             </form>
-          </CardContent>
-        </Card>
+        </div>
+        </DialogContent>
+      </Dialog>
+
+      <div className="space-y-6">
 
         {/* Notas da proposta: vivem na configuracao da empresa, editam-se aqui */}
         <Card>

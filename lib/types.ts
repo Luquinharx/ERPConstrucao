@@ -18,6 +18,10 @@ export interface ConfiguracaoEmpresa {
   corEscura: string
   fonte: string
 
+  /** Denominacao social completa, ex.: TECKNOWHOW, Lda. */
+  razaoSocial?: string
+  /** Capital social, impresso no rodape das condicoes gerais. */
+  capitalSocial?: string
   nif?: string
   morada?: string
   codigoPostal?: string
