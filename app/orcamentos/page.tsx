@@ -465,12 +465,15 @@ function buildOrcamentoDocumentHtml(
       <style>
         /* Sem isto o navegador imprime os fundos a branco */
         * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing: border-box; }
-        @page { size: A4; margin: 12mm 10mm 16mm 10mm; }
+        /* Margem a zero: e no espaco da margem que o navegador desenha a data,
+           o titulo e o "about:blank". Sem margem, nao ha onde os desenhar.
+           O espacamento real da folha passa a ser o padding do body. */
+        @page { size: A4; margin: 0; }
 
         body {
           font-family: '${marca.fonte || "Montserrat"}', Arial, sans-serif;
           margin: 0;
-          padding: 0 4px;
+          padding: 12mm 10mm 14mm;
           color: #111827;
           font-size: 12px;
         }
@@ -572,7 +575,6 @@ function buildOrcamentoDocumentHtml(
               ? `<img class="logo" src="${escapeHtml(marca.logoUrl)}" alt="${escapeHtml(marca.nome)}" />`
               : `<div class="nome">${escapeHtml(marca.nome)}</div>`
           }
-          ${marca.slogan ? `<div style="margin-top:4px">${escapeHtml(marca.slogan)}</div>` : ""}
           ${moradaEmpresa ? `<div>${escapeHtml(moradaEmpresa)}</div>` : ""}
           ${marca.nif ? `<div>NIF ${escapeHtml(marca.nif)}</div>` : ""}
           ${contactosEmpresa ? `<div>${escapeHtml(contactosEmpresa)}</div>` : ""}

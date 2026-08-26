@@ -19,6 +19,8 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { ListToolbar } from "@/components/ui/list-toolbar"
 import { useSearchQuery } from "@/hooks/use-search-query"
 import { matchesSearch } from "@/lib/utils"
+import { CONDICOES_GERAIS_MODELO } from "@/lib/condicoes-gerais"
+import { useConfiguracao } from "@/hooks/use-configuracao"
 
 const TIPO_LABELS: Record<string, string> = {
   termos: "Termos",
@@ -46,6 +48,10 @@ export default function TermosPage() {
   const [showPreview, setShowPreview] = useState(false)
   const { user } = useAuth()
   const { searchTerm, setSearchTerm, clearSearch } = useSearchQuery()
+  const { configuracao, guardar } = useConfiguracao()
+  const [notas, setNotas] = useState<string[]>([])
+  const [guardandoNotas, setGuardandoNotas] = useState(false)
+  const [carregandoModelo, setCarregandoModelo] = useState(false)
 
   const [formData, setFormData] = useState({
     titulo: "",
@@ -61,12 +67,62 @@ export default function TermosPage() {
     }
   }, [user])
 
+  useEffect(() => {
+    setNotas(configuracao.notasOrcamento || [])
+  }, [configuracao.notasOrcamento])
+
+  /** As notas vivem na configuracao da empresa, mas editam-se aqui, junto dos termos. */
+  const guardarNotas = async () => {
+    setGuardandoNotas(true)
+    try {
+      await guardar({ notasOrcamento: notas.filter((nota) => nota.trim()) })
+      toast({ title: "Notas guardadas", description: "Passam a sair no rodape das propostas." })
+    } catch (error) {
+      toast({ title: "Erro ao guardar notas", description: "Tente novamente.", variant: "destructive" })
+    } finally {
+      setGuardandoNotas(false)
+    }
+  }
+
+  /** Carrega as Condicoes Gerais da empresa como ponto de partida. */
+  const carregarCondicoesGerais = async () => {
+    if (!user) return
+    if (!confirm(`Vao ser criados ${CONDICOES_GERAIS_MODELO.length} pontos das Condicoes Gerais. Os termos que ja existem nao sao apagados. Continuar?`)) return
+
+    setCarregandoModelo(true)
+    try {
+      const base = termos.length
+      await Promise.all(
+        CONDICOES_GERAIS_MODELO.map((modelo, indice) =>
+          addDoc(collection(db, "termos_servico"), {
+            ...modelo,
+            ativo: true,
+            ordem: base + indice + 1,
+            userId: user.uid,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          }),
+        ),
+      )
+      toast({
+        title: "Condicoes Gerais carregadas",
+        description: `${CONDICOES_GERAIS_MODELO.length} pontos criados. Edite o que precisar.`,
+      })
+      await loadTermos()
+    } catch (error) {
+      toast({ title: "Erro ao carregar", description: "Nao foi possivel criar os termos.", variant: "destructive" })
+    } finally {
+      setCarregandoModelo(false)
+    }
+  }
+
   const loadTermos = async () => {
     if (!user) return
 
     try {
       setPageLoading(true)
-      const q = query(collection(db, "termos_servico"), where("userId", "==", user.uid))
+      // Base partilhada: os termos sao da empresa, nao de cada conta
+      const q = query(collection(db, "termos_servico"))
       const querySnapshot = await getDocs(q)
       const termosData = querySnapshot.docs.map((doc) => ({
         id: doc.id,
@@ -297,6 +353,15 @@ export default function TermosPage() {
           <p className="text-muted-foreground mt-2">Gerir termos de serviço que serão anexados aos orçamentos</p>
         </div>
         <div className="flex space-x-2">
+          <Button
+            variant="outline"
+            onClick={carregarCondicoesGerais}
+            disabled={carregandoModelo}
+            className="rounded-full bg-transparent"
+          >
+            <FileText className="h-4 w-4 mr-2" />
+            {carregandoModelo ? "A carregar..." : "Carregar Condições Gerais"}
+          </Button>
           <Button variant="outline" onClick={() => setShowPreview(true)} className="rounded-full bg-transparent">
             <Eye className="h-4 w-4 mr-2" />
             Pré-visualizar
@@ -419,6 +484,33 @@ export default function TermosPage() {
                 </Button>
               </div>
             </form>
+          </CardContent>
+        </Card>
+
+        {/* Notas da proposta: vivem na configuracao da empresa, editam-se aqui */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Notas da proposta</CardTitle>
+            <CardDescription>
+              Saem numeradas no rodapé de cada proposta, antes das condições. Uma nota por linha.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Textarea
+              rows={7}
+              value={notas.join("\n")}
+              onChange={(e) => setNotas(e.target.value.split("\n"))}
+              placeholder="Condições de pagamento, validade da proposta, IVA..."
+            />
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">
+                {notas.filter((nota) => nota.trim()).length} nota(s). Também editável em Configurações.
+              </p>
+              <Button onClick={guardarNotas} disabled={guardandoNotas} className="rounded-full">
+                <Save className="h-4 w-4 mr-2" />
+                {guardandoNotas ? "A guardar..." : "Guardar notas"}
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
