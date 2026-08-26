@@ -404,10 +404,6 @@ function buildOrcamentoDocumentHtml(
   const corPrimaria = marca.corPrimaria
   const corEscura = marca.corEscura
   const textoPrimaria = corDeTexto(corPrimaria)
-  const moradaEmpresa = [marca.morada, [marca.codigoPostal, marca.cidade].filter(Boolean).join(" ")]
-    .filter(Boolean)
-    .join(", ")
-  const contactosEmpresa = [marca.telefone, marca.email, marca.website].filter(Boolean).join(" · ")
 
   const renderTermSection = (title: string, items: TermoServico[]) => {
     if (items.length === 0) return ""
@@ -505,11 +501,21 @@ function buildOrcamentoDocumentHtml(
         body {
           font-family: '${marca.fonte || "Montserrat"}', Arial, sans-serif;
           margin: 0;
-          padding: 12mm 10mm 14mm;
+          padding: 0 10mm;
           color: #111827;
           font-size: 12px;
         }
         h1, h2, h3 { margin: 0; }
+
+        /* Moldura que garante margem no topo e no fundo de cada pagina.
+           O thead de uma tabela repete-se em todas as paginas impressas, o que
+           nao acontece com o padding do body. */
+        table.moldura { width: 100%; border-collapse: collapse; }
+        table.moldura > thead > tr > td,
+        table.moldura > tfoot > tr > td,
+        table.moldura > tbody > tr > td { border: none; padding: 0; background: none; }
+        .espaco-topo { height: 12mm; }
+        .espaco-fundo { height: 10mm; }
         .muted { color: #6b7280; }
 
         /* Cabecalho */
@@ -563,7 +569,7 @@ function buildOrcamentoDocumentHtml(
         }
         .notas ol { margin: 6px 0 0; padding-left: 18px; font-size: 10px; line-height: 1.6; color: #374151; }
         /* Pagina das condicoes gerais, no formato do documento oficial */
-        .termos { page-break-before: always; padding-top: 4px; }
+        .termos { margin-top: 18px; padding-top: 4px; }
         .condicoes-topo { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
         .condicoes-titulo { font-size: 16px; font-weight: 800; color: ${corEscura}; }
         .condicoes-dados {
@@ -584,6 +590,10 @@ function buildOrcamentoDocumentHtml(
       </style>
     </head>
     <body>
+      <table class="moldura">
+        <thead><tr><td><div class="espaco-topo"></div></td></tr></thead>
+        <tfoot><tr><td><div class="espaco-fundo"></div></td></tr></tfoot>
+        <tbody><tr><td>
       <header class="topo">
         <div class="topo-dados">
           <div class="ref">${escapeHtml(marca.prefixoOrcamento || "CO")}${escapeHtml(orcamento.numero)}</div>
@@ -616,9 +626,6 @@ function buildOrcamentoDocumentHtml(
               ? `<img class="logo" src="${escapeHtml(marca.logoUrl)}" alt="${escapeHtml(marca.nome)}" />`
               : `<div class="nome">${escapeHtml(marca.nome)}</div>`
           }
-          ${moradaEmpresa ? `<div>${escapeHtml(moradaEmpresa)}</div>` : ""}
-          ${marca.nif ? `<div>NIF ${escapeHtml(marca.nif)}</div>` : ""}
-          ${contactosEmpresa ? `<div>${escapeHtml(contactosEmpresa)}</div>` : ""}
         </div>
       </header>
 
@@ -662,9 +669,9 @@ function buildOrcamentoDocumentHtml(
       </section>
 
       ${
-        orcamento.observacoes
+        orcamento.observacoes?.trim()
           ? `<section class="observacoes"><strong>Observacoes</strong><div>${escapeHtml(
-              orcamento.observacoes,
+              orcamento.observacoes.trim(),
             )}</div></section>`
           : ""
       }
@@ -678,6 +685,8 @@ function buildOrcamentoDocumentHtml(
           orcamento.numero,
         )} · emitido em ${new Date().toLocaleDateString("pt-PT")}</span>
       </div>
+        </td></tr></tbody>
+      </table>
     </body>
   </html>
   `
