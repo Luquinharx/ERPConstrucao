@@ -136,22 +136,55 @@ Linha removida. O PDF de custo mantém: subtotal de custo, transporte, total de 
 
 ## Pendentes
 
-*Revisto a 27/08/2026. Os três itens de PDF que aqui estavam foram entretanto
-feitos — logótipo, numeração com prefixo e sufixo, e bloco de notas.*
+*Revisto a 27/08/2026.*
 
-- **Funcionários e serviços antigos** continuam a precisar de ser abertos e
-  gravados para os valores corrigidos irem à base de dados. Os serviços no
-  formato antigo aparecem com o aviso âmbar *"Formato antigo - abrir e rever"*.
-  A aplicação converte-os ao carregar, mas a base só fica corrigida ao gravar.
-  **É a única coisa que depende de si.**
-- **Registo aberto:** qualquer pessoa que descubra o endereço pode criar conta.
-  Desde a correção das permissões entra como Consulta — vê clientes, materiais,
-  serviços e propostas, sem preços de custo. A lista de e-mails autorizados
-  está pronta e comentada em [firestore.rules](firestore.rules). Decisão adiada
-  a pedido do Lucas.
-- **Planilha de cliente no histórico do git** (commit `0703773`). Removida do
-  repositório, mas recuperável por quem clonar. Limpar exige reescrever o
-  histórico e forçar o push.
+### Dependem de si
+
+- **Revogar as duas chaves de servico** do Firebase. Os ficheiros foram
+  apagados do disco, mas as chaves continuam validas no Google ate serem
+  revogadas — e cada uma da acesso total ao projeto.
+  Em [Contas de servico](https://console.firebase.google.com/project/portugal-c3080/settings/serviceaccounts/adminsdk):
+  `4cf05131e686954e067ce9c22863f97e53ba81cf` e
+  `d391850ad681a544471a5fc838d94a9638c32524`.
+
+- **Seguro de acidentes de trabalho a 0%** nos dois funcionarios. O sistema
+  tem 1,75% como valor da construcao civil, mas os registos tem zero
+  explicito, e zero e um valor valido. Se de facto paga esse seguro, o custo
+  esta subestimado em cerca de 0,13 EUR/hora por pessoa. E decisao de negocio,
+  nao um erro: altera-se no ecra de Funcionarios.
+
+- **Confirmar as margens do PDF** depois da correcao de `dfbab64`. O
+  documento medido tinha conteudo a 0,7 mm da borda de cima.
+
+### Adiadas por decisao sua
+
+- **Registo aberto:** qualquer pessoa que descubra o endereco cria conta e
+  entra como Consulta — ve clientes, materiais, servicos e propostas, sem
+  precos de custo.
+  *Correcao ao que estava escrito aqui antes:* a regra `isAutorizado()` **ja
+  nao existe** em [firestore.rules](firestore.rules). Foi removida em
+  `f893bee`, quando as permissoes por cargo a tornaram redundante. Fechar o
+  registo implica escreve-la de novo, nao descomentar nada.
+
+- **teste123@gmail.com** continua no sistema como administradora. Ja nao e a
+  unica: `vinicius.thomaz@hotmail.com` e `lucasmartinsa3009@gmail.com`
+  tambem sao, portanto pode sair a qualquer momento sem risco de bloqueio.
+
+### Divida tecnica
+
+- **Planilha de cliente no historico do git** (`0703773`). Removida do
+  repositorio, mas recuperavel por quem clonar. Limpar exige reescrever o
+  historico e forcar o push.
+
+### Feitas nesta rodada
+
+- Migracao dos registos antigos: os dois funcionarios passaram a 174 h/mes
+  (media anual) e o custo/hora deixou de oscilar com o mes — 10,73 para 10,28
+  e 12,09 para 11,11. Os tres servicos ja estavam no formato novo.
+- Limpeza das contas: 4 apagadas, 2 promovidas a administrador.
+- Campos deixaram de ser esmagados por texto longo, e os dialogos deixaram de
+  esconder os proprios botoes.
+- Margens do papel nas folhas impressas.
 
 ---
 

@@ -40,3 +40,7 @@ firestore-debug.log*
 # Chaves de conta de servico do Firebase - nunca versionar
 *firebase-adminsdk*.json
 *serviceAccountKey*.json
+
+# Propostas geradas e documentos de cliente
+# (Condicoes Gerais-TKH.pdf ja esta rastreado e nao e afetado)
+*.pdf
