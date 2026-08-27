@@ -418,12 +418,13 @@ export default function ClientesPage() {
               style={{ borderLeftColor: `${codeColor}40` }}
             >
               <CardHeader className="pb-3">
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center space-x-3">
-                    <div className="h-10 w-10 rounded-full flex items-center justify-center" style={{ backgroundColor: `${codeColor}20` }}>
+                <div className="flex justify-between items-start gap-2">
+                  {/* min-w-0 + shrink-0: um nome longo espremia o icone e empurrava o distintivo para fora */}
+                  <div className="flex min-w-0 items-center space-x-3">
+                    <div className="h-10 w-10 shrink-0 rounded-full flex items-center justify-center" style={{ backgroundColor: `${codeColor}20` }}>
                        <User className="h-5 w-5" style={{ color: codeColor }} />
                     </div>
-                    <CardTitle className="text-lg font-semibold text-foreground">{cliente.nome}</CardTitle>
+                    <CardTitle className="min-w-0 break-words text-lg font-semibold text-foreground">{cliente.nome}</CardTitle>
                   </div>
                   <Badge
                     variant="outline"

@@ -315,7 +315,7 @@ export default function CategoriasPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <div
-                      className="w-10 h-10 rounded-full flex items-center justify-center"
+                      className="w-10 h-10 shrink-0 rounded-full flex items-center justify-center"
                       style={{ backgroundColor: category.cor }}
                     >
                       <Tag className="h-5 w-5 text-white" />

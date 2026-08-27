@@ -360,7 +360,7 @@ export default function RelatoriosPage() {
                   <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center space-x-3">
                       <div
-                        className={`w-8 h-8 bg-${atividade.color}-100 dark:bg-${atividade.color}-900 rounded-full flex items-center justify-center`}
+                        className={`w-8 h-8 shrink-0 bg-${atividade.color}-100 dark:bg-${atividade.color}-900 rounded-full flex items-center justify-center`}
                       >
                         <IconComponent
                           className={`h-4 w-4 text-${atividade.color}-600 dark:text-${atividade.color}-400`}

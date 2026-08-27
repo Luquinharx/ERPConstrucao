@@ -55,13 +55,14 @@ export function SeletorComBusca({
           role="combobox"
           aria-expanded={aberto}
           className={cn(
-            "w-full justify-between font-normal",
+            "w-full min-w-0 justify-between font-normal",
             compacto ? "h-7 px-2 text-xs" : "h-9 text-sm",
             !selecionada && "text-muted-foreground",
             className,
           )}
         >
-          <span className="truncate">{selecionada?.rotulo || placeholder}</span>
+          {/* min-w-0: sem isto o texto nao encolhe dentro do flex e a celula cresce com ele */}
+          <span className="min-w-0 truncate text-left">{selecionada?.rotulo || placeholder}</span>
           <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>

@@ -2145,7 +2145,8 @@ A versao atual fica guardada como foi entregue ao cliente, e a nova abre em Rasc
                             <span className="ml-auto text-sm font-semibold">{formatCurrency(item.total)}</span>
                           </div>
                           <div className="flex items-start justify-between mb-2 gap-2">
-                            <div className="flex-1 space-y-2">
+                            {/* min-w-0: flex-1 sozinho nao encolhe abaixo do conteudo */}
+                            <div className="min-w-0 flex-1 space-y-2">
                               <div>
                                 <Label className="text-xs">Nome do item</Label>
                                 <Input

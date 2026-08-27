@@ -495,12 +495,12 @@ export default function ServicosPage() {
 
                       return (
                         <div key={grupo.id} className="rounded-lg border overflow-hidden">
-                          <div className={`flex items-center justify-between px-4 py-2 border-b ${grupo.cor}`}>
-                            <div>
+                          <div className={`flex items-center justify-between gap-3 px-4 py-2 border-b ${grupo.cor}`}>
+                            <div className="min-w-0">
                               <div className="text-sm font-semibold">{grupo.nome}</div>
                               <div className="text-xs opacity-80">{grupo.descricao}</div>
                             </div>
-                            <div className="flex items-center gap-3">
+                            <div className="flex shrink-0 items-center gap-3">
                               <span className="text-sm font-semibold">{formatCurrency(totalGrupo)}</span>
                               <Button
                                 type="button"
@@ -520,10 +520,15 @@ export default function ServicosPage() {
                             </p>
                           ) : (
                             <div className="overflow-x-auto">
-                              <Table>
+                              {/*
+                                table-fixed com larguras explicitas: em table-auto uma descricao
+                                longa esmagava as colunas de quantidade ate ficarem ilegiveis.
+                                min-w garante barra horizontal em vez de colunas espremidas.
+                              */}
+                              <Table className="w-full min-w-[860px] table-fixed">
                                 <TableHeader>
                                   <TableRow className="bg-muted/60">
-                                    <TableHead className="min-w-[220px]">Descricao</TableHead>
+                                    <TableHead className="w-auto">Descricao</TableHead>
                                     <TableHead className="w-[90px]">UN</TableHead>
                                     <TableHead className="w-[120px] text-center">Qtd padrao</TableHead>
                                     <TableHead className="w-[120px] text-center">Qtd pontual</TableHead>
@@ -537,12 +542,13 @@ export default function ServicosPage() {
                                     const desligada = Number(linha.quantidadePontual) === 0
                                     return (
                                       <TableRow key={linha.id} className={desligada ? "opacity-50" : ""}>
-                                        <TableCell className="space-y-1">
+                                        <TableCell className="max-w-0 space-y-1 align-top">
                                           <Input
                                             value={linha.nome}
                                             onChange={(e) => atualizarLinha(linha.id, { nome: e.target.value })}
                                             placeholder="Descricao da linha"
-                                            className="h-8 text-sm"
+                                            title={linha.nome}
+                                            className="h-8 w-full text-sm"
                                           />
                                           {grupo.id === "mao_obra" ? (
                                             <SeletorComBusca

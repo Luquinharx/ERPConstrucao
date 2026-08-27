@@ -321,9 +321,13 @@ input[type="number"] {
   font-variant-numeric: tabular-nums;
 }
 
-/* Campos onde o passo e inteiro ganham mais respiro a direita */
-input[type="number"].passo-inteiro {
-  padding-right: 0.35rem;
+/*
+ * Espaco reservado para as setas.
+ * Em celulas estreitas o valor passava por baixo delas e ficava ilegivel
+ * ("5:" em vez de "50"). O padding garante que nunca se sobrepoem.
+ */
+input[type="number"] {
+  padding-right: 1.85rem;
 }
 
 /* Largura da barra lateral; a propria barra atualiza este valor */
