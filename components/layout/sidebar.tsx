@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useTheme } from "next-themes"
-import { ChevronLeft, LogOut, Menu, Monitor, Moon, PanelLeft, Settings, Sun, User, X } from "lucide-react"
+import { ChevronLeft, LogOut, Menu, Monitor, Moon, PanelLeft, Pin, Settings, Sun, User, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -24,7 +24,7 @@ import { MarcaDaEmpresa } from "@/components/marca-da-empresa"
 import { getCargo } from "@/lib/permissoes"
 import { NAVEGACAO } from "@/lib/navegacao"
 
-const CHAVE_ESTADO = "barra-lateral-expandida"
+const CHAVE_ESTADO = "barra-lateral-aberta"
 
 export function Sidebar() {
   const pathname = usePathname()
@@ -35,26 +35,77 @@ export function Sidebar() {
 
   /** Aberta por cima do conteudo, no telemovel. */
   const [abertaNoMovel, setAbertaNoMovel] = useState(false)
-  /** Expandida (com rotulos) ou reduzida a barra de icones. */
-  const [expandida, setExpandida] = useState(true)
+  /** Escolha do utilizador: barra fixa aberta ou reduzida a icones. */
+  const [fixada, setFixada] = useState(true)
+  /** Aberta so enquanto o rato esta em cima, quando esta reduzida. */
+  const [emHover, setEmHover] = useState(false)
   /** O menu da conta esta aberto: clicar nele nao pode recolher a barra. */
   const [menuAberto, setMenuAberto] = useState(false)
   const referencia = useRef<HTMLDivElement>(null)
+  const temporizador = useRef<ReturnType<typeof setTimeout>>()
+  /** O rato esta mesmo em cima da barra, nao apenas num menu que ela abriu. */
+  const ratoDentro = useRef(false)
+
+  /** O que se ve: fixa aberta, ou reduzida com o rato em cima. */
+  const aberta = fixada || emHover
 
   useEffect(() => {
     if (typeof window === "undefined") return
     const guardado = window.localStorage.getItem(CHAVE_ESTADO)
-    if (guardado !== null) setExpandida(guardado === "true")
+    if (guardado !== null) setFixada(guardado === "true")
   }, [])
 
-  /** O conteudo principal acompanha a largura da barra por esta variavel. */
+  /**
+    * Largura que o conteudo principal reserva.
+    *
+    * Segue so a escolha fixa: se seguisse o hover, a pagina inteira reajustava
+    * cada vez que o rato passasse pela barra. Ao abrir por hover a barra
+    * sobrepoe-se ao conteudo, que fica quieto.
+    */
   useEffect(() => {
     if (typeof document === "undefined") return
-    document.documentElement.style.setProperty("--largura-barra", expandida ? "16rem" : "72px")
-  }, [expandida])
+    document.documentElement.style.setProperty("--largura-barra", fixada ? "16rem" : "72px")
+  }, [fixada])
 
-  const alternarExpandida = (valor: boolean) => {
-    setExpandida(valor)
+  /**
+   * Abre com o rato em cima e fecha ao sair, so quando esta reduzida.
+   *
+   * Ha um atraso curto nos dois sentidos: sem ele, passar o rato de raspao
+   * pela margem esquerda abria e fechava a barra sem intencao nenhuma.
+   */
+  const aoEntrarComORato = () => {
+    ratoDentro.current = true
+    if (fixada || window.innerWidth < 1024) return
+    clearTimeout(temporizador.current)
+    temporizador.current = setTimeout(() => setEmHover(true), 120)
+  }
+
+  const aoSairComORato = () => {
+    ratoDentro.current = false
+    clearTimeout(temporizador.current)
+    // Com o menu da conta aberto nao se fecha: o rato esta no menu, fora da barra
+    if (menuAberto) return
+    temporizador.current = setTimeout(() => setEmHover(false), 200)
+  }
+
+  /**
+   * O menu da conta fechou: retoma o fecho da barra.
+   *
+   * O menu abre num portal fora da barra, entao o rato "sai" e o fecho fica
+   * suspenso. Sem isto, a barra ficava aberta depois de fechar o menu.
+   */
+  useEffect(() => {
+    // So fecha se o rato estiver mesmo fora: com ele em cima da barra, fica aberta
+    if (menuAberto || fixada || !emHover || ratoDentro.current) return
+    temporizador.current = setTimeout(() => setEmHover(false), 300)
+    return () => clearTimeout(temporizador.current)
+  }, [menuAberto, fixada, emHover])
+
+  useEffect(() => () => clearTimeout(temporizador.current), [])
+
+  const alternarFixada = (valor: boolean) => {
+    setFixada(valor)
+    setEmHover(false)
     try {
       window.localStorage.setItem(CHAVE_ESTADO, String(valor))
     } catch {
@@ -74,12 +125,15 @@ export function Sidebar() {
       if (!referencia.current || referencia.current.contains(evento.target as Node)) return
 
       setAbertaNoMovel(false)
-      if (window.innerWidth >= 1024 && expandida) alternarExpandida(false)
+      if (window.innerWidth >= 1024 && fixada) alternarFixada(false)
     }
 
     document.addEventListener("mousedown", aoClicarFora)
     return () => document.removeEventListener("mousedown", aoClicarFora)
-  }, [expandida, menuAberto])
+  }, [fixada, menuAberto])
+
+  // Navegar fecha a barra aberta por hover
+  useEffect(() => setEmHover(false), [pathname])
 
   // Navegar fecha a barra no telemovel
   useEffect(() => setAbertaNoMovel(false), [pathname])
@@ -105,25 +159,22 @@ export function Sidebar() {
 
       <div
         ref={referencia}
+        onMouseEnter={aoEntrarComORato}
+        onMouseLeave={aoSairComORato}
         className={cn(
           "fixed inset-y-0 left-0 z-40 flex flex-col border-r border-border bg-card transition-all duration-200 ease-in-out",
-          expandida ? "w-64" : "w-[72px]",
+          aberta ? "w-64" : "w-[72px]",
+          // Aberta por hover sobrepoe-se ao conteudo: a sombra separa as duas camadas
+          !fixada && emHover && "shadow-2xl",
           abertaNoMovel ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
         )}
       >
         {/* Marca */}
         <div className="flex h-16 items-center justify-center border-b border-border px-3">
-          {expandida ? (
+          {aberta ? (
             <MarcaDaEmpresa tamanho="sm" />
           ) : (
-            <button
-              type="button"
-              onClick={() => alternarExpandida(true)}
-              className="rounded-md p-1 text-primary hover:bg-accent"
-              aria-label="Expandir menu"
-            >
-              <PanelLeft className="h-5 w-5" />
-            </button>
+            <PanelLeft className="h-5 w-5 text-primary" aria-hidden />
           )}
         </div>
 
@@ -136,18 +187,18 @@ export function Sidebar() {
                 href={item.href}
                 className={cn(
                   "flex items-center rounded-lg text-sm font-medium transition-colors",
-                  expandida ? "gap-3 px-3 py-2" : "justify-center px-2 py-2.5",
+                  aberta ? "gap-3 px-3 py-2" : "justify-center px-2 py-2.5",
                   ativo
                     ? "bg-primary text-primary-foreground shadow-sm"
                     : "text-muted-foreground hover:bg-accent hover:text-foreground",
                 )}
               >
                 <item.icon className="h-4 w-4 shrink-0" />
-                {expandida && <span className="truncate">{item.name}</span>}
+                {aberta && <span className="truncate">{item.name}</span>}
               </Link>
             )
 
-            if (expandida) return <div key={item.name}>{ligacao}</div>
+            if (aberta) return <div key={item.name}>{ligacao}</div>
 
             return (
               <Tooltip key={item.name}>
@@ -166,14 +217,14 @@ export function Sidebar() {
                 type="button"
                 className={cn(
                   "flex w-full items-center rounded-lg transition-colors hover:bg-accent",
-                  expandida ? "gap-3 p-2" : "justify-center p-1.5",
+                  aberta ? "gap-3 p-2" : "justify-center p-1.5",
                 )}
                 aria-label="Conta e definicoes"
               >
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
                   {inicial}
                 </span>
-                {expandida && (
+                {aberta && (
                   <span className="min-w-0 flex-1 text-left">
                     <span className="block truncate text-sm font-medium">{nomeVisivel}</span>
                     <span className="block truncate text-xs text-muted-foreground">
@@ -230,18 +281,27 @@ export function Sidebar() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Recolher / expandir, so no computador */}
+          {/*
+            Fixar / recolher, so no computador.
+
+            Aberta por hover a accao util e fixar, para a barra deixar de fechar
+            ao tirar o rato. Fixa, a accao e recolher.
+          */}
           <button
             type="button"
-            onClick={() => alternarExpandida(!expandida)}
+            onClick={() => alternarFixada(!fixada)}
             className={cn(
               "mt-2 hidden w-full items-center rounded-lg py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground lg:flex",
-              expandida ? "gap-2 px-3" : "justify-center px-2",
+              aberta ? "gap-2 px-3" : "justify-center px-2",
             )}
-            aria-label={expandida ? "Recolher menu" : "Expandir menu"}
+            aria-label={fixada ? "Recolher menu" : "Fixar menu aberto"}
           >
-            <ChevronLeft className={cn("h-4 w-4 transition-transform", !expandida && "rotate-180")} />
-            {expandida && <span>Recolher</span>}
+            {fixada ? (
+              <ChevronLeft className="h-4 w-4" />
+            ) : (
+              <Pin className="h-4 w-4" />
+            )}
+            {aberta && <span>{fixada ? "Recolher" : "Fixar aberto"}</span>}
           </button>
         </div>
       </div>
