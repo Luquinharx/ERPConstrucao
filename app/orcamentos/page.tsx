@@ -550,9 +550,19 @@ function buildOrcamentoDocumentHtml(
         table.moldura > tbody > tr > td { border: none; padding: 0; background: none; }
         /* Faixa de marca e rodape: vivem no thead/tfoot da moldura, por isso
            repetem-se no topo e no fundo de todas as paginas impressas. */
+        /*
+           A margem superior da folha vem daqui.
+
+           Com @page margin 0 - preciso para o navegador nao desenhar a data e o
+           "about:blank" - nao ha margem nenhuma no papel. Como esta faixa vive
+           no thead da moldura, repete-se em todas as paginas e e ela que afasta
+           o conteudo da borda. Sem o padding-top, a primeira coisa impressa
+           ficava a 0,7 mm da borda, dentro da area que muitas impressoras nem
+           conseguem imprimir.
+        */
         .faixa-marca {
           display: flex; justify-content: flex-end; align-items: center;
-          height: 16mm; padding-bottom: 4mm;
+          height: 26mm; padding-top: 10mm; padding-bottom: 4mm;
         }
         .logo-faixa { max-height: 11mm; max-width: 52mm; object-fit: contain; }
         .nome-faixa { font-size: 13px; font-weight: 800; color: ${corEscura}; }
@@ -576,6 +586,8 @@ function buildOrcamentoDocumentHtml(
 
         /* Tabela */
         table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+        /* A moldura e estrutura, nao uma tabela de dados: sem margem propria */
+        table.moldura { margin-top: 0; }
         th, td { border: 1px solid #d1d5db; padding: 6px 8px; font-size: 11px; vertical-align: middle; }
         thead th {
           background: ${corEscura}; color: #fff; text-align: left;
@@ -623,8 +635,10 @@ function buildOrcamentoDocumentHtml(
         .termo { margin-top: 9px; font-size: 10.5px; line-height: 1.55; page-break-inside: avoid; }
         .termo strong { display: block; color: ${corEscura}; margin-bottom: 2px; }
 
+        /* Margem inferior da folha, pela mesma razao que a faixa do topo. */
         .rodape {
-          height: 10mm; padding-top: 3mm; border-top: 1px solid #e5e7eb;
+          height: 18mm; padding-top: 3mm; padding-bottom: 8mm;
+          border-top: 1px solid #e5e7eb;
           display: flex; justify-content: space-between; align-items: flex-start;
           font-size: 8.5px; color: #9ca3af;
         }
