@@ -134,12 +134,61 @@ Linha removida. O PDF de custo mantém: subtotal de custo, transporte, total de 
 
 ---
 
-## Pendentes (não fazem parte desta rodada)
+## Pendentes
 
-- **Funcionários e serviços antigos** continuam a precisar de ser abertos e gravados para os valores corrigidos irem à base de dados.
-- **Registo aberto:** qualquer pessoa que descubra o endereço pode criar conta e ver tudo. Há uma lista de e-mails autorizados pronta e comentada em [firestore.rules](firestore.rules).
-- **Planilha de cliente no histórico do git**, do commit em que entrou por engano. Removida do repositório, mas recuperável por quem clonar.
-- **PDF:** ainda sem logótipo, sem numeração no formato `CO26/0033` e sem o bloco de notas com condições de pagamento que a proposta de referência tem.
+*Revisto a 27/08/2026. Os três itens de PDF que aqui estavam foram entretanto
+feitos — logótipo, numeração com prefixo e sufixo, e bloco de notas.*
+
+- **Funcionários e serviços antigos** continuam a precisar de ser abertos e
+  gravados para os valores corrigidos irem à base de dados. Os serviços no
+  formato antigo aparecem com o aviso âmbar *"Formato antigo - abrir e rever"*.
+  A aplicação converte-os ao carregar, mas a base só fica corrigida ao gravar.
+  **É a única coisa que depende de si.**
+- **Registo aberto:** qualquer pessoa que descubra o endereço pode criar conta.
+  Desde a correção das permissões entra como Consulta — vê clientes, materiais,
+  serviços e propostas, sem preços de custo. A lista de e-mails autorizados
+  está pronta e comentada em [firestore.rules](firestore.rules). Decisão adiada
+  a pedido do Lucas.
+- **Planilha de cliente no histórico do git** (commit `0703773`). Removida do
+  repositório, mas recuperável por quem clonar. Limpar exige reescrever o
+  histórico e forçar o push.
+
+---
+
+# Rodadas seguintes
+
+## Fases de orçamentação — `d3d9535`
+
+As cinco fases pedidas, com bloqueio de edição e versionamento:
+
+| Fase | Edita? | Avança para |
+|---|---|---|
+| Rascunho | sim | Em Revisão, Cancelado |
+| Em Revisão | não | Rascunho, Emitido, Cancelado |
+| Emitido | não | Em Negociação, Cancelado |
+| Em Negociação | não | Emitido, Cancelado |
+| Cancelado | não | Rascunho |
+
+A partir de **Emitido** o documento congela: o botão de editar fica com um
+cadeado e diz *"Crie uma revisão para alterar"*. A revisão nasce em Rascunho
+com o mesmo número base e a letra seguinte — 1.0, Rev. A, Rev. B. Cancelar
+exige registar o motivo, que fica visível na lista. Os estados antigos
+(`enviado`, `aprovado` → Emitido; `rejeitado` → Cancelado) são convertidos
+ao carregar, sem migração manual.
+
+## Cargos e permissões — `f893bee`
+
+20 permissões, 5 cargos e a opção *Personalizado*. Aplicadas ao orçamento:
+criar, editar, submeter, aprovar, cancelar, apagar e **ver preços de custo**
+são independentes. Verificadas também nas regras do Firestore — esconder um
+botão não impede ninguém de chamar a base diretamente.
+
+## Barra lateral e telas de acesso — `e2e4760`, `68a7562`, `6d0d960`
+
+Avatar com menu de conta, barra recolhível, login e registo na identidade da
+empresa, rota de recuperação de palavra-passe (o link apontava para uma rota
+inexistente), guarda de permissão por rota e remoção de perfis na tela de
+Utilizadores.
 
 ---
 
