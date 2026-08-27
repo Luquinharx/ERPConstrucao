@@ -11,6 +11,9 @@ import {
   sendPasswordResetEmail,
   updateProfile,
   updatePassword,
+  reauthenticateWithCredential,
+  verifyBeforeUpdateEmail,
+  EmailAuthProvider,
 } from "firebase/auth"
 import { auth } from "@/lib/firebase"
 import { toast } from "@/hooks/use-toast"
@@ -23,7 +26,9 @@ interface AuthContextType {
   logout: () => Promise<void>
   resetPassword: (email: string) => Promise<void>
   updateUserProfile: (displayName: string) => Promise<void>
-  updateUserPassword: (newPassword: string) => Promise<void>
+  /** Pede confirmacao no email novo; so muda depois de a pessoa clicar. */
+  updateUserEmail: (novoEmail: string, palavraPasseAtual: string) => Promise<void>
+  updateUserPassword: (palavraPasseAtual: string, novaPalavraPasse: string) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -58,94 +63,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const login = async (email: string, password: string) => {
-    try {
-      const result = await signInWithEmailAndPassword(auth, email, password)
-
-      toast({
-        title: "Login realizado com sucesso",
-        description: "Bem-vindo de volta!",
-      })
-    } catch (error: any) {
-      console.error("Erro no login:", error)
-      let message = "Erro ao fazer login"
-
-      switch (error.code) {
-        case "auth/user-not-found":
-          message = "Usuário não encontrado"
-          break
-        case "auth/wrong-password":
-          message = "Senha incorreta"
-          break
-        case "auth/invalid-email":
-          message = "Email inválido"
-          break
-        case "auth/user-disabled":
-          message = "Conta desativada"
-          break
-        case "auth/too-many-requests":
-          message = "Muitas tentativas. Tente novamente mais tarde"
-          break
-        case "auth/network-request-failed":
-          message = "Erro de conexão. Verifique sua internet"
-          break
-        case "auth/invalid-credential":
-          message = "Credenciais inválidas. Verifique email e senha"
-          break
-        default:
-          message = error.message || "Erro desconhecido"
-      }
-
-      toast({
-        title: "Erro no login",
-        description: message,
-        variant: "destructive",
-      })
-      throw error
-    }
+    // O erro sobe tal como vem: o ecra traduz o codigo e mostra-o no formulario
+    await signInWithEmailAndPassword(auth, email, password)
+    toast({ title: "Sessao iniciada", description: "Bem-vindo de volta." })
   }
 
   const register = async (email: string, password: string, name?: string) => {
-    try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password)
-
-      if (name && userCredential.user) {
-        await updateProfile(userCredential.user, {
-          displayName: name,
-        })
-      }
-
-      toast({
-        title: "Conta criada com sucesso",
-        description: "Bem-vindo ao sistema!",
-      })
-    } catch (error: any) {
-      console.error("Erro no registro:", error)
-      let message = "Erro ao criar conta"
-
-      switch (error.code) {
-        case "auth/email-already-in-use":
-          message = "Este email já está em uso"
-          break
-        case "auth/invalid-email":
-          message = "Email inválido"
-          break
-        case "auth/weak-password":
-          message = "Senha muito fraca. Use pelo menos 6 caracteres"
-          break
-        case "auth/network-request-failed":
-          message = "Erro de conexão. Verifique sua internet"
-          break
-        default:
-          message = error.message || "Erro desconhecido"
-      }
-
-      toast({
-        title: "Erro no registro",
-        description: message,
-        variant: "destructive",
-      })
-      throw error
-    }
+    const credenciais = await createUserWithEmailAndPassword(auth, email, password)
+    if (name && credenciais.user) await updateProfile(credenciais.user, { displayName: name })
+    toast({ title: "Conta criada", description: "Bem-vindo ao sistema." })
   }
 
   const logout = async () => {
@@ -168,35 +94,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const resetPassword = async (email: string) => {
-    try {
-      await sendPasswordResetEmail(auth, email)
+    await sendPasswordResetEmail(auth, email)
+  }
 
-      toast({
-        title: "Email enviado",
-        description: "Verifique sua caixa de entrada para redefinir a senha",
-      })
-    } catch (error: any) {
-      console.error("Erro ao enviar email de recuperação:", error)
-      let message = "Erro ao enviar email de recuperação"
+  /**
+   * Confirma que e mesmo a pessoa antes de mexer nas credenciais.
+   *
+   * Sem isto, quem entrou ha mais de uns minutos recebia
+   * "auth/requires-recent-login" e o formulario falhava sem explicacao.
+   */
+  const reautenticar = async (palavraPasseAtual: string) => {
+    if (!user?.email) throw new Error("Sem sessao iniciada.")
+    const credencial = EmailAuthProvider.credential(user.email, palavraPasseAtual)
+    await reauthenticateWithCredential(user, credencial)
+  }
 
-      switch (error.code) {
-        case "auth/user-not-found":
-          message = "Usuário não encontrado"
-          break
-        case "auth/invalid-email":
-          message = "Email inválido"
-          break
-        default:
-          message = error.message || "Erro desconhecido"
-      }
-
-      toast({
-        title: "Erro",
-        description: message,
-        variant: "destructive",
-      })
-      throw error
-    }
+  const updateUserEmail = async (novoEmail: string, palavraPasseAtual: string) => {
+    if (!user) throw new Error("Sem sessao iniciada.")
+    await reautenticar(palavraPasseAtual)
+    await verifyBeforeUpdateEmail(user, novoEmail)
   }
 
   const updateUserProfile = async (displayName: string) => {
@@ -219,37 +135,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const updateUserPassword = async (newPassword: string) => {
-    try {
-      if (user) {
-        await updatePassword(user, newPassword)
-        toast({
-          title: "Senha atualizada",
-          description: "Sua senha foi alterada com sucesso",
-        })
-      }
-    } catch (error: any) {
-      console.error("Erro ao atualizar senha:", error)
-      let message = "Erro ao atualizar senha"
-
-      switch (error.code) {
-        case "auth/weak-password":
-          message = "Senha muito fraca. Use pelo menos 6 caracteres"
-          break
-        case "auth/requires-recent-login":
-          message = "É necessário fazer login novamente para alterar a senha"
-          break
-        default:
-          message = error.message || "Erro desconhecido"
-      }
-
-      toast({
-        title: "Erro",
-        description: message,
-        variant: "destructive",
-      })
-      throw error
-    }
+  const updateUserPassword = async (palavraPasseAtual: string, novaPalavraPasse: string) => {
+    if (!user) throw new Error("Sem sessao iniciada.")
+    await reautenticar(palavraPasseAtual)
+    await updatePassword(user, novaPalavraPasse)
   }
 
   const value = {
@@ -260,6 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     logout,
     resetPassword,
     updateUserProfile,
+    updateUserEmail,
     updateUserPassword,
   }
 

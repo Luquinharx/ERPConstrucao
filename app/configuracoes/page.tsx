@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/hooks/use-auth"
+import { mensagemDeErroAuth } from "@/lib/auth-mensagens"
 import { toast } from "@/hooks/use-toast"
 import { useEffect, useState } from "react"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
@@ -24,9 +25,11 @@ export default function ConfiguracoesPage() {
     if (aba === "termos" || aba === "conta") setAbaInicial(aba)
   }, [])
 
-  const { user, updateEmail, updatePassword } = useAuth()
+  const { user, updateUserEmail, updateUserPassword } = useAuth()
   const [newEmail, setNewEmail] = useState(user?.email || "")
   const [currentPassword, setCurrentPassword] = useState("")
+  // A troca de email tambem exige reautenticacao, por isso tem campo proprio
+  const [passwordParaEmail, setPasswordParaEmail] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [confirmNewPassword, setConfirmNewPassword] = useState("")
   const [loadingEmail, setLoadingEmail] = useState(false)
@@ -38,16 +41,17 @@ export default function ConfiguracoesPage() {
 
     setLoadingEmail(true)
     try {
-      await updateEmail(newEmail)
+      await updateUserEmail(newEmail, passwordParaEmail)
+      setPasswordParaEmail("")
       toast({
-        title: "Email atualizado",
-        description: "O seu endereço de email foi atualizado com sucesso.",
+        title: "Confirme no email novo",
+        description: `Enviámos uma mensagem para ${newEmail}. O endereço só muda depois de clicar no link.`,
       })
     } catch (error: any) {
       console.error("Erro ao atualizar email:", error)
       toast({
         title: "Erro ao atualizar email",
-        description: error.message || "Ocorreu um erro ao atualizar o email. Tente novamente.",
+        description: mensagemDeErroAuth(error, "Não foi possível atualizar o email. Tente novamente."),
         variant: "destructive",
       })
     } finally {
@@ -76,7 +80,7 @@ export default function ConfiguracoesPage() {
 
     setLoadingPassword(true)
     try {
-      await updatePassword(currentPassword, newPassword)
+      await updateUserPassword(currentPassword, newPassword)
       toast({
         title: "Password atualizada",
         description: "A sua password foi atualizada com sucesso.",
@@ -88,7 +92,7 @@ export default function ConfiguracoesPage() {
       console.error("Erro ao atualizar password:", error)
       toast({
         title: "Erro ao atualizar password",
-        description: error.message || "Ocorreu um erro ao atualizar a password. Tente novamente.",
+        description: mensagemDeErroAuth(error, "Não foi possível atualizar a palavra-passe. Tente novamente."),
         variant: "destructive",
       })
     } finally {
@@ -120,7 +124,9 @@ export default function ConfiguracoesPage() {
       <Card>
         <CardHeader>
           <CardTitle>Informações da Conta</CardTitle>
-          <CardDescription>Atualize o seu endereço de email.</CardDescription>
+          <CardDescription>
+            Enviamos um pedido de confirmação para o endereço novo. A troca só fica feita depois de o confirmar.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleUpdateEmail} className="space-y-4">
@@ -131,6 +137,19 @@ export default function ConfiguracoesPage() {
                 type="email"
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
+                required
+                className="rounded-full"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="password-email">Palavra-passe atual</Label>
+              <Input
+                id="password-email"
+                type="password"
+                autoComplete="current-password"
+                placeholder="Para confirmar que é você"
+                value={passwordParaEmail}
+                onChange={(e) => setPasswordParaEmail(e.target.value)}
                 required
                 className="rounded-full"
               />

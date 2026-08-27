@@ -4,26 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useTheme } from "next-themes"
-import {
-  BarChart3,
-  Calculator,
-  ChevronLeft,
-  Home,
-  LogOut,
-  Menu,
-  Monitor,
-  Moon,
-  Package,
-  PanelLeft,
-  Settings,
-  ShieldCheck,
-  Sun,
-  Tags,
-  User,
-  Users,
-  Wrench,
-  X,
-} from "lucide-react"
+import { ChevronLeft, LogOut, Menu, Monitor, Moon, PanelLeft, Settings, Sun, User, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -40,21 +21,8 @@ import { useAuth } from "@/hooks/use-auth"
 import { useConfiguracao } from "@/hooks/use-configuracao"
 import { usePermissoes } from "@/hooks/use-permissoes"
 import { MarcaDaEmpresa } from "@/components/marca-da-empresa"
-import { getCargo, type Permissao } from "@/lib/permissoes"
-
-/** Cada entrada exige uma permissao; sem ela, nao aparece no menu. */
-const navigation: Array<{ name: string; href: string; icon: typeof Home; permissao?: Permissao }> = [
-  { name: "Dashboard", href: "/dashboard", icon: Home },
-  { name: "Orçamentos", href: "/orcamentos", icon: Calculator, permissao: "orcamentos.ver" },
-  { name: "Clientes", href: "/clientes", icon: Users, permissao: "clientes.ver" },
-  { name: "Funcionários", href: "/funcionarios", icon: Users, permissao: "funcionarios.ver" },
-  { name: "Materiais", href: "/materiais", icon: Package, permissao: "materiais.ver" },
-  { name: "Categorias", href: "/categorias", icon: Tags, permissao: "materiais.ver" },
-  { name: "Serviços", href: "/servicos", icon: Wrench, permissao: "servicos.ver" },
-  { name: "Relatórios", href: "/relatorios", icon: BarChart3, permissao: "relatorios.ver" },
-  { name: "Utilizadores", href: "/utilizadores", icon: ShieldCheck, permissao: "utilizadores.gerir" },
-  { name: "Configurações", href: "/configuracoes", icon: Settings, permissao: "configuracoes.ver" },
-]
+import { getCargo } from "@/lib/permissoes"
+import { NAVEGACAO } from "@/lib/navegacao"
 
 const CHAVE_ESTADO = "barra-lateral-expandida"
 
@@ -116,7 +84,7 @@ export function Sidebar() {
   // Navegar fecha a barra no telemovel
   useEffect(() => setAbertaNoMovel(false), [pathname])
 
-  const entradasVisiveis = navigation.filter((item) => !item.permissao || pode(item.permissao))
+  const entradasVisiveis = NAVEGACAO.filter((item) => !item.permissao || pode(item.permissao))
   const inicial = (perfil?.nome || user?.email || "?").charAt(0).toUpperCase()
   const nomeVisivel = perfil?.nome?.trim() || user?.email?.split("@")[0] || "Utilizador"
 

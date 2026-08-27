@@ -1,161 +1,134 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { AlertCircle, Eye, EyeOff, Lock, Mail } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { MarcaDaEmpresa } from "@/components/marca-da-empresa"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Eye, EyeOff, Mail, Lock, LogIn, AlertCircle } from "lucide-react"
-import { useAuth } from "@/hooks/use-auth"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
+import { EcraDeAcesso } from "@/components/layout/ecra-de-acesso"
+import { useAuth } from "@/hooks/use-auth"
+import { mensagemDeErroAuth } from "@/lib/auth-mensagens"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
+  const [palavraPasse, setPalavraPasse] = useState("")
+  const [visivel, setVisivel] = useState(false)
+  const [aEntrar, setAEntrar] = useState(false)
+  const [erro, setErro] = useState("")
   const { login, user } = useAuth()
   const router = useRouter()
 
-  // Redirecionar se já estiver logado
   useEffect(() => {
-    if (user) {
-      console.log("Usuário já logado, redirecionando...")
-      router.push("/dashboard")
-    }
+    if (user) router.push("/dashboard")
   }, [user, router])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
-    setLoading(true)
+  const submeter = async (evento: React.FormEvent) => {
+    evento.preventDefault()
+    setErro("")
 
-    console.log("Iniciando processo de login...")
+    if (!email.trim()) return setErro("Indique o email.")
+    if (!palavraPasse) return setErro("Indique a palavra-passe.")
 
-    // Validações básicas
-    if (!email.trim()) {
-      setError("Email é obrigatório")
-      setLoading(false)
-      return
-    }
-
-    if (!password.trim()) {
-      setError("Senha é obrigatória")
-      setLoading(false)
-      return
-    }
-
-    if (password.length < 6) {
-      setError("A senha deve ter pelo menos 6 caracteres")
-      setLoading(false)
-      return
-    }
-
+    setAEntrar(true)
     try {
-      await login(email.trim(), password)
-      console.log("Login realizado com sucesso, redirecionando...")
+      await login(email.trim(), palavraPasse)
       router.push("/dashboard")
-    } catch (error: any) {
-      console.error("Erro no login:", error)
-      setError("Falha no login. Verifique suas credenciais.")
+    } catch (error) {
+      // A causa concreta vem do Firebase; so cai no texto geral se for desconhecida
+      setErro(mensagemDeErroAuth(error, "Nao foi possivel entrar. Tente de novo."))
     } finally {
-      setLoading(false)
+      setAEntrar(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <MarcaDaEmpresa tamanho="lg" comSlogan className="mb-6" />
-          <CardTitle className="text-2xl font-bold text-center">Entrar</CardTitle>
-          <CardDescription className="text-center">Entre com suas credenciais para acessar o sistema</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
+    <EcraDeAcesso
+      titulo="Entrar"
+      descricao="Use as credenciais da sua conta para aceder ao sistema."
+      rodape={
+        <p className="text-center text-sm text-muted-foreground">
+          Ainda nao tem conta?{" "}
+          <Link href="/register" className="font-medium text-primary hover:underline">
+            Criar conta
+          </Link>
+        </p>
+      }
+    >
+      <form onSubmit={submeter} className="space-y-4">
+        {erro && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{erro}</AlertDescription>
+          </Alert>
+        )}
 
-            <div className="space-y-2">
-              <Label htmlFor="email">Email *</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="seu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10"
-                  required
-                  disabled={loading}
-                />
-              </div>
-            </div>
+        <div className="space-y-2">
+          <Label htmlFor="email">Email</Label>
+          <div className="relative">
+            <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              id="email"
+              type="email"
+              autoComplete="email"
+              placeholder="nome@empresa.pt"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="rounded-full pl-11"
+              required
+              disabled={aEntrar}
+            />
+          </div>
+        </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Senha *</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Sua senha"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 pr-10"
-                  required
-                  disabled={loading}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowPassword(!showPassword)}
-                  disabled={loading}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </Button>
-              </div>
-            </div>
-
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? (
-                <>
-                  <LoadingSpinner size="sm" className="mr-2" />
-                  Entrando...
-                </>
-              ) : (
-                "Entrar"
-              )}
-            </Button>
-          </form>
-
-          <div className="mt-6 text-center space-y-2">
-            <Link href="/register" className="text-sm text-primary hover:underline block">
-              Não tem uma conta? Cadastre-se
-            </Link>
-            <Link href="/forgot-password" className="text-sm text-muted-foreground hover:underline block">
-              Esqueceu sua senha?
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="palavra-passe">Palavra-passe</Label>
+            <Link href="/recuperar-palavra-passe" className="text-xs text-muted-foreground hover:text-primary hover:underline">
+              Esqueceu-se?
             </Link>
           </div>
-        </CardContent>
-      </Card>
-    </div>
+          <div className="relative">
+            <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              id="palavra-passe"
+              type={visivel ? "text" : "password"}
+              autoComplete="current-password"
+              placeholder="A sua palavra-passe"
+              value={palavraPasse}
+              onChange={(e) => setPalavraPasse(e.target.value)}
+              className="rounded-full pl-11 pr-12"
+              required
+              disabled={aEntrar}
+            />
+            <button
+              type="button"
+              onClick={() => setVisivel(!visivel)}
+              disabled={aEntrar}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+              aria-label={visivel ? "Esconder palavra-passe" : "Mostrar palavra-passe"}
+            >
+              {visivel ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+
+        <Button type="submit" className="w-full rounded-full" disabled={aEntrar}>
+          {aEntrar ? (
+            <>
+              <LoadingSpinner size="sm" className="mr-2" />
+              A entrar...
+            </>
+          ) : (
+            "Entrar"
+          )}
+        </Button>
+      </form>
+    </EcraDeAcesso>
   )
 }

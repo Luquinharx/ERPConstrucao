@@ -9,6 +9,10 @@ interface MarcaDaEmpresaProps {
   tamanho?: "sm" | "md" | "lg"
   /** Mostrar o descritivo por baixo do nome. */
   comSlogan?: boolean
+  /** Forca o fundo do logotipo, ignorando a configuracao. */
+  fundo?: ConfiguracaoEmpresa["logoFundo"]
+  /** Cor do nome quando nao ha logotipo, para fundos fora do tema. */
+  classeTexto?: string
   className?: string
 }
 
@@ -50,14 +54,20 @@ const TEXTOS = {
  * Logotipo da empresa, com o nome como alternativa quando nao ha imagem.
  * Tudo vem da configuracao, entao acompanha a empresa que estiver a usar o sistema.
  */
-export function MarcaDaEmpresa({ tamanho = "md", comSlogan = false, className }: MarcaDaEmpresaProps) {
+export function MarcaDaEmpresa({
+  tamanho = "md",
+  comSlogan = false,
+  fundo,
+  classeTexto,
+  className,
+}: MarcaDaEmpresaProps) {
   const { configuracao } = useConfiguracao()
 
   return (
     <div className={cn("flex flex-col items-center gap-2", className)}>
       {configuracao.logoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <span className={cn("inline-flex items-center justify-center", classesDaPlaca(configuracao.logoFundo))}>
+        <span className={cn("inline-flex items-center justify-center", classesDaPlaca(fundo ?? configuracao.logoFundo))}>
           <img
             src={configuracao.logoUrl}
             alt={configuracao.nome}
@@ -65,11 +75,11 @@ export function MarcaDaEmpresa({ tamanho = "md", comSlogan = false, className }:
           />
         </span>
       ) : (
-        <span className={cn("font-bold text-primary", TEXTOS[tamanho])}>{configuracao.nome}</span>
+        <span className={cn("font-bold", classeTexto || "text-primary", TEXTOS[tamanho])}>{configuracao.nome}</span>
       )}
 
       {comSlogan && configuracao.slogan && (
-        <span className="text-sm text-muted-foreground">{configuracao.slogan}</span>
+        <span className={cn("text-sm", classeTexto || "text-muted-foreground")}>{configuracao.slogan}</span>
       )}
     </div>
   )

@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { Loader2, Lock, ShieldCheck, UserCog, Users } from "lucide-react"
+import { Loader2, ShieldCheck, UserCog, Users } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -34,6 +34,7 @@ import {
 } from "@/lib/permissoes"
 import type { UtilizadorSistema } from "@/lib/types"
 import { matchesSearch } from "@/lib/utils"
+import { SemAcesso } from "@/components/sem-acesso"
 
 export default function UtilizadoresPage() {
   const { user } = useAuth()
@@ -124,18 +125,7 @@ export default function UtilizadoresPage() {
   }
 
   if (!podeGerir) {
-    return (
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-          <Lock className="mb-4 h-12 w-12 text-muted-foreground" />
-          <h3 className="text-lg font-medium">Sem acesso a esta area</h3>
-          <p className="mt-2 max-w-md text-muted-foreground">
-            A gestao de utilizadores esta reservada a quem tem a permissao correspondente. O seu cargo atual e{" "}
-            <strong>{getCargo(perfil?.cargo).nome}</strong>.
-          </p>
-        </CardContent>
-      </Card>
-    )
+    return <SemAcesso area="Utilizadores e cargos" requisito="a permissao de gerir utilizadores" />
   }
 
   return (
