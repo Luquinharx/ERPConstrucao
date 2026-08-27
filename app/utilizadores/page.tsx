@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { Loader2, ShieldCheck, UserCog, Users } from "lucide-react"
+import { Loader2, ShieldCheck, Trash2, UserCog, Users } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -24,7 +24,7 @@ import { toast } from "@/hooks/use-toast"
 import { useAuth } from "@/hooks/use-auth"
 import { usePermissoes } from "@/hooks/use-permissoes"
 import { useSearchQuery } from "@/hooks/use-search-query"
-import { getUtilizadores, guardarUtilizador } from "@/lib/firebase-service"
+import { apagarUtilizador, getUtilizadores, guardarUtilizador } from "@/lib/firebase-service"
 import {
   CARGOS,
   CATALOGO_PERMISSOES,
@@ -45,6 +45,7 @@ export default function UtilizadoresPage() {
   const [carregando, setCarregando] = useState(true)
   const [emEdicao, setEmEdicao] = useState<UtilizadorSistema | null>(null)
   const [guardando, setGuardando] = useState(false)
+  const [aApagar, setAApagar] = useState<UtilizadorSistema | null>(null)
 
   const podeGerir = pode("utilizadores.gerir")
 
@@ -90,6 +91,29 @@ export default function UtilizadoresPage() {
       toast({ title: "Erro ao guardar", description: "Tente novamente.", variant: "destructive" })
     } finally {
       setGuardando(false)
+    }
+  }
+
+  /**
+   * Remove o perfil, nao a conta de autenticacao.
+   *
+   * A conta continua a existir no Firebase Auth e a pessoa consegue entrar;
+   * volta a aparecer aqui como Consulta. Para a impedir de entrar de vez, a
+   * conta tem de ser apagada na consola do Firebase.
+   */
+  const removerPerfil = async () => {
+    if (!aApagar?.id) return
+
+    try {
+      await apagarUtilizador(aApagar.id)
+      toast({
+        title: "Perfil removido",
+        description: aApagar.email + " deixou de ter permissoes no sistema.",
+      })
+      setAApagar(null)
+      await carregar()
+    } catch (error) {
+      toast({ title: "Erro ao remover", description: "Tente novamente.", variant: "destructive" })
     }
   }
 
@@ -210,10 +234,24 @@ export default function UtilizadoresPage() {
                 </p>
               </div>
 
-              <Button variant="outline" className="rounded-full" onClick={() => setEmEdicao({ ...item })}>
-                <UserCog className="mr-2 h-4 w-4" />
-                Gerir
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" className="rounded-full" onClick={() => setEmEdicao({ ...item })}>
+                  <UserCog className="mr-2 h-4 w-4" />
+                  Gerir
+                </Button>
+                {/* A propria conta nao se remove: ficaria sem quem gere utilizadores */}
+                {item.id !== user?.uid && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="rounded-full text-muted-foreground hover:text-destructive"
+                    onClick={() => setAApagar(item)}
+                    aria-label={"Remover o perfil de " + item.email}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
             </div>
           ))}
 
@@ -322,6 +360,37 @@ export default function UtilizadoresPage() {
           )}
         </DialogContent>
       </Dialog>
+      {/* Confirmacao da remocao */}
+      <Dialog open={!!aApagar} onOpenChange={(aberto) => !aberto && setAApagar(null)}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle>Remover perfil</DialogTitle>
+            <DialogDescription>{aApagar?.email}</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 text-sm">
+            <p>
+              Esta pessoa deixa de ter permissoes no sistema. O perfil sai desta lista e todas as suas permissoes sao
+              apagadas.
+            </p>
+            <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-xs">
+              A conta continua a existir no Firebase Auth. Se voltar a entrar, reaparece aqui como Consulta. Para a
+              impedir de entrar, apague tambem a conta na consola do Firebase.
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" className="rounded-full" onClick={() => setAApagar(null)}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" className="rounded-full" onClick={removerPerfil}>
+              <Trash2 className="mr-2 h-4 w-4" />
+              Remover perfil
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
     </div>
   )
 }

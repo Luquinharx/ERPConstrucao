@@ -994,6 +994,17 @@ export async function guardarUtilizador(uid: string, dados: Partial<UtilizadorSi
   )
 }
 
+/**
+ * Remove o perfil de um utilizador.
+ *
+ * Apagar a conta na consola do Firebase Auth nao apaga este documento: sem
+ * isto, o perfil ficava na lista para sempre, ainda com as suas permissoes.
+ * Nao remove a conta de autenticacao, que so a consola ou o Admin SDK apagam.
+ */
+export async function apagarUtilizador(uid: string): Promise<void> {
+  await deleteDoc(doc(db, "utilizadores", uid))
+}
+
 /** Quantos utilizadores existem: usado para saber se o sistema ainda nao tem dono. */
 export async function contarUtilizadores(): Promise<number> {
   const snap = await getCountFromServer(collection(db, "utilizadores"))
