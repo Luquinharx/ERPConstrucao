@@ -36,3 +36,7 @@ firestore-debug.log*
 # Planilhas de obra com dados de clientes
 *.xlsx
 *.xls
+
+# Chaves de conta de servico do Firebase - nunca versionar
+*firebase-adminsdk*.json
+*serviceAccountKey*.json
