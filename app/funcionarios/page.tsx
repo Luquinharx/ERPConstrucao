@@ -43,7 +43,28 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { formatCurrency, matchesSearch, round2, toFixed2 } from "@/lib/utils"
 import { ListToolbar } from "@/components/ui/list-toolbar"
 import { useSearchQuery } from "@/hooks/use-search-query"
-import { TABELAS_IRS, calcularIRS, getTabelaIRS } from "@/lib/irs-tables"
+import { TABELAS_IRS, getTabelaIRS } from "@/lib/irs-tables"
+import {
+  MESES_SUBSIDIOS,
+  MESES_SUBSIDIO_ALIMENTACAO,
+  SEGURO_ACIDENTES_CONSTRUCAO,
+  SUBSIDIO_ALIMENTACAO_ISENTO_CARTAO,
+  SUBSIDIO_ALIMENTACAO_ISENTO_DINHEIRO,
+  TSU_PATRONAL,
+  TSU_TRABALHADOR,
+  calcularFuncionario,
+  calculateDiasUteisMes,
+  calculateDiasUteisDoAno,
+  calculateHorasPorMes,
+  calculateHorasPorSemana,
+  calculateMaiorMesDoAno,
+  calculatePercentValue,
+  getCurrentMonthInput,
+  normalizarFuncionario,
+  resolverBaseDias,
+  resolverTaxa,
+  type BaseHoras,
+} from "@/lib/calculo-funcionario"
 
 interface FuncionarioFormState {
   nome: string
@@ -94,30 +115,6 @@ interface FuncionarioFormState {
   modoIRSLiquido: ModoTaxa
   valorIRSLiquidoManual: number
   ativo: boolean
-}
-
-/**
- * Regras de Portugal (continente) em vigor em 2026.
- *
- * Taxa Social Unica: 23,75% a cargo da empresa + 11% a cargo do trabalhador
- * (34,75% no total). O IRS NAO e custo da empresa - e retido ao trabalhador.
- * Subsidio de alimentacao isento ate 10,46 EUR/dia em cartao ou 6,15 EUR/dia
- * em dinheiro; acima disso paga IRS e Seguranca Social dos dois lados.
- */
-const TSU_PATRONAL = 23.75
-const TSU_TRABALHADOR = 11
-const SEGURO_ACIDENTES_CONSTRUCAO = 1.75
-const SUBSIDIO_ALIMENTACAO_ISENTO_CARTAO = 10.46
-const SUBSIDIO_ALIMENTACAO_ISENTO_DINHEIRO = 6.15
-/** Ferias + Natal: 14 meses de salario diluidos em 12. */
-const MESES_SUBSIDIOS = 2 / 12
-/** O subsidio de alimentacao paga-se por dia trabalhado: 11 meses por ano. */
-const MESES_SUBSIDIO_ALIMENTACAO = 11
-
-function getCurrentMonthInput(): string {
-  const now = new Date()
-  const month = `${now.getMonth() + 1}`.padStart(2, "0")
-  return `${now.getFullYear()}-${month}`
 }
 
 function getDefaultFormData(): FuncionarioFormState {
@@ -179,127 +176,6 @@ function calculateAge(birthDate: string): number {
     age--
   }
   return age
-}
-
-function calculateHorasPorSemana(horasPorDia: number, diasPorSemana: number): number {
-  return round2((Number(horasPorDia) || 0) * (Number(diasPorSemana) || 0))
-}
-
-/**
- * Dias efetivamente trabalhados no mes de referencia.
- *
- * Conta os dias reais do calendario a partir de segunda-feira:
- * 5 dias/semana = seg a sex, 6 = seg a sab, 7 = todos os dias.
- * (Antes usava a media dias_do_mes x dias_semana/7, que inflava as horas.)
- */
-function calculateDiasUteisMes(mesReferencia: string, diasPorSemana: number): number {
-  const dias = Math.min(Math.max(Number(diasPorSemana) || 0, 0), 7)
-  if (dias === 0) return 0
-
-  const referencia = mesReferencia || getCurrentMonthInput()
-  const [yearRaw, monthRaw] = referencia.split("-")
-  const year = Number(yearRaw)
-  const month = Number(monthRaw)
-  if (!year || !month) return 0
-
-  const daysInMonth = new Date(year, month, 0).getDate()
-  let total = 0
-
-  for (let day = 1; day <= daysInMonth; day++) {
-    const weekday = new Date(year, month - 1, day).getDay() // 0 = domingo
-    const posicaoNaSemana = weekday === 0 ? 7 : weekday // 1 = segunda ... 7 = domingo
-    if (posicaoNaSemana <= dias) total++
-  }
-
-  return total
-}
-
-/**
- * Mes do ano com mais dias uteis.
- *
- * O custo/hora e a base dos orcamentos, entao nao pode oscilar de mes para mes
- * (fevereiro tem 20 dias uteis, dezembro 22: o custo/hora variava de 12,05 para
- * 10,90). Fixando o maior mes do ano, o valor fica estavel e conservador -
- * assume o mes com mais horas, logo o menor custo por hora.
- */
-function calculateMaiorMesDoAno(ano: number, diasPorSemana: number): { dias: number; mes: number } {
-  let melhor = { dias: 0, mes: 1 }
-  for (let mes = 1; mes <= 12; mes++) {
-    const dias = calculateDiasUteisMes(`${ano}-${String(mes).padStart(2, "0")}`, diasPorSemana)
-    if (dias > melhor.dias) melhor = { dias, mes }
-  }
-  return melhor
-}
-
-const NOMES_MESES = [
-  "janeiro", "fevereiro", "marco", "abril", "maio", "junho",
-  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
-]
-
-/** Como se define a quantidade de horas do mes usada no custo/hora. */
-export type BaseHoras = "media" | "maior" | "menor" | "mes"
-
-/**
- * Dias uteis de cada mes do ano, para se poder comparar as bases.
- */
-function calculateDiasUteisDoAno(ano: number, diasPorSemana: number): number[] {
-  return Array.from({ length: 12 }, (_, i) =>
-    calculateDiasUteisMes(`${ano}-${String(i + 1).padStart(2, "0")}`, diasPorSemana),
-  )
-}
-
-/**
- * Resolve a base de dias uteis do mes.
- *
- * O custo/hora e o divisor de todos os orcamentos, entao a base tem de ser uma
- * escolha consciente:
- * - media  : media anual, nao subavalia nem sobreavalia nenhum mes
- * - maior  : mes com mais horas, da o menor custo/hora (mais agressivo)
- * - menor  : mes com menos horas, da o maior custo/hora (mais seguro)
- * - mes    : usa exatamente o mes de referencia escolhido
- */
-function resolverBaseDias(
-  base: BaseHoras,
-  ano: number,
-  diasPorSemana: number,
-  mesReferencia: string,
-): { dias: number; detalhe: string } {
-  const doAno = calculateDiasUteisDoAno(ano, diasPorSemana)
-  const maiorDias = Math.max(...doAno)
-  const menorDias = Math.min(...doAno)
-
-  if (base === "maior") {
-    return { dias: maiorDias, detalhe: `${NOMES_MESES[doAno.indexOf(maiorDias)]} de ${ano}` }
-  }
-  if (base === "menor") {
-    return { dias: menorDias, detalhe: `${NOMES_MESES[doAno.indexOf(menorDias)]} de ${ano}` }
-  }
-  if (base === "mes") {
-    return { dias: calculateDiasUteisMes(mesReferencia, diasPorSemana), detalhe: "mes de referencia" }
-  }
-  const total = doAno.reduce((acc, dias) => acc + dias, 0)
-  return { dias: round2(total / 12), detalhe: `${total} dias uteis em ${ano} / 12` }
-}
-
-function calculateHorasPorMes(mesReferencia: string, horasPorDia: number, diasPorSemana: number): number {
-  const diasUteis = calculateDiasUteisMes(mesReferencia, diasPorSemana)
-  return round2(diasUteis * (Number(horasPorDia) || 0))
-}
-
-function calculatePercentValue(base: number, percentual: number): number {
-  return round2((Number(base) || 0) * ((Number(percentual) || 0) / 100))
-}
-
-/**
- * Resolve uma taxa que pode ter sido definida por percentagem ou por valor fixo.
- * Devolve sempre os dois lados, para a tela poder mostrar "11% = 132,00 EUR".
- */
-function resolverTaxa(modo: ModoTaxa, percentual: number, valorManual: number, base: number) {
-  if (modo === "valor") {
-    const valor = round2(valorManual)
-    return { valor, percentual: base > 0 ? round2((valor / base) * 100) : 0 }
-  }
-  return { valor: calculatePercentValue(base, percentual), percentual: round2(percentual) }
 }
 
 interface CampoTaxaProps {
@@ -392,105 +268,48 @@ export default function FuncionariosPage() {
   const [formData, setFormData] = useState<FuncionarioFormState>(getDefaultFormData())
 
   const horasPorSemana = calculateHorasPorSemana(formData.horasPorDia, formData.diasPorSemana)
-  // O mes escolhido serve para indicar o ano e para comparacao; a base do custo e o maior mes
-  const anoReferencia = Number(formData.mesReferencia?.split("-")[0]) || new Date().getFullYear()
-  const diasDoMesEscolhido = calculateDiasUteisMes(formData.mesReferencia, formData.diasPorSemana)
-  const baseDias = resolverBaseDias(
-    formData.baseHoras,
+  /**
+   * Os numeros derivados vem todos de lib/calculo-funcionario.
+   *
+   * O ecra e o script de manutencao chamam a mesma funcao, entao nao ha forma
+   * de os dois divergirem no custo/hora que alimenta os orcamentos.
+   */
+  const {
     anoReferencia,
-    formData.diasPorSemana,
-    formData.mesReferencia,
-  )
-  const diasUteisMes = baseDias.dias
-  const horasPorMes = round2(diasUteisMes * (Number(formData.horasPorDia) || 0))
-
-  // Subsidio de alimentacao: valor diario x dias, para acompanhar o calendario
-  const valorBeneficiosCalculado = round2(
-    (Number(formData.subsidioDiario) || 0) * (Number(formData.diasSubsidio) || 0),
-  )
-
-  // === ENCARGOS: custo real da empresa ===
-  // Subsidios de ferias e Natal diluidos no mes (14 meses de salario em 12)
-  const valorSubsidiosMensal = formData.incluiSubsidios ? round2(formData.salarioBase * MESES_SUBSIDIOS) : 0
-  // A TSU patronal e o seguro incidem sobre o salario e sobre os subsidios
-  const baseEncargos = round2(formData.salarioBase + valorSubsidiosMensal)
-  const seguranca = resolverTaxa(
-    formData.modoSeguranca,
-    formData.percentualSeguranca,
-    formData.valorSegurancaManual,
+    diasDoMesEscolhido,
+    baseDias,
+    diasUteisMes,
+    horasPorMes,
+    valorBeneficiosCalculado,
+    valorSubsidiosMensal,
     baseEncargos,
-  )
-  const seguroAcidentes = resolverTaxa(
-    formData.modoSeguroAcidentes,
-    formData.percentualSeguroAcidentes,
-    formData.valorSeguroAcidentesManual,
-    baseEncargos,
-  )
+    seguranca,
+    seguroAcidentes,
+    totalEncargos,
+    beneficiosMensalMedio,
+    salarioTotal,
+    custoHoraCalculado,
+    valorDeVendaCalculado,
+    percentualSobreSalario,
+    limiteSubsidioMes,
+    beneficiosAcimaDoLimite,
+    segurancaLiquido,
+    irsCalculado,
+    irsLiquido,
+    totalEncargosLiquido,
+    taxaEfetivaDesconto,
+    totalIliquido,
+    salarioBaseLiquido,
+    valoresIsentos,
+    salarioTotalLiquido,
+    custoHoraLiquido,
+    valorVendaHoraLiquido,
+  } = calcularFuncionario(formData)
+
   const valorSeguranca = seguranca.valor
   const valorSeguroAcidentes = seguroAcidentes.valor
-  // O IRS nao entra: e retido ao trabalhador, nao e custo da empresa
-  const totalEncargos = round2(valorSeguranca + valorSeguroAcidentes)
-  /**
-   * O subsidio de alimentacao paga-se por dia trabalhado, entao nao ha refeicao
-   * no mes de ferias: por norma sao 11 meses por ano. Para o custo mensal medio
-   * dilui-se pelos 12 meses do ano.
-   */
-  const beneficiosMensalMedio = formData.incluiSubsidios
-    ? round2((valorBeneficiosCalculado * Number(formData.mesesSubsidioAlimentacao || 12)) / 12)
-    : round2(valorBeneficiosCalculado)
-  const salarioTotal = round2(
-    formData.salarioBase +
-      valorSubsidiosMensal +
-      beneficiosMensalMedio +
-      formData.valorTransporte +
-      totalEncargos,
-  )
-  const custoHoraCalculado = horasPorMes > 0 ? round2(salarioTotal / horasPorMes) : 0
-  const valorDeVendaCalculado = round2(custoHoraCalculado * (1 + Number(formData.margemLucro || 0) / 100))
-  /**
-   * Custo total sobre a remuneracao bruta (salario + subsidios de ferias e Natal).
-   * A referencia de mercado em Portugal aponta 130% a 145% - e sobre a bruta que
-   * essa referencia e medida, nao sobre o salario base isolado.
-   */
-  const percentualSobreSalario = baseEncargos > 0 ? round2((salarioTotal / baseEncargos) * 100) : 0
-
-  // Limite de isencao do subsidio de alimentacao, para alertar excesso
-  const limiteSubsidioMes = round2(SUBSIDIO_ALIMENTACAO_ISENTO_CARTAO * diasUteisMes)
-  const beneficiosAcimaDoLimite = round2(Math.max(0, valorBeneficiosCalculado - limiteSubsidioMes))
-
-  // === ENCARGO LIQUIDO: o que o trabalhador recebe ===
-  // Descontos do lado do trabalhador (TSU 11% + IRS), apenas sobre o salario base.
-  // Subsidio de alimentacao e transporte sao isentos ate ao limite legal.
-  const segurancaLiquido = resolverTaxa(
-    formData.modoSegurancaLiquido,
-    formData.percentualSegurancaLiquido,
-    formData.valorSegurancaLiquidoManual,
-    formData.salarioBase,
-  )
-  // IRS pela tabela oficial de retencao; o utilizador pode sobrepor a mao
-  const irsCalculado = calcularIRS(formData.salarioBase, formData.tabelaIRS, formData.dependentes)
-  const irsLiquido = formData.irsAutomatico
-    ? { valor: irsCalculado.valor, percentual: irsCalculado.taxaEfetiva }
-    : resolverTaxa(
-        formData.modoIRSLiquido,
-        formData.percentualIRSLiquido,
-        formData.valorIRSLiquidoManual,
-        formData.salarioBase,
-      )
   const valorSegurancaLiquido = segurancaLiquido.valor
   const valorIRSLiquido = irsLiquido.valor
-  const totalEncargosLiquido = round2(valorSegurancaLiquido + valorIRSLiquido)
-  /** Peso total dos descontos sobre o salario base. */
-  const taxaEfetivaDesconto =
-    formData.salarioBase > 0 ? round2((totalEncargosLiquido / formData.salarioBase) * 100) : 0
-  /** Total ilíquido: o que entra antes dos descontos. */
-  const totalIliquido = round2(formData.salarioBase + valorBeneficiosCalculado + formData.valorTransporte)
-  /** Salario base ja com os descontos, antes de somar os valores isentos. */
-  const salarioBaseLiquido = round2(formData.salarioBase - totalEncargosLiquido)
-  const valoresIsentos = round2(valorBeneficiosCalculado + formData.valorTransporte)
-  const salarioTotalLiquido = round2(salarioBaseLiquido + valoresIsentos)
-  const custoHoraLiquido = horasPorMes > 0 ? round2(salarioTotalLiquido / horasPorMes) : 0
-  const valorVendaHoraLiquido = round2(custoHoraLiquido * (1 + Number(formData.margemLucro || 0) / 100))
 
   const filteredFuncionarios = funcionarios.filter((funcionario) =>
     matchesSearch(searchTerm, [
