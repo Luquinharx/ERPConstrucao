@@ -46,6 +46,11 @@ export function SeletorComBusca({
   const [aberto, setAberto] = useState(false)
   const selecionada = opcoes.find((opcao) => opcao.valor === valor)
 
+  // Altura minima da lista pelo total de opcoes (nao pelas filtradas): sem isto o painel
+  // encolhe a cada tecla e, quando abre para cima, a barra de busca salta pelo ecra.
+  // ~3.25rem por opcao (rotulo + detalhe), no maximo 4 opcoes de altura.
+  const alturaMinimaLista = `${Math.min(opcoes.length, 4) * 3.25}rem`
+
   return (
     <Popover open={aberto} onOpenChange={setAberto}>
       <PopoverTrigger asChild>
@@ -67,8 +72,19 @@ export function SeletorComBusca({
         </Button>
       </PopoverTrigger>
 
-      <PopoverContent className="w-[min(560px,90vw)] p-0" align="start">
+      {/*
+        max-h pela altura disponivel do Radix: o painel nunca passa do fundo do ecra,
+        por isso deixa de empurrar a lista para fora da vista quando esta perto do rodape.
+        collisionPadding deixa uma folga para o painel nao colar aos limites da janela.
+      */}
+      <PopoverContent
+        className="flex max-h-[min(22rem,var(--radix-popover-content-available-height,22rem))] w-[min(560px,90vw)] flex-col overflow-hidden p-0 shadow-lg"
+        align="start"
+        sideOffset={6}
+        collisionPadding={12}
+      >
         <Command
+          className="flex h-auto min-h-0 flex-1 flex-col"
           filter={(value, search) => {
             // Procura sem acentos, no rotulo e no detalhe
             const normalizar = (texto: string) =>
@@ -79,8 +95,16 @@ export function SeletorComBusca({
             return normalizar(value).includes(normalizar(search)) ? 1 : 0
           }}
         >
-          <CommandInput placeholder={placeholderBusca} />
-          <CommandList className="max-h-72">
+          {/*
+            Cabecalho fixo: a barra de busca fica sempre no topo enquanto a lista corre por baixo.
+            Fundo cinza claro (bg-muted) para se distinguir do branco da lista e do fundo da pagina.
+          */}
+          <div className="sticky top-0 z-10 shrink-0 bg-muted/70">
+            <CommandInput placeholder={placeholderBusca} className="h-10" />
+          </div>
+
+          {/* flex-1: a lista fica com o resto da altura e faz o proprio scroll por baixo do cabecalho */}
+          <CommandList className="flex-1 overflow-y-auto" style={{ minHeight: alturaMinimaLista }}>
             <CommandEmpty>{vazio}</CommandEmpty>
             <CommandGroup>
               {opcoes.map((opcao) => (
