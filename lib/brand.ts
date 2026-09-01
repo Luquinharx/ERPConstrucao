@@ -29,6 +29,7 @@ export const CONFIGURACAO_PADRAO: ConfiguracaoEmpresa = {
   website: "www.tecknowhow.pt",
 
   prefixoOrcamento: "CO",
+  prefixoObra: "O",
   sufixoOrcamento: "",
   validadeDiasPadrao: 30,
   margemPadrao: 20,

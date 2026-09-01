@@ -41,7 +41,7 @@ export const FASES_ORCAMENTO: FaseOrcamento[] = [
     nome: "Emitido",
     descricao: "Entregue formalmente ao cliente. O documento fica congelado.",
     editavel: false,
-    seguintes: ["em_negociacao", "cancelado"],
+    seguintes: ["em_negociacao", "aceite", "cancelado"],
     cor: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40",
   },
   {
@@ -49,8 +49,16 @@ export const FASES_ORCAMENTO: FaseOrcamento[] = [
     nome: "Em Negociacao",
     descricao: "O cliente esta a renegociar valores, prazos ou medicoes.",
     editavel: false,
-    seguintes: ["emitido", "cancelado"],
+    seguintes: ["emitido", "aceite", "cancelado"],
     cor: "bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/40",
+  },
+  {
+    id: "aceite",
+    nome: "Aceite",
+    descricao: "O cliente adjudicou. Pode passar a obra e seguir para faturacao.",
+    editavel: false,
+    seguintes: ["cancelado"],
+    cor: "bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/40",
   },
   {
     id: "cancelado",
@@ -76,6 +84,7 @@ export function normalizarFase(estado?: string): StatusOrcamento {
     case "em_revisao":
     case "emitido":
     case "em_negociacao":
+    case "aceite":
     case "cancelado":
       return estado
     default:
@@ -97,6 +106,14 @@ export function podeEditar(estado?: string): boolean {
 export function podeCriarRevisao(estado?: string): boolean {
   const id = normalizarFase(estado)
   return id === "emitido" || id === "em_negociacao"
+}
+
+/**
+ * Passar a obra so faz sentido depois de o cliente adjudicar, e uma vez so:
+ * um documento que ja e obra nao volta a mudar de tipo por aqui.
+ */
+export function podePassarAObra(estado?: string, tipo?: string): boolean {
+  return normalizarFase(estado) === "aceite" && tipo !== "obra"
 }
 
 /** Cancelar exige registar o motivo, para analise posterior. */

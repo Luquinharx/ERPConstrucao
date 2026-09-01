@@ -50,8 +50,10 @@ export interface ConfiguracaoEmpresa {
   email?: string
   website?: string
 
-  /** Prefixo da numeracao dos orcamentos (ex.: CO -> CO26/0033). */
+  /** Prefixo da numeracao dos concursos (ex.: CO -> CO26/0033). */
   prefixoOrcamento?: string
+  /** Prefixo da numeracao das obras adjudicadas (ex.: O -> O26/0033). */
+  prefixoObra?: string
   /** Sufixo da numeracao, ex.: "/2026" ou "-PT". */
   sufixoOrcamento?: string
   validadeDiasPadrao?: number
@@ -269,7 +271,14 @@ export interface Servico {
 }
 
 /** Fases de orcamentacao (pre-venda). */
-export type StatusOrcamento = "rascunho" | "em_revisao" | "emitido" | "em_negociacao" | "cancelado"
+export type StatusOrcamento = "rascunho" | "em_revisao" | "emitido" | "em_negociacao" | "aceite" | "cancelado"
+
+/**
+ * Tipo do documento. O concurso e a proposta em disputa; a obra e o trabalho
+ * ja adjudicado, que a contabilidade pode faturar. Cada tipo tem prefixo e
+ * contagem propria (CO26/0001 e O26/0001).
+ */
+export type TipoDocumentoProposta = "concurso" | "obra"
 
 /** Registo de cada mudanca de fase, para se saber o percurso da proposta. */
 export interface RegistoDeFase {
@@ -349,6 +358,8 @@ export interface Orcamento {
   valorTotalCusto?: number
   observacoes?: string
   status: StatusOrcamento
+  /** Concurso ou obra. Propostas antigas sem o campo contam como concurso. */
+  tipoDocumento?: TipoDocumentoProposta
   /** Numero da revisao: 0 = versao base (1.0), 1 = Rev. A, 2 = Rev. B... */
   revisao?: number
   /** Proposta de onde esta revisao saiu. */

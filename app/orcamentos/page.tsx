@@ -5,6 +5,7 @@ import type React from "react"
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { CampoNumerico } from "@/components/ui/campo-numerico"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -33,6 +34,7 @@ import {
   ChevronRight,
   ArrowRightLeft,
   Lock,
+  Building2,
 } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { SeletorComBusca } from "@/components/ui/seletor-com-busca"
@@ -47,6 +49,7 @@ import {
 import { useAuth } from "@/hooks/use-auth"
 import { toast } from "@/hooks/use-toast"
 import type {
+  TipoDocumentoProposta,
   Orcamento,
   Funcionario,
   Servico,
@@ -57,7 +60,7 @@ import type {
   StatusOrcamento,
 } from "@/lib/types"
 import { FirebaseService } from "@/lib/firebase-service"
-import { formatCurrency, matchesSearch, round2, toFixed2 } from "@/lib/utils"
+import { formatCurrency, formatNumber2, matchesSearch, round2, toFixed2 } from "@/lib/utils"
 import { getServiceCategoryName } from "@/lib/service-categories"
 import { ListToolbar } from "@/components/ui/list-toolbar"
 import { useSearchQuery } from "@/hooks/use-search-query"
@@ -70,7 +73,17 @@ import {
   normalizarFase,
   podeCriarRevisao,
   podeEditar,
+  podePassarAObra,
 } from "@/lib/orcamento-fases"
+import {
+  TIPOS_DOCUMENTO,
+  getTipoDocumento,
+  numeroAoPassarAObra,
+  numeroCompleto,
+  numeroParaGravar,
+  proximoNumero,
+  tipoDoDocumento,
+} from "@/lib/numeracao"
 import { CONFIGURACAO_PADRAO, corDeTexto } from "@/lib/brand"
 
 /** Documento gerado: venda (cliente) ou custo (interno). */
@@ -79,6 +92,8 @@ type TipoDocumento = "venda" | "custo"
 interface OrcamentoFormState {
   /** Numero da proposta, editavel para corrigir sequencias. */
   numero: string
+  /** Concurso ou obra: manda no prefixo e na contagem. */
+  tipoDocumento: TipoDocumentoProposta
   clienteId: string
   cliente: Orcamento["cliente"]
   dataOrcamento: string
@@ -135,6 +150,7 @@ function getDefaultFormData(): OrcamentoFormState {
   const today = new Date()
   return {
     numero: "",
+    tipoDocumento: "concurso",
     clienteId: "",
     cliente: {
       nome: "",
@@ -342,6 +358,41 @@ function getStatusLabel(status: Orcamento["status"]): string {
   return getFase(status).nome
 }
 
+/**
+ * Decomposicao do valor de uma proposta: custo, margem, base e IVA.
+ *
+ * Vive num sitio so porque e usada no cartao da lista E no documento impresso;
+ * se cada um fizesse as suas contas, mais tarde ou mais cedo discordavam.
+ * Propostas antigas nao guardavam base tributavel nem IVA: nesse caso o total
+ * ja e a propria base.
+ */
+function resumoDeValores(orcamento: Orcamento) {
+  const itens = orcamento.itens || []
+  const subtotal = round2(orcamento.subtotal || 0)
+  const subtotalCusto = round2(orcamento.subtotalCusto ?? calculateSubtotalCusto(itens))
+  const transporte = round2(orcamento.transporte || 0)
+  const margem = round2(orcamento.margemLucro || 0)
+  const margemValor = round2((subtotal * margem) / 100)
+  const totalVenda = round2(orcamento.valorTotal || 0)
+  const taxaIVA = round2(orcamento.taxaIVA ?? 0)
+  const valorIVA = round2(orcamento.valorIVA ?? 0)
+  const baseTributavel = round2(orcamento.baseTributavel ?? totalVenda - valorIVA)
+  const totalCusto = round2(orcamento.valorTotalCusto ?? calculateTotalCusto(subtotalCusto, transporte))
+
+  return {
+    subtotal,
+    subtotalCusto,
+    transporte,
+    margem,
+    margemValor,
+    totalVenda,
+    taxaIVA,
+    valorIVA,
+    baseTributavel,
+    totalCusto,
+  }
+}
+
 function buildOrcamentoDocumentHtml(
   orcamento: Orcamento,
   termos: TermoServico[],
@@ -351,17 +402,8 @@ function buildOrcamentoDocumentHtml(
   const isCusto = tipo === "custo"
   const itens = orcamento.itens || []
 
-  const subtotal = round2(orcamento.subtotal || 0)
-  const subtotalCusto = round2(orcamento.subtotalCusto ?? calculateSubtotalCusto(itens))
-  const transporte = round2(orcamento.transporte || 0)
-  const margem = round2(orcamento.margemLucro || 0)
-  const margemValor = round2((subtotal * margem) / 100)
-  const totalVenda = round2(orcamento.valorTotal || 0)
-  const taxaIVA = round2(orcamento.taxaIVA ?? 0)
-  // Orcamentos antigos nao tinham IVA: nesse caso o total ja e a propria base
-  const baseTributavel = round2(orcamento.baseTributavel ?? totalVenda - (orcamento.valorIVA ?? 0))
-  const valorIVA = round2(orcamento.valorIVA ?? 0)
-  const totalCusto = round2(orcamento.valorTotalCusto ?? calculateTotalCusto(subtotalCusto, transporte))
+  const { subtotal, subtotalCusto, transporte, margem, margemValor, totalVenda, taxaIVA, valorIVA, baseTributavel, totalCusto } =
+    resumoDeValores(orcamento)
   const total = isCusto ? totalCusto : totalVenda
 
   const termosAtivos = termos.filter((item) => item.ativo)
@@ -612,7 +654,7 @@ function buildOrcamentoDocumentHtml(
         }
 
         /* Blocos de texto */
-        section { page-break-inside: avoid; }
+        section { page-break-inside: avoid; break-inside: avoid; }
         .observacoes { margin-top: 18px; font-size: 11px; line-height: 1.6; }
         .notas { margin-top: 18px; border: 1px solid #d1d5db; border-radius: 6px; padding: 10px 12px; }
         .notas-titulo {
@@ -632,16 +674,41 @@ function buildOrcamentoDocumentHtml(
           font-size: 12px; margin-top: 16px; color: ${corPrimaria};
           border-bottom: 1px solid #e5e7eb; padding-bottom: 3px;
         }
-        .termo { margin-top: 9px; font-size: 10.5px; line-height: 1.55; page-break-inside: avoid; }
+        /*
+           As condicoes gerais podem partir entre folhas.
+
+           Com page-break-inside: avoid herdado do "section", o bloco inteiro das
+           condicoes so cabia se coubesse todo, por isso saltava para uma folha
+           nova e deixava a anterior a meio. Agora a lista parte onde for preciso;
+           o que nunca se parte a meio e cada clausula (.termo), e um titulo nunca
+           fica sozinho no fundo da pagina (page-break-after: avoid).
+        */
+        .termos, .termos section { page-break-inside: auto; break-inside: auto; }
+        .termos h3 { page-break-after: avoid; break-after: avoid; }
+        .termo {
+          margin-top: 9px; font-size: 10.5px; line-height: 1.55;
+          page-break-inside: avoid; break-inside: avoid;
+        }
         .termo strong { display: block; color: ${corEscura}; margin-bottom: 2px; }
 
-        /* Margem inferior da folha, pela mesma razao que a faixa do topo. */
+        /*
+           Margem inferior da folha, pela mesma razao que a faixa do topo.
+
+           O rodape esta fixo ao fundo da pagina em vez de viver no tfoot: no
+           tfoot ele subia atras do conteudo e, na ultima folha, aparecia a meio
+           da pagina. Fixo, o navegador desenha-o no fundo de todas as folhas.
+           O tfoot fica com um espaco vazio da mesma altura, para o conteudo
+           nunca lhe passar por cima.
+        */
         .rodape {
+          position: fixed; left: 10mm; right: 10mm; bottom: 0;
           height: 18mm; padding-top: 3mm; padding-bottom: 8mm;
           border-top: 1px solid #e5e7eb;
           display: flex; justify-content: space-between; align-items: flex-start;
           font-size: 8.5px; color: #9ca3af;
+          background: #fff;
         }
+        .rodape-espaco { height: 18mm; }
       </style>
     </head>
     <body>
@@ -658,19 +725,13 @@ function buildOrcamentoDocumentHtml(
           </td></tr>
         </thead>
         <tfoot>
-          <tr><td>
-            <div class="rodape">
-              <span>${escapeHtml(marca.nome)}${marca.website ? ` · ${escapeHtml(marca.website)}` : ""}</span>
-              <span>${escapeHtml(marca.prefixoOrcamento || "")}${escapeHtml(orcamento.numero)}${escapeHtml(
-                marca.sufixoOrcamento || "",
-              )} · emitido em ${new Date().toLocaleDateString("pt-PT")}</span>
-            </div>
-          </td></tr>
+          <tr><td><div class="rodape-espaco"></div></td></tr>
         </tfoot>
         <tbody><tr><td>
       <header class="topo">
         <div class="topo-dados">
-          <div class="ref">${escapeHtml(marca.prefixoOrcamento || "")}${escapeHtml(orcamento.numero)}${escapeHtml(marca.sufixoOrcamento || "")}</div>
+          <div class="ref">${escapeHtml(numeroCompleto(orcamento, marca))}</div>
+          <div class="muted">${escapeHtml(getTipoDocumento(tipoDoDocumento(orcamento)).nome)}</div>
           <div class="muted">Versao: ${escapeHtml(nomeDaVersao(orcamento.revisao))}</div>
           <div>Cliente: <strong>${escapeHtml(orcamento.cliente.nome)}</strong></div>
           ${
@@ -723,14 +784,14 @@ function buildOrcamentoDocumentHtml(
           <div><span>Transporte:</span><span>${formatCurrency(transporte)}</span></div>
           <div class="total-final"><span>Total de custo:</span><span>${formatCurrency(totalCusto)}</span></div>
           <div style="margin-top:8px"><span>Subtotal de venda:</span><span>${formatCurrency(subtotal)}</span></div>
-          <div><span>Margem (${toFixed2(margem)}%):</span><span>${formatCurrency(margemValor)}</span></div>
+          <div><span>Margem (${formatNumber2(margem)}%):</span><span>${formatCurrency(margemValor)}</span></div>
           <div><span>Venda sem IVA (base):</span><span>${formatCurrency(baseTributavel)}</span></div>
-          <div><span>IVA (${toFixed2(taxaIVA)}%) a entregar:</span><span>${formatCurrency(valorIVA)}</span></div>
+          <div><span>IVA (${formatNumber2(taxaIVA)}%) a entregar:</span><span>${formatCurrency(valorIVA)}</span></div>
           <div><span>Total cobrado ao cliente:</span><span>${formatCurrency(totalVenda)}</span></div>
         `
             : `
           <div><span>Subtotal:</span><span>${formatCurrency(baseTributavel)}</span></div>
-          <div><span>IVA (${toFixed2(taxaIVA)}%):</span><span>${formatCurrency(valorIVA)}</span></div>
+          <div><span>IVA (${formatNumber2(taxaIVA)}%):</span><span>${formatCurrency(valorIVA)}</span></div>
           <div class="total-final"><span>Total a pagar:</span><span>${formatCurrency(totalVenda)}</span></div>
         `
         }
@@ -749,6 +810,11 @@ function buildOrcamentoDocumentHtml(
 
         </td></tr></tbody>
       </table>
+
+      <div class="rodape">
+        <span>${escapeHtml(marca.nome)}${marca.website ? ` · ${escapeHtml(marca.website)}` : ""}</span>
+        <span>${escapeHtml(numeroCompleto(orcamento, marca))} · emitido em ${new Date().toLocaleDateString("pt-PT")}</span>
+      </div>
     </body>
   </html>
   `
@@ -824,6 +890,8 @@ export default function OrcamentosPage() {
       filtered = filtered.filter((orcamento) =>
         matchesSearch(searchTerm, [
           orcamento.numero,
+          numeroCompleto(orcamento, configuracao),
+          getTipoDocumento(tipoDoDocumento(orcamento)).nome,
           orcamento.cliente.nome,
           orcamento.cliente.email,
           orcamento.cliente.telefone,
@@ -842,22 +910,14 @@ export default function OrcamentosPage() {
   }, [orcamentos, searchTerm, statusFilter])
 
   /**
-   * Numeracao no formato das propostas de obra: 26/0001 (o prefixo da empresa,
-   * por exemplo "CO", e acrescentado na impressao).
+   * Numeracao no formato 26/0001. O prefixo (CO nos concursos, O nas obras)
+   * vem do tipo do documento e e acrescentado na apresentacao.
    *
-   * O contador olha para o maior numero ja existente no ano, para nao repetir
-   * quando um orcamento e apagado.
+   * Cada tipo tem a sua contagem: os concursos nao gastam numeros de obra nem
+   * o contrario. Ver lib/numeracao.ts.
    */
-  const generateOrcamentoNumber = () => {
-    const ano = String(new Date().getFullYear()).slice(-2)
-    const doAno = orcamentos
-      .map((item) => item.numero || "")
-      .filter((numero) => numero.startsWith(`${ano}/`))
-      .map((numero) => Number(numero.split("/")[1]) || 0)
-
-    const proximo = (doAno.length ? Math.max(...doAno) : 0) + 1
-    return `${ano}/${String(proximo).padStart(4, "0")}`
-  }
+  const generateOrcamentoNumber = (tipo: TipoDocumentoProposta = formData.tipoDocumento) =>
+    proximoNumero(orcamentos, tipo)
 
   const handleClientSelect = (selectedValue: string) => {
     if (selectedValue === "__novo") {
@@ -1302,7 +1362,8 @@ export default function OrcamentosPage() {
       const dataValidade = new Date(formData.dataValidade)
 
       const orcamentoData: Omit<Orcamento, "id"> = {
-        numero: formData.numero.trim() || editingOrcamento?.numero || generateOrcamentoNumber(),
+        numero: numeroParaGravar(formData.numero, orcamentos, formData.tipoDocumento),
+        tipoDocumento: formData.tipoDocumento,
         clienteId,
         cliente: {
           nome: formData.cliente.nome.trim(),
@@ -1370,6 +1431,7 @@ export default function OrcamentosPage() {
     setEditingOrcamento(orcamento)
     setFormData({
       numero: orcamento.numero || "",
+      tipoDocumento: tipoDoDocumento(orcamento),
       clienteId: orcamento.clienteId || "",
       cliente: {
         nome: orcamento.cliente.nome,
@@ -1425,6 +1487,8 @@ export default function OrcamentosPage() {
   const podeMudarPara = (destino: StatusOrcamento) => {
     if (destino === "cancelado") return pode("orcamentos.cancelar")
     if (destino === "emitido") return pode("orcamentos.aprovar")
+    // Dar a proposta por adjudicada e um acto comercial, como emitir
+    if (destino === "aceite") return pode("orcamentos.aprovar")
     if (destino === "em_revisao") return pode("orcamentos.submeter")
     // Devolver a rascunho e reabrir sao actos de quem aprova
     return pode("orcamentos.aprovar") || pode("orcamentos.editar")
@@ -1456,6 +1520,9 @@ export default function OrcamentosPage() {
       alteracoes.numeroBase = orcamento.numeroBase || orcamento.numero
     }
     if (novaFase === "cancelado" && motivo) alteracoes.motivoPerda = motivo
+    // Sair de Cancelado apaga o motivo: senao a proposta reaberta continuava a
+    // mostrar "Motivo: ..." de um cancelamento que ja nao existe.
+    if (novaFase !== "cancelado" && orcamento.motivoPerda) alteracoes.motivoPerda = ""
 
     try {
       await FirebaseService.updateOrcamento(orcamento.id, alteracoes)
@@ -1491,7 +1558,9 @@ A versao atual fica guardada como foi entregue ao cliente, e a nova abre em Rasc
       return
 
     try {
-      const { id, ...dados } = orcamento
+      // dataEmissao fica de fora em vez de ir a undefined: a revisao nasce por
+      // emitir, e o Firestore recusa o documento todo se receber undefined.
+      const { id, dataEmissao, ...dados } = orcamento
       await FirebaseService.addOrcamento(
         {
           ...dados,
@@ -1500,7 +1569,6 @@ A versao atual fica guardada como foi entregue ao cliente, e a nova abre em Rasc
           revisao: proximaRevisao,
           orcamentoOrigemId: orcamento.id,
           status: "rascunho",
-          dataEmissao: undefined,
           motivoPerda: "",
           historicoFases: [
             {
@@ -1522,7 +1590,70 @@ A versao atual fica guardada como foi entregue ao cliente, e a nova abre em Rasc
       })
       await loadData()
     } catch (error) {
-      toast({ title: "Erro ao criar revisao", description: "Tente novamente.", variant: "destructive" })
+      console.error("Erro ao criar revisao:", error)
+      toast({
+        title: "Erro ao criar revisao",
+        description: error instanceof Error ? error.message : "Tente novamente.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  /**
+   * Passa um concurso adjudicado a obra.
+   *
+   * Muda so o tipo: o numero sequencial mantem-se, por isso CO26/0007 fica
+   * O26/0007 e ve-se logo de que proposta a obra veio. Se esse numero ja
+   * estiver ocupado por outra obra, avanca para o proximo livre e avisa.
+   * A partir daqui a contabilidade sabe que ja pode faturar.
+   */
+  const passarAObra = async (orcamento: Orcamento) => {
+    if (!user || !orcamento.id) return
+
+    const antes = numeroCompleto(orcamento, configuracao)
+    const { numero, manteve } = numeroAoPassarAObra(orcamentos, orcamento)
+    const depois = numeroCompleto({ ...orcamento, numero, tipoDocumento: "obra" }, configuracao)
+
+    const aviso = manteve
+      ? ""
+      : `
+
+Atencao: ${numeroCompleto({ ...orcamento, tipoDocumento: "obra" }, configuracao)} ja esta ocupado por outra obra, por isso esta fica com o proximo numero livre.`
+
+    if (!confirm(`Passar ${antes} a obra?
+
+O documento passa a ${depois}. A proposta nao muda de valores nem de conteudo.${aviso}`)) return
+
+    try {
+      await FirebaseService.updateOrcamento(orcamento.id, {
+        tipoDocumento: "obra",
+        numero,
+        historicoFases: [
+          ...(orcamento.historicoFases || []),
+          {
+            estado: normalizarFase(orcamento.status),
+            data: new Date(),
+            utilizador: user.email || user.uid,
+            nota: `Passou a obra: ${antes} passa a ${depois}.`,
+          },
+        ],
+        updatedAt: new Date(),
+      })
+
+      toast({
+        title: `Agora e obra ${depois}`,
+        description: manteve
+          ? "O numero manteve-se. A contabilidade ja pode faturar."
+          : `O numero de origem estava ocupado, por isso ficou ${depois}.`,
+      })
+      await loadData()
+    } catch (error) {
+      console.error("Erro ao passar a obra:", error)
+      toast({
+        title: "Erro ao passar a obra",
+        description: error instanceof Error ? error.message : "Tente novamente.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -1770,7 +1901,30 @@ A versao atual fica guardada como foi entregue ao cliente, e a nova abre em Rasc
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                <div className="space-y-2">
+                  <Label htmlFor="tipoDocumento">Tipo</Label>
+                  <Select
+                    value={formData.tipoDocumento}
+                    onValueChange={(valor) =>
+                      setFormData({ ...formData, tipoDocumento: valor as TipoDocumentoProposta })
+                    }
+                  >
+                    <SelectTrigger id="tipoDocumento" className="rounded-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TIPOS_DOCUMENTO.map((tipo) => (
+                        <SelectItem key={tipo.id} value={tipo.id}>
+                          {tipo.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {getTipoDocumento(formData.tipoDocumento).descricao}
+                  </p>
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="numero">Numero da proposta</Label>
                   <Input
@@ -1781,9 +1935,12 @@ A versao atual fica guardada como foi entregue ao cliente, e a nova abre em Rasc
                     className="rounded-full"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Sai como {configuracao.prefixoOrcamento || ""}
-                    {formData.numero || generateOrcamentoNumber()}
-                    {configuracao.sufixoOrcamento || ""}. Deixe vazio para numerar automaticamente.
+                    Sai como{" "}
+                    {numeroCompleto(
+                      { numero: formData.numero || generateOrcamentoNumber(), tipoDocumento: formData.tipoDocumento },
+                      configuracao,
+                    )}
+                    . Deixe vazio para numerar automaticamente.
                   </p>
                 </div>
                 <div className="space-y-2">
@@ -1905,17 +2062,10 @@ A versao atual fica guardada como foi entregue ao cliente, e a nova abre em Rasc
                           </div>
                           <div className="space-y-2">
                             <Label>Quantidade</Label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              min="0.01"
+                            <CampoNumerico
+                              min={0.01}
                               value={servicoForm.quantidade}
-                              onChange={(e) =>
-                                setServicoForm({
-                                  ...servicoForm,
-                                  quantidade: Number.parseFloat(e.target.value) || 1,
-                                })
-                              }
+                              onChange={(quantidade) => setServicoForm({ ...servicoForm, quantidade })}
                               className="rounded-full"
                             />
                           </div>
@@ -2017,17 +2167,10 @@ A versao atual fica guardada como foi entregue ao cliente, e a nova abre em Rasc
                           </div>
                           <div className="space-y-2">
                             <Label>Quantidade de horas</Label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              min="0.01"
+                            <CampoNumerico
+                              min={0.01}
                               value={maoObraForm.quantidade}
-                              onChange={(e) =>
-                                setMaoObraForm({
-                                  ...maoObraForm,
-                                  quantidade: Number.parseFloat(e.target.value) || 1,
-                                })
-                              }
+                              onChange={(quantidade) => setMaoObraForm({ ...maoObraForm, quantidade })}
                               className="rounded-full"
                             />
                           </div>
@@ -2221,15 +2364,12 @@ A versao atual fica guardada como foi entregue ao cliente, e a nova abre em Rasc
                           <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
                             <div>
                               <Label className="text-xs">Quantidade</Label>
-                              <Input
-                                type="number"
-                                step="0.01"
+                              <CampoNumerico
+                                tamanho="sm"
                                 value={item.quantidade}
                                 disabled={item.valorFixo}
-                                onChange={(e) =>
-                                  handleItemUpdate(item.id, "quantidade", round2(Number.parseFloat(e.target.value) || 0))
-                                }
-                                className={`h-8 text-sm ${item.valorFixo ? "bg-muted" : ""}`}
+                                onChange={(quantidade) => handleItemUpdate(item.id, "quantidade", quantidade)}
+                                className={item.valorFixo ? "bg-muted" : undefined}
                               />
                             </div>
                             <div>
@@ -2243,34 +2383,18 @@ A versao atual fica guardada como foi entregue ao cliente, e a nova abre em Rasc
                             </div>
                             <div>
                               <Label className="text-xs">Custo Unit. (EUR)</Label>
-                              <Input
-                                type="number"
-                                step="0.01"
+                              <CampoNumerico
+                                tamanho="sm"
                                 value={custoUnitario}
-                                onChange={(e) =>
-                                  handleItemUpdate(
-                                    item.id,
-                                    "custoUnitario",
-                                    round2(Number.parseFloat(e.target.value) || 0),
-                                  )
-                                }
-                                className="h-8 text-sm"
+                                onChange={(valor) => handleItemUpdate(item.id, "custoUnitario", valor)}
                               />
                             </div>
                             <div>
                               <Label className="text-xs">Venda Unit. (EUR)</Label>
-                              <Input
-                                type="number"
-                                step="0.01"
+                              <CampoNumerico
+                                tamanho="sm"
                                 value={item.precoUnitario}
-                                onChange={(e) =>
-                                  handleItemUpdate(
-                                    item.id,
-                                    "precoUnitario",
-                                    round2(Number.parseFloat(e.target.value) || 0),
-                                  )
-                                }
-                                className="h-8 text-sm"
+                                onChange={(valor) => handleItemUpdate(item.id, "precoUnitario", valor)}
                               />
                             </div>
                             <div>
@@ -2306,29 +2430,22 @@ A versao atual fica guardada como foi entregue ao cliente, e a nova abre em Rasc
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="margemLucro">Margem de lucro (%)</Label>
-                    <Input
+                    <CampoNumerico
                       id="margemLucro"
-                      type="number"
-                      step="0.01"
+                      sufixo="%"
                       value={formData.margemLucro}
-                      onChange={(e) =>
-                        setFormData({ ...formData, margemLucro: round2(Number.parseFloat(e.target.value) || 0) })
-                      }
-                      required
+                      onChange={(margemLucro) => setFormData({ ...formData, margemLucro })}
                       className="rounded-full"
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="transporte">Custo de transporte (EUR)</Label>
-                    <Input
+                    <CampoNumerico
                       id="transporte"
-                      type="number"
-                      step="0.01"
-                      min="0"
+                      min={0}
+                      sufixo="EUR"
                       value={formData.transporte}
-                      onChange={(e) =>
-                        setFormData({ ...formData, transporte: round2(Number.parseFloat(e.target.value) || 0) })
-                      }
+                      onChange={(transporte) => setFormData({ ...formData, transporte })}
                       className="rounded-full"
                     />
                     <p className="text-xs text-muted-foreground">
@@ -2362,16 +2479,13 @@ A versao atual fica guardada como foi entregue ao cliente, e a nova abre em Rasc
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="taxaIVAValor">Taxa aplicada (%)</Label>
-                    <Input
+                    <CampoNumerico
                       id="taxaIVAValor"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="100"
+                      min={0}
+                      max={100}
+                      sufixo="%"
                       value={formData.taxaIVA}
-                      onChange={(e) =>
-                        setFormData({ ...formData, taxaIVA: round2(Number.parseFloat(e.target.value) || 0) })
-                      }
+                      onChange={(taxaIVA) => setFormData({ ...formData, taxaIVA })}
                       className="rounded-full"
                     />
                     <p className="text-xs text-muted-foreground">
@@ -2403,7 +2517,7 @@ A versao atual fica guardada como foi entregue ao cliente, e a nova abre em Rasc
                         <span>{formatCurrency(subtotalAtual)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span>Margem ({toFixed2(formData.margemLucro)}%):</span>
+                        <span>Margem ({formatNumber2(formData.margemLucro)}%):</span>
                         <span>{formatCurrency(round2((subtotalAtual * formData.margemLucro) / 100))}</span>
                       </div>
                       <div className="flex justify-between">
@@ -2415,7 +2529,7 @@ A versao atual fica guardada como foi entregue ao cliente, e a nova abre em Rasc
                         <span>{formatCurrency(baseTributavelAtual)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span>IVA ({toFixed2(formData.taxaIVA)}%):</span>
+                        <span>IVA ({formatNumber2(formData.taxaIVA)}%):</span>
                         <span>{formatCurrency(valorIVAAtual)}</span>
                       </div>
                       <div className="flex justify-between font-medium border-t pt-1">
@@ -2568,7 +2682,14 @@ A versao atual fica guardada como foi entregue ao cliente, e a nova abre em Rasc
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     <Calculator className="h-5 w-5" />
-                    Orcamento #{orcamento.numero}
+                    {numeroCompleto(orcamento, configuracao)}
+                    <Badge
+                      variant="outline"
+                      className={`text-xs ${getTipoDocumento(tipoDoDocumento(orcamento)).cor}`}
+                      title={getTipoDocumento(tipoDoDocumento(orcamento)).descricao}
+                    >
+                      {getTipoDocumento(tipoDoDocumento(orcamento)).nome}
+                    </Badge>
                     {(orcamento.revisao ?? 0) > 0 && (
                       <Badge variant="secondary" className="text-xs">
                         {nomeDaVersao(orcamento.revisao)}
@@ -2594,19 +2715,42 @@ A versao atual fica guardada como foi entregue ao cliente, e a nova abre em Rasc
                   <p>Data: {new Date(orcamento.dataOrcamento).toLocaleDateString("pt-PT")}</p>
                   <p>Validade: {new Date(orcamento.dataValidade).toLocaleDateString("pt-PT")}</p>
                   <p>Itens: {orcamento.itens.length}</p>
-                  {orcamento.motivoPerda && (
+                  {/* O motivo pertence ao cancelamento: reaberta a proposta, deixa de fazer sentido */}
+                  {normalizarFase(orcamento.status) === "cancelado" && orcamento.motivoPerda && (
                     <p className="text-destructive">Motivo: {orcamento.motivoPerda}</p>
                   )}
-                  {pode("orcamentos.verCusto") && (
-                  <p>
-                    Custo:{" "}
-                    {formatCurrency(
-                      orcamento.valorTotalCusto ??
-                        calculateTotalCusto(calculateSubtotalCusto(orcamento.itens || []), orcamento.transporte),
-                    )}
-                    {orcamento.transporte ? ` | Transporte: ${formatCurrency(orcamento.transporte)}` : ""}
-                  </p>
-                  )}
+
+                  {/*
+                    Decomposicao do valor, para se ver de que e feito o total sem
+                    abrir a proposta. Custo e margem sao informacao interna, por
+                    isso ficam atras da permissao; base e IVA vao no documento do
+                    cliente, logo qualquer um os pode ver.
+                  */}
+                  {(() => {
+                    const resumo = resumoDeValores(orcamento)
+                    const linha = (rotulo: string, valor: string, destaque = false) => (
+                      <>
+                        <dt className={destaque ? "text-foreground" : ""}>{rotulo}</dt>
+                        <dd className={`text-right tabular-nums ${destaque ? "font-medium text-foreground" : ""}`}>
+                          {valor}
+                        </dd>
+                      </>
+                    )
+                    return (
+                      <dl className="mt-2 grid w-fit grid-cols-[auto_auto] gap-x-4 gap-y-0.5">
+                        {pode("orcamentos.verCusto") && (
+                          <>
+                            {linha("Custo", formatCurrency(resumo.totalCusto))}
+                            {resumo.transporte > 0 && linha("Transporte", formatCurrency(resumo.transporte))}
+                            {linha(`Margem (${formatNumber2(resumo.margem)}%)`, formatCurrency(resumo.margemValor))}
+                          </>
+                        )}
+                        {linha("Base sem IVA", formatCurrency(resumo.baseTributavel))}
+                        {linha(`IVA (${formatNumber2(resumo.taxaIVA)}%)`, formatCurrency(resumo.valorIVA))}
+                        {linha("Total", formatCurrency(resumo.totalVenda), true)}
+                      </dl>
+                    )
+                  })()}
                 </div>
                 <div className="flex space-x-2">
                   <DropdownMenu>
@@ -2685,6 +2829,15 @@ A versao atual fica guardada como foi entregue ao cliente, e a nova abre em Rasc
                           {getFase(proxima).nome}
                         </DropdownMenuItem>
                       ))}
+                      {podePassarAObra(orcamento.status, orcamento.tipoDocumento) && pode("orcamentos.editar") && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => void passarAObra(orcamento)}>
+                            <Building2 className="h-4 w-4 mr-2" />
+                            Passar a obra
+                          </DropdownMenuItem>
+                        </>
+                      )}
                       {podeCriarRevisao(orcamento.status) && pode("orcamentos.criar") && (
                         <>
                           <DropdownMenuSeparator />

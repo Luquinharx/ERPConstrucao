@@ -6,6 +6,7 @@ import { Building2, Check, ImageIcon, Loader2, Palette, Upload, X } from "lucide
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { CampoNumerico } from "@/components/ui/campo-numerico"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -374,14 +375,24 @@ export function IdentidadeDaEmpresa() {
           <CardDescription>Valores sugeridos ao criar um orcamento e notas do rodape.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-5">
+          <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
             <div className="space-y-2">
-              <Label htmlFor="prefixoOrcamento">Prefixo</Label>
+              <Label htmlFor="prefixoOrcamento">Prefixo concurso</Label>
               <Input
                 id="prefixoOrcamento"
-                value={form.prefixoOrcamento || ""}
+                value={form.prefixoOrcamento ?? ""}
                 onChange={(e) => alterar({ prefixoOrcamento: e.target.value.toUpperCase() })}
                 placeholder="CO"
+                className="rounded-full"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="prefixoObra">Prefixo obra</Label>
+              <Input
+                id="prefixoObra"
+                value={form.prefixoObra ?? ""}
+                onChange={(e) => alterar({ prefixoObra: e.target.value.toUpperCase() })}
+                placeholder="O"
                 className="rounded-full"
               />
             </div>
@@ -394,44 +405,59 @@ export function IdentidadeDaEmpresa() {
                 placeholder="/2026"
                 className="rounded-full"
               />
-              <p className="text-xs text-muted-foreground">
-                Gera {form.prefixoOrcamento || ""}26/0001{form.sufixoOrcamento || ""}
-              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="validadeDiasPadrao">Validade (dias)</Label>
-              <Input
+              <CampoNumerico
                 id="validadeDiasPadrao"
-                type="number"
-                min="1"
+                decimais={0}
+                min={1}
                 value={form.validadeDiasPadrao ?? 30}
-                onChange={(e) => alterar({ validadeDiasPadrao: Number(e.target.value) || 30 })}
+                onChange={(validadeDiasPadrao) => alterar({ validadeDiasPadrao })}
                 className="rounded-full"
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="margemPadrao">Margem (%)</Label>
-              <Input
+              <CampoNumerico
                 id="margemPadrao"
-                type="number"
-                step="0.01"
+                min={0}
+                sufixo="%"
                 value={form.margemPadrao ?? 20}
-                onChange={(e) => alterar({ margemPadrao: Number(e.target.value) || 0 })}
+                onChange={(margemPadrao) => alterar({ margemPadrao })}
                 className="rounded-full"
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="taxaIVAPadrao">IVA (%)</Label>
-              <Input
+              <CampoNumerico
                 id="taxaIVAPadrao"
-                type="number"
-                step="0.01"
+                min={0}
+                max={100}
+                sufixo="%"
                 value={form.taxaIVAPadrao ?? 23}
-                onChange={(e) => alterar({ taxaIVAPadrao: Number(e.target.value) || 0 })}
+                onChange={(taxaIVAPadrao) => alterar({ taxaIVAPadrao })}
                 className="rounded-full"
               />
             </div>
           </div>
+
+          {/*
+            Cada tipo tem contagem propria: os concursos nao gastam numeros de
+            obra nem o contrario. Um concurso adjudicado passa a obra ficando com
+            o mesmo numero, por isso ve-se de onde a obra veio.
+          */}
+          <p className="text-xs text-muted-foreground">
+            Concursos saem como{" "}
+            <strong className="text-foreground">
+              {(form.prefixoOrcamento ?? "CO")}26/0001{form.sufixoOrcamento || ""}
+            </strong>{" "}
+            e obras como{" "}
+            <strong className="text-foreground">
+              {(form.prefixoObra ?? "O")}26/0001{form.sufixoOrcamento || ""}
+            </strong>
+            . Cada tipo conta por si, e um concurso adjudicado passa a obra com o mesmo numero.
+          </p>
 
           <div className="space-y-2">
             <Label htmlFor="notas">Notas do rodape (uma por linha)</Label>
