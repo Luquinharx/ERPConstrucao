@@ -7,6 +7,7 @@ import { usePermissoes } from "@/hooks/use-permissoes"
 import { toast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { CampoNumerico } from "@/components/ui/campo-numerico"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import {
@@ -458,18 +459,11 @@ export default function ServicosPage() {
                           <Label htmlFor="quantidadeReferencia">
                             Composicao montada para quantos {formData.unidade}?
                           </Label>
-                          <Input
+                          <CampoNumerico
                             id="quantidadeReferencia"
-                            type="number"
-                            step="0.01"
-                            min="0.01"
+                            min={0.01}
                             value={formData.quantidadeReferencia}
-                            onChange={(e) =>
-                              setFormData({
-                                ...formData,
-                                quantidadeReferencia: round2(Number.parseFloat(e.target.value) || 0),
-                              })
-                            }
+                            onChange={(quantidadeReferencia) => setFormData({ ...formData, quantidadeReferencia })}
                           />
                         </div>
                         <div className="space-y-2">
@@ -525,16 +519,16 @@ export default function ServicosPage() {
                                 longa esmagava as colunas de quantidade ate ficarem ilegiveis.
                                 min-w garante barra horizontal em vez de colunas espremidas.
                               */}
-                              <Table className="w-full min-w-[860px] table-fixed">
+                              <Table className="w-full min-w-[840px] table-fixed [&_th]:px-2 [&_td]:px-2 [&_td]:py-2">
                                 <TableHeader>
                                   <TableRow className="bg-muted/60">
                                     <TableHead className="w-auto">Descricao</TableHead>
-                                    <TableHead className="w-[90px]">UN</TableHead>
-                                    <TableHead className="w-[120px] text-center">Qtd padrao</TableHead>
-                                    <TableHead className="w-[120px] text-center">Qtd pontual</TableHead>
-                                    <TableHead className="w-[130px] text-right">V. UN</TableHead>
-                                    <TableHead className="w-[120px] text-right">V. TOTAL</TableHead>
-                                    <TableHead className="w-[40px]"></TableHead>
+                                    <TableHead className="w-[96px]">UN</TableHead>
+                                    <TableHead className="w-[108px] text-center">Qtd padrao</TableHead>
+                                    <TableHead className="w-[108px] text-center">Qtd pontual</TableHead>
+                                    <TableHead className="w-[116px] text-right">V. UN</TableHead>
+                                    <TableHead className="w-[112px] text-right">V. TOTAL</TableHead>
+                                    <TableHead className="w-[44px]"></TableHead>
                                   </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -587,7 +581,7 @@ export default function ServicosPage() {
                                             value={linha.unidade}
                                             onValueChange={(value) => atualizarLinha(linha.id, { unidade: value })}
                                           >
-                                            <SelectTrigger className="h-8 text-sm">
+                                            <SelectTrigger className="h-8 px-2 text-sm">
                                               <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent className="max-h-72">
@@ -600,46 +594,30 @@ export default function ServicosPage() {
                                           </Select>
                                         </TableCell>
                                         <TableCell>
-                                          <Input
-                                            type="number"
-                                            step="1"
-                                            min="0"
+                                          <CampoNumerico
+                                            tamanho="sm"
+                                            alinhamento="centro"
+                                            min={0}
                                             value={linha.quantidadePadrao}
-                                            onChange={(e) =>
-                                              atualizarLinha(linha.id, {
-                                                quantidadePadrao: round2(Number.parseFloat(e.target.value) || 0),
-                                              })
-                                            }
-                                            className="h-8 text-sm text-center"
+                                            onChange={(quantidadePadrao) => atualizarLinha(linha.id, { quantidadePadrao })}
                                           />
                                         </TableCell>
                                         <TableCell>
-                                          <Input
-                                            type="number"
-                                            step="1"
-                                            min="0"
+                                          <CampoNumerico
+                                            tamanho="sm"
+                                            alinhamento="centro"
+                                            min={0}
                                             value={linha.quantidadePontual}
-                                            onChange={(e) =>
-                                              atualizarLinha(linha.id, {
-                                                quantidadePontual: round2(Number.parseFloat(e.target.value) || 0),
-                                              })
-                                            }
-                                            className="h-8 text-sm text-center"
+                                            onChange={(quantidadePontual) => atualizarLinha(linha.id, { quantidadePontual })}
                                             title="0 desliga a linha sem a apagar"
                                           />
                                         </TableCell>
                                         <TableCell>
-                                          <Input
-                                            type="number"
-                                            step="0.01"
-                                            min="0"
+                                          <CampoNumerico
+                                            tamanho="sm"
+                                            min={0}
                                             value={linha.precoUnitario}
-                                            onChange={(e) =>
-                                              atualizarLinha(linha.id, {
-                                                precoUnitario: round2(Number.parseFloat(e.target.value) || 0),
-                                              })
-                                            }
-                                            className="h-8 text-sm text-right"
+                                            onChange={(precoUnitario) => atualizarLinha(linha.id, { precoUnitario })}
                                           />
                                         </TableCell>
                                         <TableCell className="text-right text-sm font-medium">

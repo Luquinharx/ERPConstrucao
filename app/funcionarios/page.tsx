@@ -4,6 +4,7 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { CampoNumerico } from "@/components/ui/campo-numerico"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -220,26 +221,22 @@ function CampoTaxa({ id, label, base, modo, percentual, valorManual, resolvido, 
       </div>
 
       {modo === "percentual" ? (
-        <Input
+        <CampoNumerico
           id={id}
-          type="number"
-          step="0.01"
-          min="0"
+          min={0}
+          sufixo="%"
           value={percentual}
-          onChange={(e) => onChange({ percentual: Number(e.target.value) || 0 })}
+          onChange={(valor) => onChange({ percentual: valor })}
           className="rounded-full"
-          placeholder="0,00 %"
         />
       ) : (
-        <Input
+        <CampoNumerico
           id={id}
-          type="number"
-          step="0.01"
-          min="0"
+          min={0}
+          sufixo="EUR"
           value={valorManual}
-          onChange={(e) => onChange({ valorManual: Number(e.target.value) || 0 })}
+          onChange={(valor) => onChange({ valorManual: valor })}
           className="rounded-full"
-          placeholder="0,00 EUR"
         />
       )}
 
@@ -777,25 +774,25 @@ export default function FuncionariosPage() {
                     <div className="grid grid-cols-3 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="horasPorDia">Horas por Dia *</Label>
-                        <Input
+                        <CampoNumerico
                           id="horasPorDia"
-                          type="number"
-                          min="1"
-                          max="24"
+                          min={1}
+                          max={24}
+                          sufixo="h"
                           value={formData.horasPorDia}
-                          onChange={(e) => setFormData({ ...formData, horasPorDia: Number(e.target.value) || 8 })}
+                          onChange={(horasPorDia) => setFormData({ ...formData, horasPorDia })}
                           className="rounded-full"
                         />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="diasPorSemana">Dias por Semana *</Label>
-                        <Input
+                        <CampoNumerico
                           id="diasPorSemana"
-                          type="number"
-                          min="1"
-                          max="7"
+                          decimais={0}
+                          min={1}
+                          max={7}
                           value={formData.diasPorSemana}
-                          onChange={(e) => setFormData({ ...formData, diasPorSemana: Number(e.target.value) || 5 })}
+                          onChange={(diasPorSemana) => setFormData({ ...formData, diasPorSemana })}
                           className="rounded-full"
                         />
                       </div>
@@ -862,13 +859,11 @@ export default function FuncionariosPage() {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="margemLucro">Margem de Lucro (%)</Label>
-                        <Input
+                        <CampoNumerico
                           id="margemLucro"
-                          type="number"
-                          step="0.01"
+                          sufixo="%"
                           value={formData.margemLucro}
-                          onChange={(e) => setFormData({ ...formData, margemLucro: Number(e.target.value) || 0 })}
-                          placeholder="0.00"
+                          onChange={(margemLucro) => setFormData({ ...formData, margemLucro })}
                           className="rounded-full"
                         />
                       </div>
@@ -883,14 +878,12 @@ export default function FuncionariosPage() {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="salarioBase">Salario Base (EUR) *</Label>
-                        <Input
+                        <CampoNumerico
                           id="salarioBase"
-                          type="number"
-                          step="0.01"
+                          min={0}
+                          sufixo="EUR"
                           value={formData.salarioBase}
-                          onChange={(e) => setFormData({ ...formData, salarioBase: Number(e.target.value) || 0 })}
-                          placeholder="0.00"
-                          required
+                          onChange={(salarioBase) => setFormData({ ...formData, salarioBase })}
                           className="rounded-full"
                         />
                       </div>
@@ -900,29 +893,22 @@ export default function FuncionariosPage() {
                       <div className="space-y-2">
                         <Label htmlFor="subsidioDiario">Subsidio de alimentacao por dia (EUR)</Label>
                         <div className="flex gap-2">
-                          <Input
+                          <CampoNumerico
                             id="subsidioDiario"
-                            type="number"
-                            step="0.01"
-                            min="0"
+                            min={0}
+                            sufixo="EUR"
                             value={formData.subsidioDiario}
-                            onChange={(e) =>
-                              setFormData({ ...formData, subsidioDiario: round2(Number(e.target.value) || 0) })
-                            }
-                            placeholder="7,50"
+                            onChange={(subsidioDiario) => setFormData({ ...formData, subsidioDiario })}
                             className="rounded-full"
                           />
-                          <Input
-                            type="number"
-                            step="1"
-                            min="0"
-                            max="31"
+                          <CampoNumerico
+                            min={0}
+                            max={31}
                             value={formData.diasSubsidio}
-                            onChange={(e) =>
-                              setFormData({ ...formData, diasSubsidio: Number(e.target.value) || 0 })
-                            }
+                            onChange={(diasSubsidio) => setFormData({ ...formData, diasSubsidio })}
+                            decimais={0}
                             title="Dias considerados"
-                            className="w-20 rounded-full"
+                            className="w-24 shrink-0 rounded-full"
                           />
                         </div>
                         <p className="text-xs text-muted-foreground">
@@ -947,13 +933,12 @@ export default function FuncionariosPage() {
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="valorTransporte">Valor Transporte (EUR)</Label>
-                        <Input
+                        <CampoNumerico
                           id="valorTransporte"
-                          type="number"
-                          step="0.01"
+                          min={0}
+                          sufixo="EUR"
                           value={formData.valorTransporte}
-                          onChange={(e) => setFormData({ ...formData, valorTransporte: Number(e.target.value) || 0 })}
-                          placeholder="0.00"
+                          onChange={(valorTransporte) => setFormData({ ...formData, valorTransporte })}
                           className="rounded-full"
                         />
                       </div>
@@ -1030,15 +1015,14 @@ export default function FuncionariosPage() {
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="mesesSubsidioAlimentacao">Meses de subsidio de alimentacao por ano</Label>
-                          <Input
+                          <CampoNumerico
                             id="mesesSubsidioAlimentacao"
-                            type="number"
-                            step="1"
-                            min="0"
-                            max="12"
+                            decimais={0}
+                            min={0}
+                            max={12}
                             value={formData.mesesSubsidioAlimentacao}
-                            onChange={(e) =>
-                              setFormData({ ...formData, mesesSubsidioAlimentacao: Number(e.target.value) || 0 })
+                            onChange={(mesesSubsidioAlimentacao) =>
+                              setFormData({ ...formData, mesesSubsidioAlimentacao })
                             }
                             className="rounded-full"
                           />
@@ -1209,16 +1193,14 @@ export default function FuncionariosPage() {
                                 <Label htmlFor="dependentes" className="text-xs text-muted-foreground">
                                   Dependentes
                                 </Label>
-                                <Input
+                                <CampoNumerico
                                   id="dependentes"
-                                  type="number"
-                                  min="0"
-                                  step="1"
+                                  decimais={0}
+                                  tamanho="sm"
+                                  min={0}
                                   value={formData.dependentes}
-                                  onChange={(e) =>
-                                    setFormData({ ...formData, dependentes: Number(e.target.value) || 0 })
-                                  }
-                                  className="h-8 w-20 rounded-full"
+                                  onChange={(dependentes) => setFormData({ ...formData, dependentes })}
+                                  className="w-24 shrink-0 rounded-full"
                                 />
                                 <span className="text-xs text-muted-foreground">
                                   - {formatCurrency(getTabelaIRS(formData.tabelaIRS).parcelaDependente)} cada
@@ -1227,19 +1209,13 @@ export default function FuncionariosPage() {
                             )}
                           </>
                         ) : (
-                          <Input
-                            type="number"
-                            step="0.01"
-                            min="0"
+                          <CampoNumerico
+                            min={0}
+                            sufixo="EUR"
                             value={formData.valorIRSLiquidoManual}
-                            onChange={(e) =>
-                              setFormData({
-                                ...formData,
-                                modoIRSLiquido: "valor",
-                                valorIRSLiquidoManual: round2(Number(e.target.value) || 0),
-                              })
+                            onChange={(valorIRSLiquidoManual) =>
+                              setFormData({ ...formData, modoIRSLiquido: "valor", valorIRSLiquidoManual })
                             }
-                            placeholder="0,00 EUR"
                             className="rounded-full"
                           />
                         )}

@@ -5,6 +5,7 @@ import type React from "react"
 import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { CampoNumerico } from "@/components/ui/campo-numerico"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -284,16 +285,12 @@ export default function MateriaisPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="precoUnitario">Preço Unitário (€)</Label>
-                    <Input
+                    <CampoNumerico
                       id="precoUnitario"
-                      type="number"
-                      step="0.01"
+                      min={0}
+                      sufixo="EUR"
                       value={formData.precoUnitario}
-                      onChange={(e) =>
-                        setFormData({ ...formData, precoUnitario: Number.parseFloat(e.target.value) || 0 })
-                      }
-                      placeholder="0.00"
-                      required
+                      onChange={(precoUnitario) => setFormData({ ...formData, precoUnitario })}
                       className="rounded-full"
                     />
                   </div>

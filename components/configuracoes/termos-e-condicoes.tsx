@@ -5,6 +5,7 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { CampoNumerico } from "@/components/ui/campo-numerico"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
@@ -410,14 +411,13 @@ export function TermosECondicoes() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="ordem">Ordem</Label>
-                  <Input
+                  <CampoNumerico
                     id="ordem"
-                    type="number"
-                    min="1"
+                    min={1}
+                    decimais={0}
                     value={formData.ordem}
-                    onChange={(e) => setFormData({ ...formData, ordem: Number.parseInt(e.target.value) || 1 })}
+                    onChange={(ordem) => setFormData({ ...formData, ordem })}
                     className="rounded-full"
-                    required
                   />
                 </div>
               </div>
