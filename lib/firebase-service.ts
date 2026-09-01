@@ -604,6 +604,12 @@ export async function getOrcamentos(userId: string): Promise<Orcamento[]> {
         updatedAt: data.updatedAt?.toDate() || new Date(),
         dataOrcamento: data.dataOrcamento?.toDate() || new Date(),
         dataValidade: data.dataValidade?.toDate() || new Date(),
+        // Sem estas duas o Timestamp do Firestore chegava cru ao ecra e o
+        // new Date(...) dava "Invalid Date" na lista de propostas.
+        dataEmissao: data.dataEmissao?.toDate?.() ?? data.dataEmissao,
+        historicoFases: Array.isArray(data.historicoFases)
+          ? data.historicoFases.map((fase: any) => ({ ...fase, data: fase?.data?.toDate?.() ?? fase?.data }))
+          : data.historicoFases,
       } as Orcamento)
     })
 

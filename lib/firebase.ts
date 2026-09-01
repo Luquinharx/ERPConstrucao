@@ -1,6 +1,6 @@
 import { getApp, getApps, initializeApp } from "firebase/app"
 import { getAuth } from "firebase/auth"
-import { getFirestore } from "firebase/firestore"
+import { getFirestore, initializeFirestore } from "firebase/firestore"
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -27,6 +27,20 @@ if (missingEnvKeys.length > 0) {
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp()
 
 export const auth = getAuth(app)
-export const db = getFirestore(app)
+
+/**
+ * ignoreUndefinedProperties: sem isto o Firestore recusa gravar o documento
+ * INTEIRO quando um campo vai a undefined, com "Unsupported field value:
+ * undefined". Era o que rebentava ao criar uma revisao, que limpa a dataEmissao.
+ * Com a opcao ligada o campo e simplesmente omitido no documento.
+ */
+export const db = (() => {
+  try {
+    return initializeFirestore(app, { ignoreUndefinedProperties: true })
+  } catch {
+    // Ja tinha sido inicializado (recarregamento a quente em desenvolvimento)
+    return getFirestore(app)
+  }
+})()
 
 export default app
