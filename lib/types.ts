@@ -318,6 +318,38 @@ export interface ItemOrcamento {
   materialId?: string
 }
 
+/** Grupos da folha de custos reais da obra (ver lib/custos-obra.ts). */
+export type GrupoCustoObra = "materiais" | "mao_obra" | "global"
+
+/**
+ * Uma linha de custo real lancado na obra.
+ *
+ * O valor escrito e o da fatura, ou seja COM IVA - e assim que o papel chega a
+ * secretaria. O valor sem IVA (o custo verdadeiro da empresa) e o IVA suportado
+ * sao sempre derivados dai, nunca gravados, para nao haver duas versoes da
+ * mesma conta. Nao e preciso discriminar fatura a fatura linha a linha: uma
+ * linha "Compras 03/08 Leroy" com o total da fatura chega.
+ */
+export interface LinhaCustoObra {
+  id: string
+  grupo: GrupoCustoObra
+  /** O que se comprou ou quem trabalhou. Ex.: "Tinta plastica 15L", "Wilson". */
+  descricao: string
+  /** Onde se comprou ou quem prestou o servico. Ex.: "Leroy Merlin". */
+  fornecedor?: string
+  /** un, h, vg (verba global), m2... */
+  unidade: string
+  quantidade: number
+  /** Valor unitario tal como vem na fatura, com IVA incluido. */
+  valorUnitario: number
+  /** Taxa de IVA da fatura: 23, 6 ou 0 (ex.: subempreitada com autoliquidacao). */
+  taxaIVA: number
+  /** Data do documento, apenas informativa (ISO yyyy-mm-dd). */
+  data?: string
+  /** Numero da fatura/recibo, para se encontrar o papel depois. */
+  documento?: string
+}
+
 export interface Orcamento {
   id?: string
   numero: string
@@ -372,6 +404,11 @@ export interface Orcamento {
   motivoPerda?: string
   /** Percurso da proposta pelas fases. */
   historicoFases?: RegistoDeFase[]
+  /**
+   * Custos reais lancados na obra, que fecham o ciclo contra o custo orcado:
+   * e o que permite comparar a margem prevista com a margem que de facto houve.
+   */
+  custosObra?: LinhaCustoObra[]
   localidade?: string
   createdAt: Date
   updatedAt: Date

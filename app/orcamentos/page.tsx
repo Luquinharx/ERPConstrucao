@@ -35,6 +35,7 @@ import {
   ArrowRightLeft,
   Lock,
   Building2,
+  Receipt,
 } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { SeletorComBusca } from "@/components/ui/seletor-com-busca"
@@ -66,6 +67,8 @@ import { ListToolbar } from "@/components/ui/list-toolbar"
 import { useSearchQuery } from "@/hooks/use-search-query"
 import { useConfiguracao } from "@/hooks/use-configuracao"
 import { usePermissoes } from "@/hooks/use-permissoes"
+import { CustosObraDialog } from "@/components/orcamentos/custos-obra-dialog"
+import { analisarCustoObra, valoresVendidosDoOrcamento } from "@/lib/custos-obra"
 import {
   FASES_ORCAMENTO,
   getFase,
@@ -844,6 +847,10 @@ export default function OrcamentosPage() {
   const [novoAmbiente, setNovoAmbiente] = useState("")
   /** Comodos recolhidos, para nao ter de rolar tanto em orcamentos grandes. */
   const [ambientesRecolhidos, setAmbientesRecolhidos] = useState<string[]>([])
+
+  // Folha de custos reais: vive num ecra proprio porque se preenche depois da
+  // obra adjudicada, quando a proposta ja esta bloqueada para edicao.
+  const [custosObraDe, setCustosObraDe] = useState<Orcamento | null>(null)
 
   const [duplicandoItem, setDuplicandoItem] = useState<ItemOrcamento | null>(null)
   const [duplicarFuncionarioId, setDuplicarFuncionarioId] = useState("")
@@ -2748,6 +2755,28 @@ O documento passa a ${depois}. A proposta nao muda de valores nem de conteudo.${
                         {linha("Base sem IVA", formatCurrency(resumo.baseTributavel))}
                         {linha(`IVA (${formatNumber2(resumo.taxaIVA)}%)`, formatCurrency(resumo.valorIVA))}
                         {linha("Total", formatCurrency(resumo.totalVenda), true)}
+                        {/*
+                          Com custos lancados, a margem real e a unica que
+                          interessa: e a que sobreviveu ao estaleiro.
+                        */}
+                        {pode("orcamentos.verCusto") &&
+                          (orcamento.custosObra?.length ?? 0) > 0 &&
+                          (() => {
+                            const analise = analisarCustoObra(
+                              valoresVendidosDoOrcamento(orcamento, resumo.totalCusto),
+                              orcamento.custosObra || [],
+                            )
+                            return (
+                              <>
+                                {linha("Custo real", formatCurrency(analise.custoReal))}
+                                {linha(
+                                  `Margem real (${formatNumber2(analise.margemRealPercent)}%)`,
+                                  formatCurrency(analise.margemReal),
+                                  true,
+                                )}
+                              </>
+                            )
+                          })()}
                       </dl>
                     )
                   })()}
@@ -2850,6 +2879,17 @@ O documento passa a ${depois}. A proposta nao muda de valores nem de conteudo.${
                     </DropdownMenuContent>
                   </DropdownMenu>
 
+                  {pode("orcamentos.verCusto") && (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setCustosObraDe(orcamento)}
+                      title="Custos reais da obra e margem real"
+                      className="rounded-full"
+                    >
+                      <Receipt className="h-4 w-4" />
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     size="icon"
@@ -2917,6 +2957,22 @@ O documento passa a ${depois}. A proposta nao muda de valores nem de conteudo.${
           </Card>
         )}
       </div>
+
+      {/* Fecha o ciclo: o que se vendeu contra o que a obra custou de facto. */}
+      <CustosObraDialog
+        orcamento={custosObraDe}
+        open={custosObraDe !== null}
+        onOpenChange={(aberto) => {
+          if (!aberto) setCustosObraDe(null)
+        }}
+        custoOrcado={custosObraDe ? resumoDeValores(custosObraDe).totalCusto : 0}
+        podeLancar={pode("orcamentos.custosObra")}
+        onGuardado={(orcamentoId, linhas) => {
+          setOrcamentos((atuais) =>
+            atuais.map((item) => (item.id === orcamentoId ? { ...item, custosObra: linhas } : item)),
+          )
+        }}
+      />
     </div>
   )
 }

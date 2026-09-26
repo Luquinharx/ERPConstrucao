@@ -100,7 +100,8 @@ service cloud.firestore {
       allow update: if pode('orcamentos.editar')
         || pode('orcamentos.submeter')
         || pode('orcamentos.aprovar')
-        || pode('orcamentos.cancelar');
+        || pode('orcamentos.cancelar')
+        || pode('orcamentos.custosObra');
     }
 
     match /termos_servico/{docId} {

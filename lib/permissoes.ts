@@ -28,6 +28,7 @@ export type Permissao =
   | "orcamentos.aprovar"
   | "orcamentos.cancelar"
   | "orcamentos.verCusto"
+  | "orcamentos.custosObra"
   // Sistema
   | "relatorios.ver"
   | "configuracoes.ver"
@@ -59,6 +60,11 @@ export const CATALOGO_PERMISSOES: GrupoPermissoes[] = [
         id: "orcamentos.verCusto",
         nome: "Ver custos e margem",
         ajuda: "Documento de custo interno e o lucro previsto",
+      },
+      {
+        id: "orcamentos.custosObra",
+        nome: "Lancar custos reais da obra",
+        ajuda: "Faturas e horas gastas na obra, e a comparacao com a margem prevista",
       },
     ],
   },
@@ -138,6 +144,7 @@ export const CARGOS: DefinicaoCargo[] = [
       "orcamentos.aprovar",
       "orcamentos.cancelar",
       "orcamentos.verCusto",
+      "orcamentos.custosObra",
       "configuracoes.ver",
       "configuracoes.gerir",
     ],
@@ -156,6 +163,7 @@ export const CARGOS: DefinicaoCargo[] = [
       "orcamentos.editar",
       "orcamentos.submeter",
       "orcamentos.verCusto",
+      "orcamentos.custosObra",
       "configuracoes.ver",
     ],
   },
