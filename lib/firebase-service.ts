@@ -15,9 +15,18 @@ import {
   getDoc,
   setDoc,
   DocumentSnapshot,
+  runTransaction,
 } from "firebase/firestore"
 import { db } from "./firebase"
 import { normalizarFase } from "./orcamento-fases"
+import {
+  custoMedioAposEntrada,
+  custoDoProduto,
+  precoPorMargem,
+  resumoImpostos,
+  saldoAposMovimento,
+} from "./produto-calculos"
+import { round2 } from "./utils"
 
 /**
  * BASE COMPARTILHADA
@@ -42,6 +51,9 @@ import type {
   TermoServico,
   ConfiguracaoEmpresa,
   UtilizadorSistema,
+  FuncaoMaoObra,
+  GrupoImpostos,
+  MovimentoEstoque,
 } from "./types"
 
 // Função para gerar número único
@@ -351,6 +363,128 @@ export async function deleteMaterial(id: string): Promise<void> {
     console.error("❌ Erro ao deletar material:", error)
     throw error
   }
+}
+
+// ESTOQUE
+
+/**
+ * Regista um movimento e atualiza o saldo do produto na mesma transacao.
+ *
+ * Se fossem duas escritas soltas, duas pessoas a dar entrada ao mesmo tempo
+ * liam o mesmo saldo e uma das entradas perdia-se. A transacao volta a ler o
+ * produto se ele mudou entretanto.
+ *
+ * Entrada: soma ao saldo e recalcula o custo medio ponderado. Se
+ * `atualizarCusto` vier ligado, o preco de compra do cadastro passa a ser o
+ * desta compra (e o preco de venda acompanha, mantendo a margem).
+ * Saida: tira do saldo; nao deixa ficar negativo.
+ * Ajuste: a quantidade e a contagem fisica, que passa a ser o saldo.
+ */
+export async function registarMovimentoEstoque(
+  movimento: Omit<MovimentoEstoque, "id" | "createdAt" | "saldoApos" | "materialNome" | "unidade">,
+  opcoes: { atualizarCusto?: boolean; precoCompra?: number; grupos?: GrupoImpostos[] } = {},
+): Promise<string> {
+  const materialRef = doc(db, "materiais", movimento.materialId)
+  const movimentoRef = doc(collection(db, "movimentosEstoque"))
+
+  await runTransaction(db, async (transacao) => {
+    const snap = await transacao.get(materialRef)
+    if (!snap.exists()) throw new Error("Produto nao encontrado.")
+    const produto = { id: snap.id, ...snap.data() } as Material
+
+    const saldoAnterior = Number(produto.estoqueAtual) || 0
+    const quantidade = round2(movimento.quantidade)
+    if (quantidade < 0 || (movimento.tipo !== "ajuste" && quantidade === 0)) {
+      throw new Error("Indique uma quantidade maior que zero.")
+    }
+
+    const saldoApos = saldoAposMovimento(saldoAnterior, movimento.tipo, quantidade)
+    if (movimento.tipo === "saida" && saldoApos < 0) {
+      throw new Error(
+        `Estoque insuficiente: ha ${saldoAnterior} ${produto.unidade} de ${produto.nome}. Registe primeiro a entrada ou um ajuste.`,
+      )
+    }
+
+    const grupos = opcoes.grupos || []
+    const medioAnterior = Number(produto.custoMedio) || custoDoProduto(produto, grupos)
+    const atualizacao: Record<string, unknown> = { estoqueAtual: saldoApos, updatedAt: Timestamp.now() }
+
+    let custoUnitario = round2(movimento.custoUnitario ?? medioAnterior)
+    if (movimento.tipo === "entrada") {
+      atualizacao.custoMedio = custoMedioAposEntrada(saldoAnterior, medioAnterior, quantidade, custoUnitario)
+      if (opcoes.atualizarCusto && opcoes.precoCompra !== undefined) {
+        const atualizado = { ...produto, precoCompra: round2(opcoes.precoCompra) }
+        const novoCusto = custoDoProduto(atualizado, grupos)
+        atualizacao.precoCompra = atualizado.precoCompra
+        atualizacao.precoUnitario = novoCusto
+        if (produto.margemVenda !== undefined) {
+          const { percentualVenda } = resumoImpostos(atualizado, grupos)
+          atualizacao.precoVenda = precoPorMargem(novoCusto, produto.margemVenda, percentualVenda)
+        }
+      }
+    } else {
+      custoUnitario = medioAnterior
+    }
+
+    transacao.update(materialRef, atualizacao)
+    transacao.set(movimentoRef, {
+      ...movimento,
+      quantidade,
+      custoUnitario,
+      materialNome: produto.nome,
+      unidade: produto.unidade,
+      saldoApos,
+      createdAt: Timestamp.now(),
+    })
+  })
+
+  return movimentoRef.id
+}
+
+export async function getMovimentosEstoque(): Promise<MovimentoEstoque[]> {
+  const snap = await getDocs(query(collection(db, "movimentosEstoque")))
+  const lista: MovimentoEstoque[] = []
+  snap.forEach((d) => {
+    const data = d.data()
+    lista.push({ id: d.id, ...data, createdAt: data.createdAt?.toDate?.() || new Date() } as MovimentoEstoque)
+  })
+  // Mais recente primeiro: pela data do documento e, no mesmo dia, pela hora do registo
+  lista.sort((a, b) => b.data.localeCompare(a.data) || b.createdAt.getTime() - a.createdAt.getTime())
+  return lista
+}
+
+// FUNCOES DE MAO DE OBRA
+export async function getFuncoes(): Promise<FuncaoMaoObra[]> {
+  const snap = await getDocs(query(collection(db, "funcoes")))
+  const lista: FuncaoMaoObra[] = []
+  snap.forEach((d) => {
+    const data = d.data()
+    lista.push({
+      id: d.id,
+      ...data,
+      createdAt: data.createdAt?.toDate?.() || new Date(),
+      updatedAt: data.updatedAt?.toDate?.() || new Date(),
+    } as FuncaoMaoObra)
+  })
+  lista.sort((a, b) => a.nome.localeCompare(b.nome))
+  return lista
+}
+
+export async function addFuncao(
+  funcao: Omit<FuncaoMaoObra, "id" | "createdAt" | "updatedAt" | "userId">,
+  userId: string,
+): Promise<string> {
+  const agora = Timestamp.now()
+  const ref = await addDoc(collection(db, "funcoes"), { ...funcao, userId, createdAt: agora, updatedAt: agora })
+  return ref.id
+}
+
+export async function updateFuncao(id: string, funcao: Partial<FuncaoMaoObra>): Promise<void> {
+  await updateDoc(doc(db, "funcoes", id), { ...funcao, updatedAt: Timestamp.now() })
+}
+
+export async function deleteFuncao(id: string): Promise<void> {
+  await deleteDoc(doc(db, "funcoes", id))
 }
 
 // CATEGORIAS DE MATERIAIS

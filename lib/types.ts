@@ -59,6 +59,12 @@ export interface ConfiguracaoEmpresa {
   validadeDiasPadrao?: number
   margemPadrao?: number
   taxaIVAPadrao?: number
+  /** Grupos de impostos que os produtos escolhem. */
+  gruposImpostos?: GrupoImpostos[]
+  /** Propostas novas nascem com a margem por item ligada? (padrao: sim) */
+  margemItemPadraoAtiva?: boolean
+  /** Propostas novas nascem com a margem global ligada? (padrao: sim) */
+  margemGlobalPadraoAtiva?: boolean
 
   /** Notas impressas no rodape da proposta. */
   notasOrcamento?: string[]
@@ -173,14 +179,141 @@ export interface Funcionario {
   userId: string
 }
 
+/** Onde o imposto incide: na compra (entra no custo) ou na venda (sai do preco). */
+export type IncidenciaImposto = "compra" | "venda"
+
+/** Um imposto dentro de um grupo, sempre em percentagem. */
+export interface RegraImposto {
+  id: string
+  /** Ex.: IVA, Contribuicao, Ecovalor. */
+  nome: string
+  percentual: number
+  incidencia: IncidenciaImposto
+  /**
+   * So na compra: imposto recuperado depois (ex.: IVA dedutivel). Gera credito
+   * e nao entra no custo real.
+   */
+  recuperavel?: boolean
+}
+
+/**
+ * Grupo de impostos, como o "Grupo de ICMS" do Sankhya: define-se uma vez
+ * (ex.: "Material de construcao - IVA 23%") e cada produto so escolhe o grupo.
+ * Mudar a taxa no grupo muda-a em todos os produtos de uma vez.
+ */
+export interface GrupoImpostos {
+  id: string
+  nome: string
+  regras: RegraImposto[]
+}
+
+/** @deprecated imposto escrito produto a produto; substituido pelos grupos */
+export interface ImpostoProduto {
+  id: string
+  /** Ex.: IVA nao dedutivel, ISP, Ecovalor. */
+  nome: string
+  /** Percentagem sobre o preco de compra, ou valor fixo em euros por unidade. */
+  modo: ModoTaxa
+  valor: number
+}
+
+/**
+ * Produto (antigo "Material"). A colecao continua a ser `materiais` para os
+ * servicos e orcamentos ja gravados continuarem a apontar para o mesmo sitio.
+ *
+ * `precoUnitario` e o CUSTO REAL por unidade (compra + impostos + outros
+ * custos): e o valor que as composicoes de servico sempre leram, por isso
+ * mantem o nome. O preco ao cliente e `precoVenda`.
+ */
 export interface Material {
   id?: string
+  /** Codigo interno ou referencia do fornecedor. */
+  codigo?: string
   nome: string
   unidade: string
+  /** Custo real por unidade, derivado da compra, impostos e outros custos. */
   precoUnitario: number
   categoriaId?: string
   fornecedor?: string
   observacoes?: string
+
+  /** Preco de compra ao fornecedor, por unidade, antes dos impostos abaixo. */
+  precoCompra?: number
+  /** Grupo de impostos do produto (Configuracoes > Impostos). Vazio = sem impostos. */
+  grupoImpostosId?: string
+  /** @deprecated formato antigo, lido apenas em produtos sem grupo */
+  temImpostos?: boolean
+  /** @deprecated formato antigo, lido apenas em produtos sem grupo */
+  impostos?: ImpostoProduto[]
+  /** Frete, embalagem, etc., em euros por unidade. */
+  outrosCustos?: number
+
+  /** Margem sobre o custo real (%). preco de venda = custo x (1 + margem). */
+  margemVenda?: number
+  /** Preco de venda ao cliente por unidade, sem IVA de venda. */
+  precoVenda?: number
+
+  /** Com o controlo ligado, o produto entra nas entradas e saidas de estoque. */
+  controlaEstoque?: boolean
+  /** Saldo atual. So muda por movimentos de estoque, nunca a mao no cadastro. */
+  estoqueAtual?: number
+  /** Abaixo disto o produto aparece como "estoque baixo". */
+  estoqueMinimo?: number
+  /** Custo medio ponderado das entradas, por unidade. */
+  custoMedio?: number
+
+  createdAt: Date
+  updatedAt: Date
+  userId: string
+}
+
+export type TipoMovimentoEstoque = "entrada" | "saida" | "ajuste"
+
+/**
+ * Movimento de estoque. E o historico que explica o saldo do produto: o saldo
+ * nunca se escreve a mao, so se mexe por aqui.
+ */
+export interface MovimentoEstoque {
+  id?: string
+  materialId: string
+  /** Copiado no momento, para o historico ler-se mesmo que o produto mude de nome. */
+  materialNome: string
+  unidade: string
+  tipo: TipoMovimentoEstoque
+  /**
+   * Entrada/saida: quantidade movimentada (sempre positiva).
+   * Ajuste: a contagem fisica, ou seja o novo saldo.
+   */
+  quantidade: number
+  /** Entrada: custo real por unidade desta compra. Saida: custo medio no momento. */
+  custoUnitario?: number
+  /** Saldo do produto depois deste movimento. */
+  saldoApos: number
+  /** Data do documento (ISO yyyy-mm-dd). */
+  data: string
+  documento?: string
+  fornecedor?: string
+  /** Obra para onde o material saiu. */
+  orcamentoId?: string
+  orcamentoNumero?: string
+  observacoes?: string
+  userId: string
+  createdAt: Date
+}
+
+/**
+ * Funcao de mao de obra (Pintor, Pedreiro...). Tem o preco/hora cobrado ao
+ * cliente; o custo/hora vem dos funcionarios dessa funcao (media).
+ */
+export interface FuncaoMaoObra {
+  id?: string
+  nome: string
+  /** Preco por hora cobrado ao cliente, sem IVA. */
+  precoHora: number
+  /** Texto do PDF de venda. Vazio = "Mao de obra - {nome}". */
+  descricaoCliente?: string
+  observacoes?: string
+  ativo: boolean
   createdAt: Date
   updatedAt: Date
   userId: string
@@ -302,6 +435,11 @@ export interface ItemOrcamento {
   unidade: string
   /** Preco de venda unitario (com margem do funcionario/servico). */
   precoUnitario: number
+  /**
+   * Preco de venda do cadastro (com a margem do item), guardado a parte para
+   * se poder desligar a margem por item e voltar a liga-la sem perder o valor.
+   */
+  precoTabela?: number
   /** Custo unitario real, usado no orcamento de custo. */
   custoUnitario?: number
   total: number
@@ -315,6 +453,8 @@ export interface ItemOrcamento {
   /** Guardado apenas para uso interno; nunca sai no PDF de venda. */
   funcionarioNome?: string
   funcionarioFuncao?: string
+  /** Funcao de mao de obra que da o preco ao cliente. */
+  funcaoId?: string
   materialId?: string
 }
 
@@ -378,6 +518,13 @@ export interface Orcamento {
   transporte?: number
   impostos: number
   margemLucro: number
+  /**
+   * Margem por item: os itens usam o preco de venda do cadastro. Desligada,
+   * cada item vai ao preco de custo. Ausente (propostas antigas) = ligada.
+   */
+  usarMargemItem?: boolean
+  /** Margem global sobre o subtotal. Ausente (propostas antigas) = ligada. */
+  usarMargemGlobal?: boolean
   /** Base tributavel: subtotal + margem + transporte, antes do IVA. */
   baseTributavel?: number
   /** Taxa de IVA aplicada (%). Orcamentos antigos sem este campo valem 0. */

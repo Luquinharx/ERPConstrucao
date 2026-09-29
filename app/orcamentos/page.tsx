@@ -49,7 +49,7 @@ import { useSearchQuery } from "@/hooks/use-search-query"
 import { useConfiguracao } from "@/hooks/use-configuracao"
 import { usePermissoes } from "@/hooks/use-permissoes"
 import { CustosObraDialog } from "@/components/orcamentos/custos-obra-dialog"
-import { analisarCustoObra, valoresVendidosDoOrcamento } from "@/lib/custos-obra"
+import { analisarCustoObra, CUSTOS_OBRA_ATIVO, valoresVendidosDoOrcamento } from "@/lib/custos-obra"
 import {
   FASES_ORCAMENTO,
   getFase,
@@ -949,7 +949,8 @@ O documento passa a ${depois}. A proposta nao muda de valores nem de conteudo.${
                           Com custos lancados, a margem real e a unica que
                           interessa: e a que sobreviveu ao estaleiro.
                         */}
-                        {pode("orcamentos.verCusto") &&
+                        {CUSTOS_OBRA_ATIVO &&
+                          pode("orcamentos.verCusto") &&
                           (orcamento.custosObra?.length ?? 0) > 0 &&
                           (() => {
                             const analise = analisarCustoObra(
@@ -1069,7 +1070,7 @@ O documento passa a ${depois}. A proposta nao muda de valores nem de conteudo.${
                     </DropdownMenuContent>
                   </DropdownMenu>
 
-                  {pode("orcamentos.verCusto") && (
+                  {CUSTOS_OBRA_ATIVO && pode("orcamentos.verCusto") && (
                     <Button
                       variant="outline"
                       size="icon"

@@ -15,6 +15,13 @@ import { round2 } from "@/lib/utils"
  * valores sem IVA - derivam-se sempre, para nao existirem duas verdades.
  */
 
+/**
+ * Folha de custos reais desligada enquanto se reve o modelo de custos
+ * (custo por item no cadastro). O codigo e os dados ja gravados ficam
+ * intactos; basta voltar a true para reaparecer.
+ */
+export const CUSTOS_OBRA_ATIVO = false
+
 export interface DefinicaoGrupoCusto {
   id: GrupoCustoObra
   nome: string

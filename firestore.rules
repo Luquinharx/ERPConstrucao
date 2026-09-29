@@ -75,6 +75,22 @@ service cloud.firestore {
       allow write: if pode('materiais.gerir');
     }
 
+    // Historico do estoque: quem gere produtos regista entradas e saidas.
+    // Os movimentos nao se editam nem apagam - um erro corrige-se com outro
+    // movimento (ou um ajuste), para o historico explicar sempre o saldo.
+    match /movimentosEstoque/{docId} {
+      allow read: if pode('materiais.ver');
+      allow create: if pode('materiais.gerir');
+      allow update, delete: if false;
+    }
+
+    // Funcoes de mao de obra: o orcamentista precisa do preco/hora para montar
+    // propostas, por isso le quem ve orcamentos; so quem gere pessoal altera.
+    match /funcoes/{docId} {
+      allow read: if pode('orcamentos.ver') || pode('funcionarios.ver');
+      allow write: if pode('funcionarios.gerir');
+    }
+
     match /material-categories/{docId} {
       allow read: if pode('materiais.ver');
       allow write: if pode('materiais.gerir');

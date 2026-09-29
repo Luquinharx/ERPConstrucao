@@ -14,10 +14,10 @@ import { useAuth } from "@/hooks/use-auth"
 import { useConfiguracao } from "@/hooks/use-configuracao"
 import { usePermissoes } from "@/hooks/use-permissoes"
 import { toast } from "@/hooks/use-toast"
-import { FirebaseService } from "@/lib/firebase-service"
+import { FirebaseService, getFuncoes } from "@/lib/firebase-service"
 import { getFase, podeEditar } from "@/lib/orcamento-fases"
 import { numeroCompleto } from "@/lib/numeracao"
-import type { Cliente, Funcionario, Orcamento, Servico } from "@/lib/types"
+import type { Cliente, FuncaoMaoObra, Funcionario, Material, Orcamento, Servico } from "@/lib/types"
 
 /**
  * Ecra de edicao de uma proposta, em pagina propria.
@@ -40,6 +40,8 @@ export default function EditarOrcamentoPage() {
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([])
   const [servicos, setServicos] = useState<Servico[]>([])
+  const [materiais, setMateriais] = useState<Material[]>([])
+  const [funcoes, setFuncoes] = useState<FuncaoMaoObra[]>([])
   const [aCarregar, setACarregar] = useState(true)
 
   const carregar = useCallback(async () => {
@@ -47,17 +49,23 @@ export default function EditarOrcamentoPage() {
 
     setACarregar(true)
     try {
-      const [orcamentosData, funcionariosData, servicosData, clientesData] = await Promise.all([
-        FirebaseService.getOrcamentos(user.uid),
-        FirebaseService.getFuncionarios(user.uid),
-        FirebaseService.getServicos(user.uid),
-        FirebaseService.getClientes(user.uid),
-      ])
+      const [orcamentosData, funcionariosData, servicosData, clientesData, materiaisData, funcoesData] =
+        await Promise.all([
+          FirebaseService.getOrcamentos(user.uid),
+          FirebaseService.getFuncionarios(user.uid),
+          FirebaseService.getServicos(user.uid),
+          FirebaseService.getClientes(user.uid),
+          // Produtos e funcoes sao extra: sem permissao de os ler, a proposta abre na mesma
+          FirebaseService.getMateriais(user.uid).catch(() => [] as Material[]),
+          getFuncoes().catch(() => [] as FuncaoMaoObra[]),
+        ])
 
       setOrcamentos(orcamentosData)
       setFuncionarios(funcionariosData.filter((item) => item.ativo))
       setServicos(servicosData)
       setClientes(clientesData)
+      setMateriais(materiaisData.sort((a, b) => a.nome.localeCompare(b.nome)))
+      setFuncoes(funcoesData.filter((item) => item.ativo !== false))
     } catch (error) {
       console.error("Erro ao carregar dados:", error)
       toast({
@@ -167,6 +175,8 @@ export default function EditarOrcamentoPage() {
         clientes={clientes}
         funcionarios={funcionarios}
         servicos={servicos}
+        materiais={materiais}
+        funcoes={funcoes}
         onGuardado={voltar}
         onCancelar={voltar}
       />

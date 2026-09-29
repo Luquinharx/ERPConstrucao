@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { CampoNumerico } from "@/components/ui/campo-numerico"
 import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/hooks/use-toast"
@@ -440,6 +441,24 @@ export function IdentidadeDaEmpresa() {
                 className="rounded-full"
               />
             </div>
+          </div>
+
+          {/* Como nascem as propostas novas; cada proposta pode mudar na aba Preco */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="flex items-center gap-3 text-sm">
+              <Switch
+                checked={form.margemItemPadraoAtiva ?? true}
+                onCheckedChange={(margemItemPadraoAtiva) => alterar({ margemItemPadraoAtiva })}
+              />
+              Margem por item ligada nas propostas novas
+            </label>
+            <label className="flex items-center gap-3 text-sm">
+              <Switch
+                checked={form.margemGlobalPadraoAtiva ?? true}
+                onCheckedChange={(margemGlobalPadraoAtiva) => alterar({ margemGlobalPadraoAtiva })}
+              />
+              Margem global ligada nas propostas novas
+            </label>
           </div>
 
           {/*

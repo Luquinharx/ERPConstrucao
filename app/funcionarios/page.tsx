@@ -39,7 +39,7 @@ import { useAuth } from "@/hooks/use-auth"
 import { usePermissoes } from "@/hooks/use-permissoes"
 import { toast } from "@/hooks/use-toast"
 import type { Funcionario, ModoTaxa } from "@/lib/types"
-import { FirebaseService } from "@/lib/firebase-service"
+import { FirebaseService, getFuncoes } from "@/lib/firebase-service"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { formatCurrency, matchesSearch, round2, toFixed2 } from "@/lib/utils"
 import { ListToolbar } from "@/components/ui/list-toolbar"
@@ -251,6 +251,18 @@ function CampoTaxa({ id, label, base, modo, percentual, valorManual, resolvido, 
   )
 }
 
+/** Funcoes de sempre, para quem ainda nao cadastrou as suas em Funcoes. */
+const FUNCOES_BASE = [
+  "Pintor",
+  "Pintor Senior",
+  "Auxiliar de Pintor",
+  "Preparador de Superficie",
+  "Supervisor",
+  "Encarregado",
+  "Gerente de Projetos",
+  "Administrativo",
+]
+
 export default function FuncionariosPage() {
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -325,6 +337,22 @@ export default function FuncionariosPage() {
       loadFuncionarios()
     }
   }, [user])
+
+  /**
+   * Funcoes para o campo Funcao: as cadastradas (que dao o preco ao cliente)
+   * mais as de sempre. A ligacao funcionario -> funcao e pelo nome, por isso
+   * escolher daqui evita um "Pintor " com espaco a mais que nao casava.
+   */
+  const [funcoesCadastradas, setFuncoesCadastradas] = useState<string[]>([])
+  useEffect(() => {
+    if (!user) return
+    getFuncoes()
+      .then((lista) => setFuncoesCadastradas(lista.filter((f) => f.ativo !== false).map((f) => f.nome)))
+      .catch(() => setFuncoesCadastradas([]))
+  }, [user])
+  const opcoesFuncao = Array.from(
+    new Set([...funcoesCadastradas, ...FUNCOES_BASE, ...(formData.funcao ? [formData.funcao] : [])]),
+  )
 
   const loadFuncionarios = async () => {
     if (!user) return
@@ -699,14 +727,11 @@ export default function FuncionariosPage() {
                             <SelectValue placeholder="Selecione a funcao" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="Pintor">Pintor</SelectItem>
-                            <SelectItem value="Pintor Senior">Pintor Senior</SelectItem>
-                            <SelectItem value="Auxiliar de Pintor">Auxiliar de Pintor</SelectItem>
-                            <SelectItem value="Preparador de Superficie">Preparador de Superficie</SelectItem>
-                            <SelectItem value="Supervisor">Supervisor</SelectItem>
-                            <SelectItem value="Encarregado">Encarregado</SelectItem>
-                            <SelectItem value="Gerente de Projetos">Gerente de Projetos</SelectItem>
-                            <SelectItem value="Administrativo">Administrativo</SelectItem>
+                            {opcoesFuncao.map((nome) => (
+                              <SelectItem key={nome} value={nome}>
+                                {nome}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
