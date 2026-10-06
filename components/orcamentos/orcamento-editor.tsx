@@ -319,9 +319,16 @@ export function OrcamentoEditor({
 
   const previaMaoObra = valoresMaoObra(funcaoSelecionada, funcionarioSelecionado)
 
-  /** Funcionarios oferecidos: os da funcao escolhida, ou todos se nao houver funcao. */
+  /**
+   * Funcionarios oferecidos: todos, com os da funcao escolhida primeiro.
+   * Mostrar so os da funcao deixava a lista vazia quando ninguem tinha aquele
+   * nome de funcao na ficha, e quem trabalha fora da sua funcao nao aparecia.
+   */
   const funcionariosParaEscolher = funcaoSelecionada
-    ? funcionariosDaFuncao(funcaoSelecionada, funcionarios)
+    ? [
+        ...funcionariosDaFuncao(funcaoSelecionada, funcionarios),
+        ...funcionarios.filter((f) => !funcionariosDaFuncao(funcaoSelecionada, [f]).length),
+      ]
     : funcionarios
 
   const handleFuncaoSelect = (funcaoId: string) => {
