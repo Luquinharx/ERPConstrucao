@@ -48,3 +48,14 @@ Os movimentos não se apagam. Um engano corrige-se com outro movimento ou com um
 - As duas ligam e desligam de forma independente. O padrão das propostas novas escolhe-se em Configurações.
 
 O IVA cobrado ao cliente continua a ser somado no fim do orçamento, como antes.
+
+## 6. Apuramento da obra (vendido × previsto × real)
+**Orçamentos › botão da balança**, nas propostas adjudicadas ou do tipo Obra
+
+- **Material**: entra só pelo estoque.
+  - **Saída do estoque**: material que já estava guardado (custo médio).
+  - **Compra para esta obra**: material comprado para levar direto à obra. Entra e sai logo do estoque, ao custo dessa compra.
+- **Mão de obra real**: ao faturar, informe as horas gastas. Escolha o funcionário (o custo/hora vem da ficha) ou escreva o valor.
+- **Serviços de terceiros e outros custos**: subempreitadas, aluguer, transporte, vazadouro… sempre sem IVA.
+- No topo aparecem a venda, o custo previsto, o custo real e o **lucro real**, e a tabela "Por bloco" mostra onde se gastou mais do que o previsto (a vermelho).
+- Clique em **Gravar apuramento** para guardar os lançamentos. Os movimentos de estoque ficam gravados logo.

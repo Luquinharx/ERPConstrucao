@@ -16,23 +16,31 @@ import { useAuth } from "@/hooks/use-auth"
 import { useConfiguracao } from "@/hooks/use-configuracao"
 import { usePermissoes } from "@/hooks/use-permissoes"
 import { toast } from "@/hooks/use-toast"
-import { FirebaseService, registarMovimentoEstoque } from "@/lib/firebase-service"
+import { FirebaseService, registarCompraParaObra, registarMovimentoEstoque } from "@/lib/firebase-service"
 import { numeroCompleto } from "@/lib/numeracao"
 import { custoDoProduto, custoRealProduto, saldoAposMovimento } from "@/lib/produto-calculos"
 import type { Material, Orcamento, TipoMovimentoEstoque } from "@/lib/types"
-import { formatCurrency, formatNumber2 } from "@/lib/utils"
+import { formatCurrency, formatNumber2, hojeLocal } from "@/lib/utils"
 
 interface MovimentoDialogProps {
   open: boolean
   onOpenChange: (aberto: boolean) => void
-  /** So os produtos com controlo de estoque. */
+  /**
+   * Sem obra: so os produtos com controlo de estoque.
+   * Com obra: todos (a compra para a obra aceita qualquer produto do cadastro).
+   */
   produtos: Material[]
   produtoInicialId?: string
-  tipoInicial?: TipoMovimentoEstoque
+  tipoInicial?: ModoMovimento
+  /** Aberto a partir de uma obra: so saida ou compra, ja ligadas a ela. */
+  obra?: Orcamento
   onRegistado: () => void
 }
 
-const hoje = () => new Date().toISOString().split("T")[0]
+/** "compra" = compra para uma obra: entrada e saida logo a seguir. */
+type ModoMovimento = TipoMovimentoEstoque | "compra"
+
+const hoje = hojeLocal
 
 /**
  * Entrada, saida ou ajuste de um produto.
@@ -46,6 +54,7 @@ export function MovimentoDialog({
   produtos,
   produtoInicialId,
   tipoInicial = "entrada",
+  obra: obraFixa,
   onRegistado,
 }: MovimentoDialogProps) {
   const { user } = useAuth()
@@ -53,7 +62,7 @@ export function MovimentoDialog({
   const grupos = useMemo(() => configuracao.gruposImpostos || [], [configuracao.gruposImpostos])
   const { pode } = usePermissoes()
 
-  const [tipo, setTipo] = useState<TipoMovimentoEstoque>(tipoInicial)
+  const [tipo, setTipo] = useState<ModoMovimento>(tipoInicial)
   const [materialId, setMaterialId] = useState("")
   const [quantidade, setQuantidade] = useState(0)
   const [precoCompra, setPrecoCompra] = useState(0)
@@ -66,7 +75,10 @@ export function MovimentoDialog({
   const [obras, setObras] = useState<Orcamento[]>([])
   const [aGravar, setAGravar] = useState(false)
 
-  const produto = produtos.find((item) => item.id === materialId)
+  const ehCompra = tipo === "compra"
+  // Saida so do que tem estoque; compra para a obra aceita qualquer produto
+  const produtosVisiveis = obraFixa && !ehCompra ? produtos.filter((p) => p.controlaEstoque) : produtos
+  const produto = produtosVisiveis.find((item) => item.id === materialId)
 
   // Cada abertura comeca limpa, ja com o produto e o tipo de onde se veio
   useEffect(() => {
@@ -110,7 +122,8 @@ export function MovimentoDialog({
   }, [produto, precoCompra, grupos])
 
   const saldoAtual = Number(produto?.estoqueAtual) || 0
-  const saldoDepois = saldoAposMovimento(saldoAtual, tipo, quantidade)
+  // Na compra para a obra entra e sai a mesma quantidade
+  const saldoDepois = ehCompra ? saldoAtual : saldoAposMovimento(saldoAtual, tipo, quantidade)
 
   const gravar = async () => {
     if (!user || !produto?.id) {
@@ -122,9 +135,32 @@ export function MovimentoDialog({
       return
     }
 
-    const obra = obras.find((o) => o.id === orcamentoId)
+    const obra = obraFixa || obras.find((o) => o.id === orcamentoId)
     setAGravar(true)
     try {
+      if (tipo === "compra") {
+        if (!obra?.id) throw new Error("A compra tem de estar ligada a uma obra.")
+        await registarCompraParaObra(
+          {
+            materialId: produto.id,
+            quantidade,
+            precoCompra,
+            custoUnitario: custoEntrada,
+            orcamentoId: obra.id,
+            orcamentoNumero: numeroCompleto(obra, configuracao),
+            data,
+            documento: documento.trim() || undefined,
+            fornecedor: fornecedor.trim() || undefined,
+            observacoes: observacoes.trim() || undefined,
+            userId: user.uid,
+          },
+          { atualizarCusto, grupos },
+        )
+        toast({ title: "Compra registada", description: `${produto.nome}: entrou e saiu para a obra.` })
+        onRegistado()
+        onOpenChange(false)
+        return
+      }
       await registarMovimentoEstoque(
         {
           materialId: produto.id,
@@ -166,13 +202,28 @@ export function MovimentoDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          <Tabs value={tipo} onValueChange={(valor) => setTipo(valor as TipoMovimentoEstoque)}>
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="entrada">Entrada</TabsTrigger>
-              <TabsTrigger value="saida">Saida</TabsTrigger>
-              <TabsTrigger value="ajuste">Ajuste</TabsTrigger>
-            </TabsList>
+          <Tabs value={tipo} onValueChange={(valor) => setTipo(valor as ModoMovimento)}>
+            {obraFixa ? (
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="saida">Saida do estoque</TabsTrigger>
+                <TabsTrigger value="compra">Compra para a obra</TabsTrigger>
+              </TabsList>
+            ) : (
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="entrada">Entrada</TabsTrigger>
+                <TabsTrigger value="saida">Saida</TabsTrigger>
+                <TabsTrigger value="ajuste">Ajuste</TabsTrigger>
+              </TabsList>
+            )}
           </Tabs>
+          {obraFixa && (
+            <p className="text-xs text-muted-foreground">
+              {ehCompra
+                ? "Material comprado para levar direto a obra: entra no estoque e sai logo para ela, ao custo desta compra."
+                : "Material que ja estava em estoque e foi para a obra, ao custo medio."}{" "}
+              Obra: <span className="font-medium">{numeroCompleto(obraFixa, configuracao)}</span>
+            </p>
+          )}
 
           <div className="space-y-2">
             <Label>Produto</Label>
@@ -183,7 +234,7 @@ export function MovimentoDialog({
               placeholderBusca="Procurar produto..."
               vazio="Nenhum produto com controlo de estoque."
               className="rounded-full"
-              opcoes={produtos.map((item) => ({
+              opcoes={produtosVisiveis.map((item) => ({
                 valor: item.id!,
                 rotulo: item.codigo ? `${item.codigo} - ${item.nome}` : item.nome,
                 detalhe: `Saldo: ${formatNumber2(Number(item.estoqueAtual) || 0)} ${item.unidade}`,
@@ -208,7 +259,7 @@ export function MovimentoDialog({
             </div>
           </div>
 
-          {tipo === "entrada" && (
+          {(tipo === "entrada" || ehCompra) && (
             <>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
@@ -230,7 +281,7 @@ export function MovimentoDialog({
             </>
           )}
 
-          {tipo === "saida" && (
+          {tipo === "saida" && !obraFixa && (
             <div className="space-y-2">
               <Label>Obra (opcional)</Label>
               <SeletorComBusca
@@ -254,7 +305,7 @@ export function MovimentoDialog({
             <Input
               value={documento}
               onChange={(e) => setDocumento(e.target.value)}
-              placeholder={tipo === "entrada" ? "N.o da fatura / guia" : "Guia de saida, requisicao..."}
+              placeholder={tipo === "entrada" || ehCompra ? "N.o da fatura / guia" : "Guia de saida, requisicao..."}
               className="rounded-full"
             />
           </div>

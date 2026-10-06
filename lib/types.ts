@@ -490,6 +490,33 @@ export interface LinhaCustoObra {
   documento?: string
 }
 
+/** Tipos de custo real lancados no apuramento da obra (o material vem do estoque). */
+export type TipoLancamentoObra = "mao_obra" | "terceiros" | "aluguer" | "transporte" | "outros"
+
+/**
+ * Custo real lancado no apuramento de uma obra, sem IVA.
+ *
+ * O material nao entra aqui: entra pelas saidas de estoque ligadas a obra,
+ * para o estoque e a obra contarem a mesma coisa.
+ */
+export interface LancamentoObra {
+  id: string
+  tipo: TipoLancamentoObra
+  /** Ex.: "Equipa do Patolino", "Pladur - subempreitada", "Andaime 2 semanas". */
+  descricao: string
+  /** Mao de obra: funcionario de onde veio o custo/hora. */
+  funcionarioId?: string
+  fornecedor?: string
+  /** Numero da fatura/recibo. */
+  documento?: string
+  /** ISO yyyy-mm-dd. */
+  data?: string
+  /** Horas, dias, unidades... 1 para valor global. */
+  quantidade: number
+  /** Valor por unidade, sem IVA. */
+  valorUnitario: number
+}
+
 export interface Orcamento {
   id?: string
   numero: string
@@ -556,6 +583,8 @@ export interface Orcamento {
    * e o que permite comparar a margem prevista com a margem que de facto houve.
    */
   custosObra?: LinhaCustoObra[]
+  /** Custos reais da obra (mao de obra, terceiros, aluguer...). Material vem do estoque. */
+  lancamentosObra?: LancamentoObra[]
   localidade?: string
   createdAt: Date
   updatedAt: Date

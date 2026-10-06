@@ -22,6 +22,7 @@ import {
   Lock,
   Building2,
   Receipt,
+  Scale,
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -50,6 +51,7 @@ import { useConfiguracao } from "@/hooks/use-configuracao"
 import { usePermissoes } from "@/hooks/use-permissoes"
 import { CustosObraDialog } from "@/components/orcamentos/custos-obra-dialog"
 import { analisarCustoObra, CUSTOS_OBRA_ATIVO, valoresVendidosDoOrcamento } from "@/lib/custos-obra"
+import { podeApurar } from "@/lib/apuramento-obra"
 import {
   FASES_ORCAMENTO,
   getFase,
@@ -1079,6 +1081,18 @@ O documento passa a ${depois}. A proposta nao muda de valores nem de conteudo.${
                       className="rounded-full"
                     >
                       <Receipt className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {/* Apuramento: so depois de adjudicada, quando ha custo real para confrontar */}
+                  {pode("orcamentos.verCusto") && podeApurar(orcamento) && (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => router.push(`/orcamentos/${orcamento.id}/apuramento`)}
+                      title="Apuramento da obra: vendido x previsto x real"
+                      className="rounded-full"
+                    >
+                      <Scale className="h-4 w-4" />
                     </Button>
                   )}
                   <Button

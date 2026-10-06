@@ -21,7 +21,7 @@ import type { GrupoImpostos, ImpostoProduto, Material, MaterialCategory, TipoMov
 import { useConfiguracao } from "@/hooks/use-configuracao"
 import { FirebaseService, registarMovimentoEstoque } from "@/lib/firebase-service"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
-import { formatCurrency, formatNumber2, matchesSearch, round2 } from "@/lib/utils"
+import { formatCurrency, formatNumber2, hojeLocal, matchesSearch, round2 } from "@/lib/utils"
 import { ListToolbar } from "@/components/ui/list-toolbar"
 import { useSearchQuery } from "@/hooks/use-search-query"
 import { MovimentoDialog } from "@/components/estoque/movimento-dialog"
@@ -254,7 +254,7 @@ export default function ProdutosPage() {
             tipo: "entrada",
             quantidade: formData.estoqueInicial,
             custoUnitario: custoForm,
-            data: new Date().toISOString().split("T")[0],
+            data: hojeLocal(),
             documento: "Estoque inicial",
             userId: user.uid,
           })

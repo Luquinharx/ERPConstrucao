@@ -16,6 +16,7 @@ import {
   setDoc,
   DocumentSnapshot,
   runTransaction,
+  where,
 } from "firebase/firestore"
 import { db } from "./firebase"
 import { normalizarFase } from "./orcamento-fases"
@@ -439,6 +440,100 @@ export async function registarMovimentoEstoque(
   })
 
   return movimentoRef.id
+}
+
+/**
+ * Compra feita para uma obra: entra no estoque e sai logo para a obra.
+ *
+ * O material passa sempre pelo estoque, para o historico e o custo medio
+ * contarem tudo; mas quem comprou tinta na loja para levar direto a obra
+ * nao tem de fazer dois registos. As duas linhas gravam-se na mesma
+ * transacao e o saldo fica como estava. A saida leva o custo DESTA compra,
+ * que e o que a obra gastou de facto.
+ */
+export async function registarCompraParaObra(
+  dados: {
+    materialId: string
+    quantidade: number
+    /** Preco de compra unitario, antes dos impostos do grupo. */
+    precoCompra: number
+    /** Custo real unitario desta compra (com os impostos do grupo). */
+    custoUnitario: number
+    orcamentoId: string
+    orcamentoNumero: string
+    data: string
+    documento?: string
+    fornecedor?: string
+    observacoes?: string
+    userId: string
+  },
+  opcoes: { atualizarCusto?: boolean; grupos?: GrupoImpostos[] } = {},
+): Promise<void> {
+  const materialRef = doc(db, "materiais", dados.materialId)
+  const entradaRef = doc(collection(db, "movimentosEstoque"))
+  const saidaRef = doc(collection(db, "movimentosEstoque"))
+  const grupos = opcoes.grupos || []
+
+  await runTransaction(db, async (transacao) => {
+    const snap = await transacao.get(materialRef)
+    if (!snap.exists()) throw new Error("Produto nao encontrado.")
+    const produto = { id: snap.id, ...snap.data() } as Material
+
+    const quantidade = round2(dados.quantidade)
+    if (quantidade <= 0) throw new Error("Indique uma quantidade maior que zero.")
+    const custoUnitario = round2(dados.custoUnitario)
+    const saldo = Number(produto.estoqueAtual) || 0
+    const medioAnterior = Number(produto.custoMedio) || custoDoProduto(produto, grupos)
+
+    const atualizacao: Record<string, unknown> = {
+      // Entrou e saiu: o saldo nao muda, mas o custo medio aprende com a compra
+      estoqueAtual: saldo,
+      custoMedio: custoMedioAposEntrada(saldo, medioAnterior, quantidade, custoUnitario),
+      updatedAt: Timestamp.now(),
+    }
+    if (opcoes.atualizarCusto) {
+      const atualizado = { ...produto, precoCompra: round2(dados.precoCompra) }
+      const novoCusto = custoDoProduto(atualizado, grupos)
+      atualizacao.precoCompra = atualizado.precoCompra
+      atualizacao.precoUnitario = novoCusto
+      if (produto.margemVenda !== undefined) {
+        const { percentualVenda } = resumoImpostos(atualizado, grupos)
+        atualizacao.precoVenda = precoPorMargem(novoCusto, produto.margemVenda, percentualVenda)
+      }
+    }
+
+    const comum = {
+      materialId: dados.materialId,
+      materialNome: produto.nome,
+      unidade: produto.unidade,
+      quantidade,
+      custoUnitario,
+      data: dados.data,
+      documento: dados.documento,
+      // Tambem na saida: e o que mostra, na obra, de onde veio o material
+      fornecedor: dados.fornecedor,
+      orcamentoId: dados.orcamentoId,
+      orcamentoNumero: dados.orcamentoNumero,
+      observacoes: dados.observacoes,
+      userId: dados.userId,
+      createdAt: Timestamp.now(),
+    }
+    transacao.update(materialRef, atualizacao)
+    transacao.set(entradaRef, { ...comum, tipo: "entrada", saldoApos: round2(saldo + quantidade) })
+    transacao.set(saidaRef, { ...comum, tipo: "saida", saldoApos: saldo })
+  })
+}
+
+/** Movimentos ligados a uma obra (saidas e compras feitas para ela). */
+export async function getMovimentosDaObra(orcamentoId: string): Promise<MovimentoEstoque[]> {
+  const snap = await getDocs(query(collection(db, "movimentosEstoque"), where("orcamentoId", "==", orcamentoId)))
+  const lista: MovimentoEstoque[] = []
+  snap.forEach((d) => {
+    const data = d.data()
+    lista.push({ id: d.id, ...data, createdAt: data.createdAt?.toDate?.() || new Date() } as MovimentoEstoque)
+  })
+  lista.sort((a, b) => b.data.localeCompare(a.data) || b.createdAt.getTime() - a.createdAt.getTime())
+  return lista
 }
 
 export async function getMovimentosEstoque(): Promise<MovimentoEstoque[]> {
