@@ -55,10 +55,19 @@ export function matchesSearch(term: string, fields: Array<string | number | null
 }
 
 export function formatDate(date: string | Date): string {
-  const d = typeof date === "string" ? new Date(date) : date
+  // "2026-10-06" sozinho e lido como meia-noite UTC: a oeste de Greenwich
+  // (ex.: Brasil) aparecia o dia anterior. Data sem hora = data local.
+  const soData = typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date)
+  const d = soData ? new Date(`${date}T00:00:00`) : typeof date === "string" ? new Date(date) : date
   return d.toLocaleDateString("pt-PT")
 }
 
 export function generateUniqueId(): string {
   return Math.random().toString(36).substr(2, 9)
+}
+
+/** Data de hoje (yyyy-mm-dd) no fuso de quem usa, e nao em UTC. */
+export function hojeLocal(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 }
