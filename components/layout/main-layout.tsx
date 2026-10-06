@@ -53,7 +53,12 @@ export function MainLayout({ children }: MainLayoutProps) {
   return (
     <div className="flex h-screen bg-background">
       <Sidebar />
-      <main className="flex-1 overflow-auto transition-[margin] duration-200 lg:[margin-left:var(--largura-barra)]">
+      {/*
+        scroll-pb-24: ecras como o editor de orcamento tem uma barra colada em
+        baixo. Sem esta folga, ao focar um campo ou botao o browser deixava-o
+        no fundo do ecra, escondido atras da barra.
+      */}
+      <main className="flex-1 overflow-auto scroll-pb-24 transition-[margin] duration-200 lg:[margin-left:var(--largura-barra)]">
         <div className="mx-auto max-w-[1600px] p-4 sm:p-6 lg:p-8">
           {semPermissao ? <SemAcesso area={entrada?.name} /> : children}
         </div>
