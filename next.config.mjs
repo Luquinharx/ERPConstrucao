@@ -10,6 +10,10 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   reactStrictMode: true,
+  // Manual de utilizacao: pagina estatica em public/manual, servida em /manual
+  async rewrites() {
+    return [{ source: "/manual", destination: "/manual/index.html" }]
+  },
   // Otimizações para evitar timeout de chunks
   experimental: {
     optimizePackageImports: ['@radix-ui/react-icons', 'lucide-react'],
