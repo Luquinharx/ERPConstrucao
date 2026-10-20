@@ -44,3 +44,6 @@ firestore-debug.log*
 # Propostas geradas e documentos de cliente
 # (Condicoes Gerais-TKH.pdf ja esta rastreado e nao e afetado)
 *.pdf
+
+# Conta de teste do Playwright (credenciais locais, nunca versionar)
+.conta-teste-playwright.json
