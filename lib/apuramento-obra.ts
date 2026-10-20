@@ -73,14 +73,46 @@ export interface Apuramento {
   temReal: boolean
 }
 
-function somaItens(itens: ItemOrcamento[], tipo: ItemOrcamento["tipo"]) {
-  const lista = itens.filter((i) => i.tipo === tipo)
-  return {
-    vendido: round2(lista.reduce((s, i) => s + (Number(i.total) || 0), 0)),
-    previsto: round2(
-      lista.reduce((s, i) => s + calculateItemTotal(i.quantidade, i.custoUnitario ?? i.precoUnitario, i.valorFixo), 0),
-    ),
+type Parte = "materiais" | "mao_obra" | "outros" | "servicos"
+
+/**
+ * Vendido e previsto por bloco. Um servico com composicao reparte-se pelos
+ * blocos (material, mao de obra, outros) na proporcao do custo, para o real
+ * de cada bloco ter com que se comparar. Sem composicao conhecida (servicos
+ * antigos) fica num bloco proprio.
+ */
+function repartirItens(itens: ItemOrcamento[]) {
+  const soma: Record<Parte, { vendido: number; previsto: number }> = {
+    materiais: { vendido: 0, previsto: 0 },
+    mao_obra: { vendido: 0, previsto: 0 },
+    outros: { vendido: 0, previsto: 0 },
+    servicos: { vendido: 0, previsto: 0 },
   }
+  const juntar = (parte: Parte, vendido: number, previsto: number) => {
+    soma[parte].vendido += vendido
+    soma[parte].previsto += previsto
+  }
+  for (const i of itens) {
+    const vendido = Number(i.total) || 0
+    const previsto = calculateItemTotal(i.quantidade, i.custoUnitario ?? i.precoUnitario, i.valorFixo)
+    if (i.tipo === "material") juntar("materiais", vendido, previsto)
+    else if (i.tipo === "mao_obra") juntar("mao_obra", vendido, previsto)
+    else {
+      const d = i.decomposicao
+      const total = d ? (d.materiais || 0) + (d.mao_obra || 0) + (d.outros || 0) : 0
+      if (!d || total <= 0) juntar("servicos", vendido, previsto)
+      else
+        for (const parte of ["materiais", "mao_obra", "outros"] as const) {
+          const peso = (d[parte] || 0) / total
+          juntar(parte, vendido * peso, previsto * peso)
+        }
+    }
+  }
+  for (const parte of Object.keys(soma) as Parte[]) {
+    soma[parte].vendido = round2(soma[parte].vendido)
+    soma[parte].previsto = round2(soma[parte].previsto)
+  }
+  return soma
 }
 
 const percentagem = (parte: number, todo: number) => (todo > 0 ? round2((parte / todo) * 100) : 0)
@@ -119,9 +151,14 @@ export function apurarObra(
   )
   const ponto = custoHoras(fontes.horas || [])
 
-  const materiais = somaItens(itens, "material")
-  const maoObra = somaItens(itens, "mao_obra")
-  const servicos = somaItens(itens, "servico")
+  const partes = repartirItens(itens)
+  const materiais = partes.materiais
+  const maoObra = partes.mao_obra
+  const servicos = partes.servicos
+  const indiretos = orcamento.custosIndiretos
+  const indiretosCusto = round2(
+    (Number(indiretos?.estaleiro) || 0) + (Number(indiretos?.seguros) || 0) + (Number(indiretos?.licenciamento) || 0),
+  )
 
   const blocos: BlocoApuramento[] = [
     { id: "materiais", nome: "Materiais", ...materiais, real: materialReal, ajuda: "Real = saidas de estoque para esta obra" },
@@ -142,7 +179,22 @@ export function apurarObra(
     { id: "terceiros", nome: "Servicos de terceiros", vendido: null, previsto: null, real: real("terceiros") },
     { id: "aluguer", nome: "Aluguer de equipamento", vendido: null, previsto: null, real: real("aluguer") },
     { id: "transporte", nome: "Transporte", vendido: valores.transporte, previsto: valores.transporte, real: real("transporte") },
-    { id: "outros", nome: "Outros custos", vendido: null, previsto: null, real: real("outros") },
+    {
+      id: "outros",
+      nome: "Equipamento e outros custos",
+      vendido: partes.outros.vendido || null,
+      previsto: partes.outros.previsto || null,
+      real: real("outros"),
+      ajuda: "Previsto = aluguer, vazadouro, transporte e extras das composicoes",
+    },
+    {
+      id: "indiretos",
+      nome: "Custos indiretos (estaleiro, seguros, licencas)",
+      vendido: null,
+      previsto: indiretosCusto || null,
+      real: null,
+      ajuda: "Os gastos reais entram como faturas ou lancamentos dos outros blocos",
+    },
     {
       id: "estrutura",
       nome: "Estrutura (custo fixo/hora)",

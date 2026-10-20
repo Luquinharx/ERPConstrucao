@@ -12,7 +12,8 @@
     "deploy:rules": "npx -y firebase-tools deploy --only firestore:rules",
     "deploy:indexes": "npx -y firebase-tools deploy --only firestore:indexes",
     "deploy:firestore": "npx -y firebase-tools deploy --only firestore",
-    "firebase:check": "node scripts/check-firebase.mjs"
+    "firebase:check": "node scripts/check-firebase.mjs",
+    "dev:https": "next dev --experimental-https -H 0.0.0.0"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

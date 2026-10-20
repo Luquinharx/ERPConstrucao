@@ -47,3 +47,6 @@ firestore-debug.log*
 
 # Conta de teste do Playwright (credenciais locais, nunca versionar)
 .conta-teste-playwright.json
+
+# Certificado local gerado por next dev --experimental-https
+certificates
