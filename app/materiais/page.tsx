@@ -69,6 +69,10 @@ interface ProdutoForm {
   estoqueMinimo: number
   /** So na criacao: entra como primeira entrada de estoque. */
   estoqueInicial: number
+  unidadeCompra: string
+  qtdPorEmbalagem: number
+  codigoBarras: string
+  tipoItem: "consumivel" | "equipamento"
 }
 
 function formVazio(): ProdutoForm {
@@ -89,6 +93,10 @@ function formVazio(): ProdutoForm {
     controlaEstoque: false,
     estoqueMinimo: 0,
     estoqueInicial: 0,
+    unidadeCompra: "",
+    qtdPorEmbalagem: 0,
+    codigoBarras: "",
+    tipoItem: "consumivel",
   }
 }
 
@@ -118,6 +126,10 @@ function formDoProduto(produto: Material, grupos: GrupoImpostos[]): ProdutoForm 
     controlaEstoque: !!produto.controlaEstoque,
     estoqueMinimo: produto.estoqueMinimo || 0,
     estoqueInicial: 0,
+    unidadeCompra: produto.unidadeCompra || "",
+    qtdPorEmbalagem: produto.qtdPorEmbalagem || 0,
+    codigoBarras: produto.codigoBarras || "",
+    tipoItem: produto.tipoItem || "consumivel",
   }
 }
 
@@ -236,6 +248,10 @@ export default function ProdutosPage() {
         precoVenda: round2(formData.precoVenda),
         controlaEstoque: formData.controlaEstoque,
         estoqueMinimo: round2(formData.estoqueMinimo),
+        unidadeCompra: formData.unidadeCompra.trim(),
+        qtdPorEmbalagem: round2(formData.qtdPorEmbalagem),
+        codigoBarras: formData.codigoBarras.trim(),
+        tipoItem: formData.tipoItem,
         userId: user.uid,
       }
 
@@ -640,6 +656,58 @@ export default function ProdutosPage() {
                   )}
                 </div>
               )}
+            </section>
+
+            {/* Compra e etiquetas */}
+            <section className="space-y-4 rounded-lg border p-4">
+              <h3 className="font-medium">Compra e etiquetas</h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Unidade de compra</Label>
+                  <Input
+                    value={formData.unidadeCompra}
+                    onChange={(e) => setFormData({ ...formData, unidadeCompra: e.target.value })}
+                    placeholder="rolo, saco, lata..."
+                    className="rounded-full"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Quantidade por embalagem ({formData.unidade})</Label>
+                  <CampoNumerico
+                    min={0}
+                    value={formData.qtdPorEmbalagem}
+                    onChange={(qtdPorEmbalagem) => setFormData({ ...formData, qtdPorEmbalagem })}
+                    className="rounded-full"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Ex.: rolo de 90 m2. A obra que precisa de 32,67 m2 pede 1 rolo.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Codigo de barras (EAN)</Label>
+                  <Input
+                    value={formData.codigoBarras}
+                    onChange={(e) => setFormData({ ...formData, codigoBarras: e.target.value })}
+                    placeholder="Opcional: o da embalagem de fabrica"
+                    className="rounded-full"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Tipo</Label>
+                  <Select
+                    value={formData.tipoItem}
+                    onValueChange={(tipoItem) => setFormData({ ...formData, tipoItem: tipoItem as ProdutoForm["tipoItem"] })}
+                  >
+                    <SelectTrigger className="rounded-full" aria-label="Tipo de item">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="consumivel">Consumivel (gasta-se na obra)</SelectItem>
+                      <SelectItem value="equipamento">Equipamento (sai e volta)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </section>
 
             <div className="space-y-2">

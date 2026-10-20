@@ -19,11 +19,15 @@ import { useAuth } from "@/hooks/use-auth"
 import { useConfiguracao } from "@/hooks/use-configuracao"
 import { usePermissoes } from "@/hooks/use-permissoes"
 import { toast } from "@/hooks/use-toast"
-import { TIPOS_LANCAMENTO, apurarObra, custoMovimento, podeApurar, totalLancamento } from "@/lib/apuramento-obra"
-import { FirebaseService, getMovimentosDaObra } from "@/lib/firebase-service"
+import { TIPOS_LANCAMENTO, apurarObra, custoMovimento, necessidadesMaterial, podeApurar, totalLancamento } from "@/lib/apuramento-obra"
+import { FirebaseService, getMovimentosDaObra, listar } from "@/lib/firebase-service"
+import { CabecalhoObra } from "@/components/obra/cabecalho-obra"
+import { custoHoras } from "@/lib/obra"
 import { numeroCompleto } from "@/lib/numeracao"
 import { custoHoraFuncionario } from "@/lib/produto-calculos"
 import type {
+  FaturaFornecedor,
+  RegistoHoras,
   Funcionario,
   LancamentoObra,
   Material,
@@ -32,6 +36,16 @@ import type {
   TipoLancamentoObra,
 } from "@/lib/types"
 import { formatCurrency, formatDate, formatNumber2, hojeLocal, round2 } from "@/lib/utils"
+
+/** Pequenas despesas de obra: nome e bloco do apuramento onde entram. */
+const DESPESAS_RAPIDAS: Array<[string, TipoLancamentoObra]> = [
+  ["Almoco", "outros"],
+  ["Gasoleo", "transporte"],
+  ["Portagem", "transporte"],
+  ["Estacionamento", "transporte"],
+  ["Ferramenta", "outros"],
+  ["Deslocacao", "transporte"],
+]
 
 const novoId = () => `lanc-${Date.now()}-${Math.round(Math.random() * 1000)}`
 const hoje = hojeLocal
@@ -83,6 +97,9 @@ export default function ApuramentoObraPage() {
   const [aCarregar, setACarregar] = useState(true)
   const [aGravar, setAGravar] = useState(false)
   const [dialogo, setDialogo] = useState<"saida" | "compra" | null>(null)
+  const [horas, setHoras] = useState<RegistoHoras[]>([])
+  const [faturas, setFaturas] = useState<FaturaFornecedor[]>([])
+  const [despesa, setDespesa] = useState<{ nome: string; tipo: TipoLancamentoObra; valor: number } | null>(null)
 
   const carregarMovimentos = useCallback(async () => {
     if (!id) return
@@ -92,11 +109,15 @@ export default function ApuramentoObraPage() {
   const carregar = useCallback(async () => {
     if (!user || !id) return
     try {
-      const [lista, materiais, equipa] = await Promise.all([
+      const [lista, materiais, equipa, registos, faturasObra] = await Promise.all([
         FirebaseService.getOrcamentos(user.uid),
         FirebaseService.getMateriais(user.uid).catch(() => [] as Material[]),
         FirebaseService.getFuncionarios(user.uid).catch(() => [] as Funcionario[]),
+        listar<RegistoHoras>("registosHoras", ["orcamentoId", id]).catch(() => [] as RegistoHoras[]),
+        listar<FaturaFornecedor>("faturasFornecedor", ["orcamentoId", id]).catch(() => [] as FaturaFornecedor[]),
       ])
+      setHoras(registos)
+      setFaturas(faturasObra)
       const atual = lista.find((o) => o.id === id) || null
       setOrcamento(atual)
       setProdutos(materiais.sort((a, b) => a.nome.localeCompare(b.nome)))
@@ -118,10 +139,18 @@ export default function ApuramentoObraPage() {
   }, [carregar])
 
   const apuramento = useMemo(
-    () => (orcamento ? apurarObra(orcamento, movimentos, lancamentos) : null),
-    [orcamento, movimentos, lancamentos],
+    () => (orcamento ? apurarObra(orcamento, movimentos, lancamentos, { horas, faturas }) : null),
+    [orcamento, movimentos, lancamentos, horas, faturas],
   )
-  const saidas = movimentos.filter((m) => m.tipo === "saida")
+  // Saidas e devolucoes (entradas marcadas como devolucao), as duas mexem no custo da obra
+  const saidas = movimentos.filter((m) => m.tipo === "saida" || (m.tipo === "entrada" && m.devolucao))
+  const necessidades = useMemo(
+    () => (orcamento ? necessidadesMaterial(orcamento, movimentos, produtos) : []),
+    [orcamento, movimentos, produtos],
+  )
+  const horasAprovadas = custoHoras(horas)
+  const horasPendentes = horas.filter((h) => h.estado === "pendente").length
+  const faturasAprovadas = faturas.filter((f) => f.estado === "aprovada")
   const porGravar = JSON.stringify(lancamentos) !== gravados
 
   const alterar = (lid: string, parcial: Partial<LancamentoObra>) =>
@@ -189,22 +218,12 @@ export default function ApuramentoObraPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Button variant="outline" size="icon" onClick={voltar} className="rounded-full" title="Voltar aos orcamentos">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold">Apuramento da obra {numeroCompleto(orcamento, configuracao)}</h1>
-            <p className="text-sm text-muted-foreground">{orcamento.cliente.nome} · vendido x previsto x real, sem IVA</p>
-          </div>
-        </div>
-        {!podeApurar(orcamento) && (
-          <Badge variant="outline" className="border-amber-500/40 text-amber-700">
-            Ainda nao adjudicada: o real so faz sentido depois da obra
-          </Badge>
-        )}
-      </div>
+      <CabecalhoObra orcamento={orcamento} subtitulo="vendido x previsto x real, sem IVA" />
+      {!podeApurar(orcamento) && (
+        <Badge variant="outline" className="border-amber-500/40 text-amber-700">
+          Ainda nao adjudicada: o real so faz sentido depois da obra
+        </Badge>
+      )}
 
       {/* Resumo */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" data-testid="resumo-apuramento">
@@ -366,13 +385,18 @@ export default function ApuramentoObraPage() {
                     <TableCell className="whitespace-nowrap">{formatDate(m.data)}</TableCell>
                     <TableCell className="font-medium">{m.materialNome}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {[m.fornecedor ? `Compra · ${m.fornecedor}` : "Estoque", m.documento].filter(Boolean).join(" · ")}
+                      {[m.devolucao ? "Devolucao ao armazem" : m.fornecedor ? `Compra · ${m.fornecedor}` : "Estoque", m.documento]
+                        .filter(Boolean)
+                        .join(" · ")}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {formatNumber2(m.quantidade)} {m.unidade}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{formatCurrency(m.custoUnitario || 0)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{formatCurrency(custoMovimento(m))}</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {m.devolucao ? "-" : ""}
+                      {formatCurrency(custoMovimento(m))}
+                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -380,6 +404,121 @@ export default function ApuramentoObraPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Material que a obra precisa, pela composicao dos itens */}
+      {necessidades.length > 0 && (
+        <Card data-testid="necessidades">
+          <CardHeader>
+            <CardTitle className="text-lg">Material previsto vs saido</CardTitle>
+            <CardDescription>
+              Pela composicao dos itens do orcamento. O que falta e a lista de compras da obra, ja em embalagens de compra.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-0 sm:p-6 sm:pt-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Produto</TableHead>
+                  <TableHead className="text-right">Previsto</TableHead>
+                  <TableHead className="text-right">Ja saiu</TableHead>
+                  <TableHead className="text-right">Falta</TableHead>
+                  <TableHead className="text-right">Comprar</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {necessidades.map((n) => (
+                  <TableRow key={n.materialId}>
+                    <TableCell className="font-medium">{n.nome}</TableCell>
+                    <TableCell className="text-right tabular-nums">{formatNumber2(n.previsto)} {n.unidade}</TableCell>
+                    <TableCell className="text-right tabular-nums">{formatNumber2(n.saido)}</TableCell>
+                    <TableCell className={`text-right tabular-nums ${n.falta > 0 ? "font-medium" : "text-muted-foreground"}`}>
+                      {formatNumber2(n.falta)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {n.comprar ? `${n.comprar.quantidade} ${n.comprar.unidade}` : n.falta > 0 ? `${formatNumber2(n.falta)} ${n.unidade}` : "-"}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Horas do livro de ponto e faturas aprovadas: entram sozinhas */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Entradas automaticas</CardTitle>
+          <CardDescription>Nao se escrevem aqui: vem do livro de ponto e das faturas de fornecedor, depois de aprovadas.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4 text-sm sm:grid-cols-2">
+          <div className="rounded-lg border p-3" data-testid="auto-horas">
+            <div className="font-medium">Livro de ponto</div>
+            <div>
+              {formatNumber2(horasAprovadas.horas)} h aprovadas · mao de obra {formatCurrency(horasAprovadas.maoObra)} · estrutura{" "}
+              {formatCurrency(horasAprovadas.estrutura)}
+            </div>
+            {horasPendentes > 0 && <div className="text-amber-700">{horasPendentes} registo(s) por aprovar</div>}
+            <a href="/horas" className="text-xs text-primary underline">Abrir livro de ponto</a>
+          </div>
+          <div className="rounded-lg border p-3" data-testid="auto-faturas">
+            <div className="font-medium">Faturas de fornecedor</div>
+            <div>
+              {faturasAprovadas.length} aprovada(s) ·{" "}
+              {formatCurrency(round2(faturasAprovadas.reduce((s, f) => s + f.valorSemIVA, 0)))} sem IVA
+            </div>
+            {faturas.length > faturasAprovadas.length && (
+              <div className="text-amber-700">{faturas.filter((f) => f.estado === "pendente").length} por aprovar</div>
+            )}
+            <a href="/faturas" className="text-xs text-primary underline">Abrir faturas</a>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Despesas rapidas: um toque */}
+      {podeLancar && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Despesa rapida</CardTitle>
+            <CardDescription>Pequenos gastos de obra num toque. Grave o apuramento a seguir.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            {DESPESAS_RAPIDAS.map(([nome, tipo]) => (
+              <Button key={nome} variant="outline" size="sm" className="rounded-full" onClick={() => setDespesa({ nome, tipo, valor: 0 })}>
+                {nome}
+              </Button>
+            ))}
+            {despesa && (
+              <div className="flex w-full flex-wrap items-center gap-2 pt-2" data-testid="despesa-rapida">
+                <span className="text-sm font-medium">{despesa.nome}</span>
+                <CampoNumerico
+                  tamanho="sm"
+                  min={0}
+                  sufixo="EUR"
+                  aria-label="Valor da despesa"
+                  value={despesa.valor}
+                  onChange={(valor) => setDespesa({ ...despesa, valor })}
+                  className="w-36"
+                />
+                <Button
+                  size="sm"
+                  className="rounded-full"
+                  onClick={() => {
+                    if (despesa.valor <= 0) return
+                    setLancamentos((atual) => [
+                      ...atual,
+                      { ...novoLancamento(despesa.tipo), descricao: despesa.nome, quantidade: 1, valorUnitario: round2(despesa.valor) },
+                    ])
+                    setDespesa(null)
+                  }}
+                >
+                  Adicionar
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Mao de obra real */}
       <Card>

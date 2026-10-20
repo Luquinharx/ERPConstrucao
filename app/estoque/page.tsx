@@ -1,7 +1,8 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { ArrowDownToLine, ArrowUpFromLine, Boxes, ClipboardCheck, X } from "lucide-react"
+import Link from "next/link"
+import { ArrowDownToLine, ArrowUpFromLine, Boxes, ClipboardCheck, QrCode, ScanLine, X } from "lucide-react"
 
 import { MovimentoDialog } from "@/components/estoque/movimento-dialog"
 import { Badge } from "@/components/ui/badge"
@@ -38,6 +39,25 @@ export default function EstoquePage() {
   const [movimentos, setMovimentos] = useState<MovimentoEstoque[]>([])
   const [aCarregar, setACarregar] = useState(true)
   const [aba, setAba] = useState("saldos")
+
+  /**
+   * Equipamento fora do armazem: por obra, o que saiu menos o que voltou.
+   * Consumiveis gastam-se e nao entram aqui.
+   */
+  const emObra = useMemo(() => {
+    const equipamentos = new Set(produtos.filter((p) => p.tipoItem === "equipamento").map((p) => p.id))
+    const saldo = new Map<string, { nome: string; obra: string; unidade: string; quantidade: number }>()
+    for (const m of movimentos) {
+      if (!m.orcamentoId || !equipamentos.has(m.materialId)) continue
+      const sinal = m.tipo === "saida" ? 1 : m.tipo === "entrada" && m.devolucao ? -1 : 0
+      if (!sinal) continue
+      const chave = `${m.materialId}|${m.orcamentoId}`
+      const atual = saldo.get(chave) || { nome: m.materialNome, obra: m.orcamentoNumero || "", unidade: m.unidade, quantidade: 0 }
+      atual.quantidade = round2(atual.quantidade + sinal * m.quantidade)
+      saldo.set(chave, atual)
+    }
+    return [...saldo.entries()].filter(([, v]) => v.quantidade > 0).map(([chave, v]) => ({ chave, ...v }))
+  }, [produtos, movimentos])
   const [filtroTipo, setFiltroTipo] = useState<"todos" | TipoMovimentoEstoque>("todos")
   const [dialogo, setDialogo] = useState<{ produtoId?: string; tipo: TipoMovimentoEstoque } | null>(null)
   const { searchTerm, setSearchTerm, clearSearch } = useSearchQuery()
@@ -113,6 +133,18 @@ export default function EstoquePage() {
               <ClipboardCheck className="h-4 w-4 mr-2" />
               Ajuste
             </Button>
+            <Button asChild variant="outline" className="rounded-full">
+              <Link href="/estoque/bipar">
+                <ScanLine className="h-4 w-4 mr-2" />
+                Bipar (camera)
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="rounded-full">
+              <Link href="/estoque/etiquetas">
+                <QrCode className="h-4 w-4 mr-2" />
+                Etiquetas
+              </Link>
+            </Button>
           </div>
         )}
       </div>
@@ -171,6 +203,7 @@ export default function EstoquePage() {
         <TabsList>
           <TabsTrigger value="saldos">Saldos</TabsTrigger>
           <TabsTrigger value="movimentos">Movimentos</TabsTrigger>
+          <TabsTrigger value="em-obra">Equipamento em obra</TabsTrigger>
         </TabsList>
 
         <TabsContent value="saldos" className="pt-4">
@@ -251,6 +284,39 @@ export default function EstoquePage() {
           )}
         </TabsContent>
 
+        <TabsContent value="em-obra" className="pt-4">
+          <Card>
+            <Table data-testid="em-obra">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Equipamento</TableHead>
+                  <TableHead>Obra</TableHead>
+                  <TableHead className="text-right">Na obra</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {emObra.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={3} className="py-10 text-center text-muted-foreground">
+                      Nenhum equipamento fora do armazem. Marque os produtos como &quot;Equipamento&quot; para os acompanhar aqui.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  emObra.map((e) => (
+                    <TableRow key={e.chave}>
+                      <TableCell className="font-medium">{e.nome}</TableCell>
+                      <TableCell>{e.obra}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {formatNumber2(e.quantidade)} {e.unidade}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="movimentos" className="pt-4">
           <Card>
             <Table>
@@ -283,6 +349,7 @@ export default function EstoquePage() {
                       </TableCell>
                       <TableCell className="font-medium">{m.materialNome}</TableCell>
                       <TableCell className="text-right tabular-nums">
+                        {m.devolucao && <span className="mr-1 text-xs text-muted-foreground">devolucao</span>}
                         {m.tipo === "saida" ? "-" : m.tipo === "entrada" ? "+" : "="}
                         {formatNumber2(m.quantidade)} {m.unidade}
                       </TableCell>

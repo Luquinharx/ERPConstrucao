@@ -65,8 +65,31 @@ import {
   margemPorPreco,
   vendaDoProduto,
 } from "@/lib/produto-calculos"
+import { custoServicoAtual } from "@/lib/composicao-catalogo"
+import {
+  MEDICOES,
+  TAXAS_REGIAO,
+  TIPOS_CLIENTE,
+  TIPOS_OBRA,
+  TIPOS_OPERACAO,
+  especialidadesDe,
+  estruturaDe,
+  margemSobreVenda,
+  medirAmbiente,
+  pesoMateriaisDe,
+  precoPorEspecialidade,
+  sugerirIVA,
+  temDimensoes,
+} from "@/lib/precificacao"
 import type {
   Cliente,
+  ConfiguracaoEmpresa,
+  ContextoFiscal,
+  CustosIndiretos,
+  DecomposicaoCusto,
+  DimensoesAmbiente,
+  MaterialPrevisto,
+  TipoMedicao,
   FuncaoMaoObra,
   Funcionario,
   ItemOrcamento,
@@ -97,6 +120,12 @@ interface OrcamentoFormState {
   usarMargemItem: boolean
   /** Margem global sobre o subtotal. */
   usarMargemGlobal: boolean
+  /** Modelo de preco: por especialidade (folha de obra) ou por margens. */
+  modoPreco: "especialidade" | "margens"
+  dimensoesAmbientes: Record<string, DimensoesAmbiente>
+  custosIndiretos: CustosIndiretos
+  contextoFiscal: ContextoFiscal
+  discriminarPDF: boolean
   /** Custo de transporte: linha propria no final do orcamento. */
   transporte: number
   /** Taxa de IVA (%) aplicada sobre a base tributavel. */
@@ -110,7 +139,14 @@ interface ServicoFormState {
   servicoId: string
   quantidade: number
   unidade: string
+  /** Custo direto por unidade, ja com os precos atuais do catalogo. */
   precoUnitario: number
+  decomposicao?: DecomposicaoCusto
+  materiaisPrevistos?: MaterialPrevisto[]
+  /** Linhas da composicao cujo preco mudou desde que o servico foi gravado. */
+  linhasAtualizadas: number
+  especialidadeId?: string
+  medicao?: TipoMedicao
   precoFixo: number
   transporte: number
 }
@@ -130,7 +166,7 @@ interface ProdutoFormState {
 }
 
 function getDefaultServicoForm(): ServicoFormState {
-  return { servicoId: "", quantidade: 1, unidade: "", precoUnitario: 0, precoFixo: 0, transporte: 0 }
+  return { servicoId: "", quantidade: 1, unidade: "", precoUnitario: 0, precoFixo: 0, transporte: 0, linhasAtualizadas: 0 }
 }
 
 function getDefaultMaoObraForm(): MaoObraFormState {
@@ -140,6 +176,14 @@ function getDefaultMaoObraForm(): MaoObraFormState {
 function getDefaultProdutoForm(): ProdutoFormState {
   return { materialId: "", quantidade: 1 }
 }
+
+/** Campos das dimensoes de um comodo: campo, rotulo, unidade. */
+const CAMPOS_DIMENSAO = [
+  ["comprimento", "Comprimento", "m"],
+  ["largura", "Largura", "m"],
+  ["altura", "Pe-direito", "m"],
+  ["aberturas", "Portas/janelas", "m2"],
+] as const
 
 /** Valor do seletor de funcionario que significa "custo medio da funcao". */
 const CUSTO_MEDIO = "__medio"
@@ -212,17 +256,32 @@ export function OrcamentoEditor({
 
   // --- Totais: recalculados a cada tecla, e o que alimenta a aba do resumo
 
+  const porEspecialidade = formData.modoPreco === "especialidade"
   const subtotalAtual = calculateSubtotal(formData.itens)
   const subtotalCustoAtual = calculateSubtotalCusto(formData.itens)
   const transporteAtual = round2(formData.transporte)
-  // Margem global desligada vale zero nas contas, mas o numero escrito fica no ecra
-  const margemGlobalAtual = formData.usarMargemGlobal ? round2(formData.margemLucro) : 0
+  // Margem global desligada (ou modo por especialidade) vale zero nas contas
+  const margemGlobalAtual = !porEspecialidade && formData.usarMargemGlobal ? round2(formData.margemLucro) : 0
   // Quanto os itens ja levam de margem, antes da global (0 com a margem por item desligada)
   const margemItensAtual = round2(subtotalAtual - subtotalCustoAtual)
-  const baseTributavelAtual = calculateBaseTributavel(subtotalAtual, margemGlobalAtual, transporteAtual)
+  /**
+   * Custos indiretos (estaleiro, seguros, licenciamento): sao custo da obra e
+   * vendem-se com a mesma regra dos itens - estrutura + construcao civil no
+   * modo por especialidade, ou margem global no modo por margens.
+   */
+  const indiretosCusto = round2(
+    (Number(formData.custosIndiretos.estaleiro) || 0) +
+      (Number(formData.custosIndiretos.seguros) || 0) +
+      (Number(formData.custosIndiretos.licenciamento) || 0),
+  )
+  const indiretosVenda = porEspecialidade ? precoPorEspecialidade(indiretosCusto, "civil", configuracao) : indiretosCusto
+  const baseTributavelAtual = calculateBaseTributavel(subtotalAtual + indiretosVenda, margemGlobalAtual, transporteAtual)
   const valorIVAAtual = calculateIVA(baseTributavelAtual, formData.taxaIVA)
   const valorTotalAtual = round2(baseTributavelAtual + valorIVAAtual)
-  const valorTotalCustoAtual = calculateTotalCusto(subtotalCustoAtual, transporteAtual)
+  const valorTotalCustoAtual = round2(calculateTotalCusto(subtotalCustoAtual, transporteAtual) + indiretosCusto)
+  const margemVendaAtual = margemSobreVenda(valorTotalCustoAtual, baseTributavelAtual)
+  const pesoMateriais = pesoMateriaisDe(formData.itens.map((i) => ({ d: i.decomposicao, quantidade: i.quantidade })))
+  const sugestaoIVA = sugerirIVA(formData.contextoFiscal, pesoMateriais)
   // O IVA nao entra no lucro: e cobrado ao cliente e entregue ao Estado
   const lucroPrevisto = round2(baseTributavelAtual - valorTotalCustoAtual)
 
@@ -279,23 +338,45 @@ export function OrcamentoEditor({
 
   // --- Servicos e mao de obra
 
+  const catalogo = { materiais, funcionarios, funcoes, grupos: gruposImpostos }
+  const medidasAtuais = medirAmbiente(formData.dimensoesAmbientes[ambienteAtual])
+  const ambienteComDimensoes = !!ambienteAtual && temDimensoes(formData.dimensoesAmbientes[ambienteAtual])
+
   const handleServicoSelect = (servicoId: string) => {
     const servico = servicos.find((item) => item.id === servicoId)
     if (!servico) return
 
-    const { precoVariavel, precoFixo, transporte } = getServicoPrecos(servico)
+    // O custo vem da composicao com os precos de HOJE do catalogo
+    const { precoFixo, transporte } = getServicoPrecos(servico)
+    const atual = custoServicoAtual(servico, catalogo)
+    const medicao = ambienteComDimensoes ? servico.medicaoPadrao : undefined
     setServicoForm({
       servicoId,
-      quantidade: 1,
+      quantidade: medicao ? medidasAtuais[medicao] || 1 : 1,
       unidade: servico.unidade || "un",
-      precoUnitario: precoVariavel,
+      precoUnitario: atual.custoUnitario,
+      decomposicao: atual.decomposicao,
+      materiaisPrevistos: atual.materiaisPrevistos,
+      linhasAtualizadas: atual.linhasAtualizadas,
+      especialidadeId: servico.especialidadeId,
+      medicao,
       precoFixo,
       transporte,
     })
   }
 
-  /** Preco que o item leva: o de tabela com a margem por item ligada, o custo sem ela. */
-  const precoDoItem = (precoTabela: number, custo: number) => round2(formData.usarMargemItem ? precoTabela : custo)
+  /**
+   * Preco que o item leva.
+   * - Por especialidade: custo x (1 + estrutura + margem da especialidade).
+   * - Por margens: o de tabela com a margem por item ligada, o custo sem ela.
+   */
+  const precoDoItem = (precoTabela: number, custo: number, especialidadeId?: string) =>
+    porEspecialidade
+      ? precoPorEspecialidade(custo, especialidadeId, configuracao)
+      : round2(formData.usarMargemItem ? precoTabela : custo)
+
+  /** Venda de um servico em escolha: e vendido ao custo, salvo no modo por especialidade. */
+  const vendaServico = (custo: number) => precoDoItem(custo, custo, servicoForm.especialidadeId)
 
   // --- Mao de obra: a funcao da o preco ao cliente, o funcionario da o custo
 
@@ -381,6 +462,11 @@ export function OrcamentoEditor({
     const descricao = servico.descricao?.trim() || nome
     const timestamp = Date.now()
 
+    // Servicos nao tem preco de tabela proprio: no modo por margens vendem-se
+    // ao custo e a margem global faz o resto
+    const custoServico = round2(servicoForm.precoUnitario)
+    const especialidadeId = servicoForm.especialidadeId || "civil"
+    const precoServico = precoDoItem(custoServico, custoServico, especialidadeId)
     const novosItens: ItemOrcamento[] = [
       {
         id: `servico-${servicoForm.servicoId}-${timestamp}`,
@@ -388,14 +474,18 @@ export function OrcamentoEditor({
         descricao,
         quantidade: round2(servicoForm.quantidade),
         unidade: servicoForm.unidade,
-        precoUnitario: round2(servicoForm.precoUnitario),
-        precoTabela: round2(servicoForm.precoUnitario),
-        custoUnitario: round2(servicoForm.precoUnitario),
-        total: calculateItemTotal(servicoForm.quantidade, servicoForm.precoUnitario),
+        precoUnitario: precoServico,
+        precoTabela: custoServico,
+        custoUnitario: custoServico,
+        total: calculateItemTotal(servicoForm.quantidade, precoServico),
         valorFixo: false,
         ambiente: ambienteAtual,
         tipo: "servico",
         servicoId: servicoForm.servicoId,
+        especialidadeId,
+        medicao: servicoForm.medicao,
+        decomposicao: servicoForm.decomposicao,
+        materiaisPrevistos: servicoForm.materiaisPrevistos,
       },
     ]
 
@@ -407,9 +497,11 @@ export function OrcamentoEditor({
         descricao: "Itens e equipamentos que nao acompanham a area (cobrados uma unica vez)",
         quantidade: 1,
         unidade: servicoForm.unidade,
-        precoUnitario: round2(servicoForm.precoFixo),
+        precoUnitario: precoDoItem(servicoForm.precoFixo, servicoForm.precoFixo, especialidadeId),
+        precoTabela: round2(servicoForm.precoFixo),
         custoUnitario: round2(servicoForm.precoFixo),
-        total: round2(servicoForm.precoFixo),
+        total: precoDoItem(servicoForm.precoFixo, servicoForm.precoFixo, especialidadeId),
+        especialidadeId,
         valorFixo: true,
         ambiente: ambienteAtual,
         tipo: "servico",
@@ -438,7 +530,7 @@ export function OrcamentoEditor({
     unidade: string,
   ): ItemOrcamento => {
     const { precoTabela, custo } = valoresMaoObra(funcao, funcionario)
-    const precoUnitario = precoDoItem(precoTabela, custo)
+    const precoUnitario = precoDoItem(precoTabela, custo, "civil")
     const nomeFuncao = funcao?.nome || funcionario?.funcao || ""
     const quem = funcionario ? funcionario.nome : "custo medio da funcao"
 
@@ -460,6 +552,8 @@ export function OrcamentoEditor({
       funcionarioId: funcionario?.id,
       funcionarioNome: funcionario?.nome,
       funcionarioFuncao: nomeFuncao || undefined,
+      especialidadeId: "civil",
+      decomposicao: { mao_obra: custo, materiais: 0, outros: 0 },
     }
   }
 
@@ -507,7 +601,7 @@ export function OrcamentoEditor({
 
     const custo = custoOrcamentoProduto(produtoSelecionado, gruposImpostos)
     const precoTabela = vendaDoProduto(produtoSelecionado, gruposImpostos)
-    const precoUnitario = precoDoItem(precoTabela, custo)
+    const precoUnitario = precoDoItem(precoTabela, custo, "civil")
 
     const novoItem: ItemOrcamento = {
       id: `material-${produtoSelecionado.id}-${Date.now()}-${Math.round(Math.random() * 1000)}`,
@@ -523,6 +617,11 @@ export function OrcamentoEditor({
       ambiente: ambienteAtual,
       tipo: "material",
       materialId: produtoSelecionado.id,
+      especialidadeId: "civil",
+      decomposicao: { mao_obra: 0, materiais: custo, outros: 0 },
+      materiaisPrevistos: [
+        { materialId: produtoSelecionado.id!, nome: produtoSelecionado.nome, unidade: produtoSelecionado.unidade, porUnidade: 1 },
+      ],
     }
 
     setFormData({ ...formData, itens: [...formData.itens, novoItem] })
@@ -555,6 +654,46 @@ export function OrcamentoEditor({
       // Proposta gravada sem margem global volta com 0: ao religar, parte do padrao
       margemLucro: ligar && !atual.margemLucro ? configuracao.margemPadrao ?? 20 : atual.margemLucro,
     }))
+
+  /** Preco de um item no modelo dado, a partir do custo e do preco de tabela guardados. */
+  const repreco = (item: ItemOrcamento, modo: OrcamentoFormState["modoPreco"], usarMargemItem: boolean): ItemOrcamento => {
+    const custo = item.custoUnitario ?? item.precoUnitario
+    const precoTabela = item.precoTabela ?? item.precoUnitario
+    const precoUnitario =
+      modo === "especialidade"
+        ? precoPorEspecialidade(custo, item.especialidadeId, configuracao)
+        : round2(usarMargemItem ? precoTabela : custo)
+    return { ...item, precoTabela, precoUnitario, total: calculateItemTotal(item.quantidade, precoUnitario, item.valorFixo) }
+  }
+
+  /**
+   * Troca o modelo de preco e recalcula todos os itens. Nada se perde: o
+   * custo e o preco de tabela ficam guardados em cada item, e voltar ao
+   * modelo anterior repoe os precos.
+   */
+  const trocarModoPreco = (modoPreco: OrcamentoFormState["modoPreco"]) =>
+    setFormData((atual) => ({
+      ...atual,
+      modoPreco,
+      itens: atual.itens.map((item) => repreco(item, modoPreco, atual.usarMargemItem)),
+    }))
+
+  /** Muda as dimensoes de um comodo e as quantidades de todos os itens ligados a ele. */
+  const alterarDimensoes = (ambiente: string, parcial: Partial<DimensoesAmbiente>) =>
+    setFormData((atual) => {
+      const anterior = atual.dimensoesAmbientes[ambiente] || { comprimento: 0, largura: 0, altura: 0, aberturas: 0 }
+      const dimensoes = { ...anterior, ...parcial }
+      const medidas = medirAmbiente(dimensoes)
+      return {
+        ...atual,
+        dimensoesAmbientes: { ...atual.dimensoesAmbientes, [ambiente]: dimensoes },
+        itens: atual.itens.map((item) => {
+          if ((item.ambiente || "") !== ambiente || !item.medicao) return item
+          const quantidade = medidas[item.medicao]
+          return { ...item, quantidade, total: calculateItemTotal(quantidade, item.precoUnitario, item.valorFixo) }
+        }),
+      }
+    })
 
   /**
    * Duplica um item para outro comodo (ou para o mesmo).
@@ -615,6 +754,9 @@ export function OrcamentoEditor({
       ...prev,
       ambientes: prev.ambientes.map((nome) => (nome === antigo ? novo : nome)),
       itens: prev.itens.map((item) => (item.ambiente === antigo ? { ...item, ambiente: novo } : item)),
+      dimensoesAmbientes: Object.fromEntries(
+        Object.entries(prev.dimensoesAmbientes).map(([nome, d]) => [nome === antigo ? novo : nome, d]),
+      ),
     }))
     setAmbienteAtual((atual) => (atual === antigo ? novo : atual))
   }
@@ -646,6 +788,9 @@ export function OrcamentoEditor({
       ...formData,
       ambientes: [...formData.ambientes, destino],
       itens: [...formData.itens, ...copias],
+      dimensoesAmbientes: formData.dimensoesAmbientes[nome]
+        ? { ...formData.dimensoesAmbientes, [destino]: { ...formData.dimensoesAmbientes[nome] } }
+        : formData.dimensoesAmbientes,
     })
     setAmbienteAtual(destino)
 
@@ -687,12 +832,34 @@ export function OrcamentoEditor({
 
       const updatedItem = { ...item, [field]: value } as ItemOrcamento
 
+      // Ligar o item a uma medicao do comodo puxa logo a quantidade
+      if (field === "medicao") {
+        const medida = value ? medirAmbiente(formData.dimensoesAmbientes[item.ambiente || ""])[value as TipoMedicao] : undefined
+        updatedItem.medicao = (value || undefined) as TipoMedicao | undefined
+        if (medida !== undefined) updatedItem.quantidade = medida
+      }
+      // Por especialidade o preco segue sempre o custo e a especialidade
+      if (porEspecialidade && (field === "custoUnitario" || field === "especialidadeId")) {
+        updatedItem.precoUnitario = precoPorEspecialidade(
+          updatedItem.custoUnitario ?? updatedItem.precoUnitario,
+          updatedItem.especialidadeId,
+          configuracao,
+        )
+      }
+
       // Com margem por item, o preco escrito a mao passa a ser o de tabela deste
       // item; sem ela, o preco segue sempre o custo.
-      if (field === "precoUnitario" && formData.usarMargemItem) updatedItem.precoTabela = Number(value)
-      if (field === "custoUnitario" && !formData.usarMargemItem) updatedItem.precoUnitario = Number(value)
+      if (!porEspecialidade && field === "precoUnitario" && formData.usarMargemItem) updatedItem.precoTabela = Number(value)
+      if (!porEspecialidade && field === "custoUnitario" && !formData.usarMargemItem) updatedItem.precoUnitario = Number(value)
 
-      if (field === "quantidade" || field === "precoUnitario" || field === "custoUnitario" || field === "valorFixo") {
+      if (
+        field === "quantidade" ||
+        field === "precoUnitario" ||
+        field === "custoUnitario" ||
+        field === "valorFixo" ||
+        field === "medicao" ||
+        field === "especialidadeId"
+      ) {
         updatedItem.total = calculateItemTotal(
           updatedItem.quantidade,
           updatedItem.precoUnitario,
@@ -863,6 +1030,11 @@ export function OrcamentoEditor({
         margemLucro: margemGlobalAtual,
         usarMargemItem: formData.usarMargemItem,
         usarMargemGlobal: formData.usarMargemGlobal,
+        modoPreco: formData.modoPreco,
+        dimensoesAmbientes: formData.dimensoesAmbientes,
+        custosIndiretos: formData.custosIndiretos,
+        contextoFiscal: formData.contextoFiscal,
+        discriminarPDF: formData.discriminarPDF,
         baseTributavel: baseTributavelAtual,
         taxaIVA: round2(formData.taxaIVA),
         valorIVA: valorIVAAtual,
@@ -1143,6 +1315,35 @@ export function OrcamentoEditor({
                   ? `Os proximos itens vao para: ${ambienteAtual}. Clique no comodo para trocar.`
                   : "Nenhum comodo selecionado: os proximos itens ficam sem comodo. Clique num comodo para o escolher."}
               </p>
+
+              {/* Quadro de areas: dimensoes do comodo -> quantidades automaticas */}
+              {ambienteAtual && (
+                <div className="rounded-lg border bg-background p-3 space-y-2" data-testid="dimensoes-comodo">
+                  <p className="text-sm font-medium">Dimensoes de {ambienteAtual}</p>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {CAMPOS_DIMENSAO.map(([campo, rotulo, un]) => (
+                      <div key={campo} className="space-y-1">
+                        <Label className="text-xs">{rotulo}</Label>
+                        <CampoNumerico
+                          tamanho="sm"
+                          min={0}
+                          sufixo={un}
+                          aria-label={rotulo}
+                          value={formData.dimensoesAmbientes[ambienteAtual]?.[campo] ?? 0}
+                          onChange={(valor) => alterarDimensoes(ambienteAtual, { [campo]: valor })}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  {ambienteComDimensoes && (
+                    <p className="text-xs text-muted-foreground" data-testid="medidas-comodo">
+                      Pavimento/teto {formatNumber2(medidasAtuais.pavimento)} m2 · Paredes{" "}
+                      {formatNumber2(medidasAtuais.paredes)} m2 · Perimetro {formatNumber2(medidasAtuais.perimetro)} ml.
+                      Os itens ligados a uma medicao acompanham estas dimensoes.
+                    </p>
+                  )}
+                </div>
+              )}
             </Card>
           </div>
 
@@ -1177,28 +1378,47 @@ export function OrcamentoEditor({
                         <Input value={servicoForm.unidade} readOnly className="rounded-full bg-muted" />
                       </div>
                       <div className="space-y-2">
-                        <Label>Quantidade</Label>
+                        <Label>
+                          Quantidade
+                          {servicoForm.medicao && ` (${MEDICOES[servicoForm.medicao].nome.toLowerCase()} de ${ambienteAtual})`}
+                        </Label>
                         <CampoNumerico
                           min={0.01}
                           value={servicoForm.quantidade}
-                          onChange={(quantidade) => setServicoForm({ ...servicoForm, quantidade })}
+                          onChange={(quantidade) => setServicoForm({ ...servicoForm, quantidade, medicao: undefined })}
                           className="rounded-full"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>Valor por {servicoForm.unidade || "unidade"} (automatico)</Label>
-                        <Input value={toFixed2(servicoForm.precoUnitario)} readOnly className="rounded-full bg-muted" />
+                        <Label>Venda por {servicoForm.unidade || "unidade"} (automatico)</Label>
+                        <Input
+                          value={toFixed2(vendaServico(servicoForm.precoUnitario))}
+                          readOnly
+                          data-testid="servico-venda-unitaria"
+                          className="rounded-full bg-muted"
+                        />
                       </div>
                     </div>
+                    {verCusto && (
+                      <p className="text-xs text-muted-foreground" data-testid="servico-custo-info">
+                        Custo da composicao: {formatCurrency(servicoForm.precoUnitario)}/{servicoForm.unidade}
+                        {servicoForm.decomposicao &&
+                          ` (mao de obra ${formatCurrency(servicoForm.decomposicao.mao_obra)} · materiais ${formatCurrency(
+                            servicoForm.decomposicao.materiais,
+                          )} · outros ${formatCurrency(servicoForm.decomposicao.outros)})`}
+                        {servicoForm.linhasAtualizadas > 0 &&
+                          ` · ${servicoForm.linhasAtualizadas} linha(s) com preco atualizado pelo catalogo`}
+                      </p>
+                    )}
 
                     <div className="p-3 bg-muted rounded-lg space-y-1 text-sm">
                       <div className="flex items-center justify-between">
                         <span>
                           {toFixed2(servicoForm.quantidade)} {servicoForm.unidade} x{" "}
-                          {formatCurrency(servicoForm.precoUnitario)}
+                          {formatCurrency(vendaServico(servicoForm.precoUnitario))}
                         </span>
                         <span>
-                          {formatCurrency(calculateItemTotal(servicoForm.quantidade, servicoForm.precoUnitario))}
+                          {formatCurrency(calculateItemTotal(servicoForm.quantidade, vendaServico(servicoForm.precoUnitario)))}
                         </span>
                       </div>
                       {servicoForm.precoFixo > 0 && (
@@ -1218,8 +1438,8 @@ export function OrcamentoEditor({
                         <span className="text-lg font-bold">
                           {formatCurrency(
                             round2(
-                              calculateItemTotal(servicoForm.quantidade, servicoForm.precoUnitario) +
-                                servicoForm.precoFixo,
+                              calculateItemTotal(servicoForm.quantidade, vendaServico(servicoForm.precoUnitario)) +
+                                (servicoForm.precoFixo > 0 ? vendaServico(servicoForm.precoFixo) : 0),
                             ),
                           )}
                         </span>
@@ -1625,9 +1845,10 @@ export function OrcamentoEditor({
                                 <CampoNumerico
                                   tamanho="sm"
                                   value={item.quantidade}
-                                  disabled={item.valorFixo}
+                                  disabled={item.valorFixo || !!item.medicao}
+                                  title={item.medicao ? "Vem das dimensoes do comodo" : undefined}
                                   onChange={(quantidade) => handleItemUpdate(item.id, "quantidade", quantidade)}
-                                  className={item.valorFixo ? "bg-muted" : undefined}
+                                  className={item.valorFixo || item.medicao ? "bg-muted" : undefined}
                                 />
                               </div>
                               <div>
@@ -1652,9 +1873,15 @@ export function OrcamentoEditor({
                                 <CampoNumerico
                                   tamanho="sm"
                                   value={item.precoUnitario}
-                                  readOnly={!formData.usarMargemItem}
-                                  title={formData.usarMargemItem ? undefined : "Margem por item desligada: vende ao custo"}
-                                  className={formData.usarMargemItem ? undefined : "bg-muted"}
+                                  readOnly={porEspecialidade || !formData.usarMargemItem}
+                                  title={
+                                    porEspecialidade
+                                      ? "Custo x (estrutura + margem da especialidade)"
+                                      : formData.usarMargemItem
+                                        ? undefined
+                                        : "Margem por item desligada: vende ao custo"
+                                  }
+                                  className={porEspecialidade || !formData.usarMargemItem ? "bg-muted" : undefined}
                                   onChange={(valor) => handleItemUpdate(item.id, "precoUnitario", valor)}
                                 />
                               </div>
@@ -1674,10 +1901,48 @@ export function OrcamentoEditor({
                                 />
                                 Valor fixo: nao multiplica pela quantidade/area
                               </label>
+                              {porEspecialidade && (
+                                <Select
+                                  value={item.especialidadeId || especialidadesDe(configuracao)[0].id}
+                                  onValueChange={(valor) => handleItemUpdate(item.id, "especialidadeId", valor)}
+                                >
+                                  <SelectTrigger className="h-7 w-auto gap-1 rounded-full text-xs" aria-label="Especialidade">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {especialidadesDe(configuracao).map((e) => (
+                                      <SelectItem key={e.id} value={e.id}>
+                                        {e.nome} ({formatNumber2(estruturaDe(configuracao) + e.margem)}%)
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              )}
+                              {!item.valorFixo && temDimensoes(formData.dimensoesAmbientes[item.ambiente || ""]) && (
+                                <Select
+                                  value={item.medicao || "__manual"}
+                                  onValueChange={(valor) => handleItemUpdate(item.id, "medicao", valor === "__manual" ? "" : valor)}
+                                >
+                                  <SelectTrigger className="h-7 w-auto gap-1 rounded-full text-xs" aria-label="Medicao">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="__manual">Quantidade manual</SelectItem>
+                                    {(Object.keys(MEDICOES) as TipoMedicao[]).map((m) => (
+                                      <SelectItem key={m} value={m}>
+                                        Qtd = {MEDICOES[m].nome.toLowerCase()} do comodo
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              )}
                               <span className="text-xs text-muted-foreground">
                                 Custo do item:{" "}
                                 {formatCurrency(calculateItemTotal(item.quantidade, custoUnitario, item.valorFixo))}
-                                {verCusto && ` · Margem do item: ${formatNumber2(margemPorPreco(custoUnitario, item.precoUnitario))}%`}
+                                {verCusto &&
+                                  ` · Margem do item: ${formatNumber2(margemPorPreco(custoUnitario, item.precoUnitario))}% sobre o custo (${formatNumber2(
+                                    margemSobreVenda(custoUnitario, item.precoUnitario),
+                                  )}% da venda)`}
                               </span>
                             </div>
                           </div>
@@ -1695,8 +1960,56 @@ export function OrcamentoEditor({
           <div className="space-y-4">
             <h3 className="text-lg font-medium">Precificacao</h3>
 
+            {/* Modelo de preco: o da folha de obra, ou o das margens */}
+            <div className="grid gap-3 sm:grid-cols-2" data-testid="modo-preco">
+              {(
+                [
+                  ["especialidade", "Por especialidade (folha de obra)", "Preco = custo x (1 + estrutura + margem da especialidade). Cada item escolhe a especialidade."],
+                  ["margens", "Por margens", "Margem por item (preco de venda do cadastro) e/ou margem global sobre o subtotal."],
+                ] as const
+              ).map(([modo, titulo, ajuda]) => (
+                <button
+                  key={modo}
+                  type="button"
+                  onClick={() => trocarModoPreco(modo)}
+                  className={`rounded-lg border p-3 text-left transition-colors ${
+                    formData.modoPreco === modo ? "border-primary bg-primary/5 ring-1 ring-primary" : "hover:bg-muted"
+                  }`}
+                >
+                  <div className="font-medium">{titulo}</div>
+                  <div className="text-xs text-muted-foreground">{ajuda}</div>
+                </button>
+              ))}
+            </div>
+
+            {porEspecialidade && (
+              <Card className="p-4 space-y-2" data-testid="painel-especialidades">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <span className="font-medium">
+                    Estrutura {formatNumber2(estruturaDe(configuracao))}% + margem da especialidade
+                  </span>
+                  <a href="/configuracoes?aba=precos" target="_blank" className="text-xs text-primary underline">
+                    Alterar em Configuracoes &gt; Precos
+                  </a>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {especialidadesDe(configuracao).map((e) => (
+                    <Badge key={e.id} variant="outline" className="font-normal">
+                      {e.nome}: +{formatNumber2(estruturaDe(configuracao) + e.margem)}% sobre o custo
+                    </Badge>
+                  ))}
+                </div>
+                {verCusto && (
+                  <p className="text-sm">
+                    Lucro previsto <span className="font-medium tabular-nums">{formatCurrency(lucroPrevisto)}</span> ={" "}
+                    <span className="font-medium tabular-nums">{formatNumber2(margemVendaAtual)}%</span> da venda sem IVA
+                  </p>
+                )}
+              </Card>
+            )}
+
             {/* As duas margens sao independentes: qualquer combinacao vale */}
-            <div className="grid gap-4 sm:grid-cols-2">
+            {!porEspecialidade && <div className="grid gap-4 sm:grid-cols-2">
               <Card className="p-4 space-y-2">
                 <label className="flex items-center gap-3 font-medium">
                   <Switch checked={formData.usarMargemItem} onCheckedChange={alternarMargemItem} />
@@ -1731,7 +2044,99 @@ export function OrcamentoEditor({
                   />
                 )}
               </Card>
-            </div>
+            </div>}
+
+            {/* Custos indiretos: estaleiro, seguros, licenciamento */}
+            <Card className="p-4 space-y-3">
+              <div>
+                <div className="font-medium">Custos indiretos da obra</div>
+                <p className="text-xs text-muted-foreground">
+                  Entram no custo e vendem-se com a mesma regra dos itens
+                  {porEspecialidade ? " (estrutura + construcao civil)" : " (margem global)"}.
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {(
+                  [
+                    ["estaleiro", "Estaleiro"],
+                    ["seguros", "Seguros"],
+                    ["licenciamento", "Licenciamento"],
+                  ] as const
+                ).map(([campo, rotulo]) => (
+                  <div key={campo} className="space-y-1">
+                    <Label className="text-xs">{rotulo}</Label>
+                    <CampoNumerico
+                      min={0}
+                      sufixo="EUR"
+                      aria-label={rotulo}
+                      value={formData.custosIndiretos[campo]}
+                      onChange={(valor) =>
+                        setFormData({ ...formData, custosIndiretos: { ...formData.custosIndiretos, [campo]: valor } })
+                      }
+                      className="rounded-full"
+                    />
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            {/* Contexto fiscal: sugere a taxa de IVA */}
+            <Card className="p-4 space-y-3" data-testid="contexto-fiscal">
+              <div className="font-medium">Contexto fiscal</div>
+              <div className="grid gap-3 sm:grid-cols-4">
+                {(
+                  [
+                    ["regiao", "Regiao", Object.fromEntries(Object.entries(TAXAS_REGIAO).map(([k, v]) => [k, v.nome]))],
+                    ["tipoObra", "Tipo de obra", TIPOS_OBRA],
+                    ["tipoCliente", "Tipo de cliente", TIPOS_CLIENTE],
+                    ["tipoOperacao", "Operacao", TIPOS_OPERACAO],
+                  ] as const
+                ).map(([campo, rotulo, opcoes]) => (
+                  <div key={campo} className="space-y-1">
+                    <Label className="text-xs">{rotulo}</Label>
+                    <Select
+                      value={(formData.contextoFiscal[campo] as string | undefined) || "__nd"}
+                      onValueChange={(valor) =>
+                        setFormData({
+                          ...formData,
+                          contextoFiscal: { ...formData.contextoFiscal, [campo]: valor === "__nd" ? undefined : valor },
+                        })
+                      }
+                    >
+                      <SelectTrigger className="rounded-full" aria-label={rotulo}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {campo !== "regiao" && <SelectItem value="__nd">Nao especificado</SelectItem>}
+                        {Object.entries(opcoes).map(([valor, nome]) => (
+                          <SelectItem key={valor} value={valor}>
+                            {nome}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ))}
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-muted p-3 text-sm">
+                <div>
+                  <div className="font-medium" data-testid="sugestao-iva">
+                    Sugerido: {sugestaoIVA.regime} - {formatNumber2(sugestaoIVA.taxa)}%
+                  </div>
+                  <div className="text-xs text-muted-foreground">{sugestaoIVA.fundamento}</div>
+                  {sugestaoIVA.aviso && <div className="text-xs text-amber-700 dark:text-amber-400">{sugestaoIVA.aviso}</div>}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="rounded-full"
+                  disabled={formData.taxaIVA === sugestaoIVA.taxa}
+                  onClick={() => setFormData({ ...formData, taxaIVA: sugestaoIVA.taxa })}
+                >
+                  {formData.taxaIVA === sugestaoIVA.taxa ? "Aplicado" : "Aplicar"}
+                </Button>
+              </div>
+            </Card>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
@@ -1802,6 +2207,21 @@ export function OrcamentoEditor({
               rows={3}
             />
           </div>
+
+          <label className="flex items-start gap-3 text-sm">
+            <Switch
+              checked={formData.discriminarPDF}
+              onCheckedChange={(discriminarPDF) => setFormData({ ...formData, discriminarPDF })}
+              aria-label="Discriminar material e mao de obra no PDF"
+            />
+            <span>
+              <span className="font-medium">Discriminar material e mao de obra no PDF</span>
+              <span className="block text-xs text-muted-foreground">
+                Por baixo de cada item sai quanto e material e quanto e mao de obra, pela composicao. Util quando o cliente
+                pede o valor repartido.
+              </span>
+            </span>
+          </label>
         </TabsContent>
 
         {/* --------------------------------------------------------- Resumo */}
@@ -1820,10 +2240,16 @@ export function OrcamentoEditor({
                     <span>Subtotal:</span>
                     <span>{formatCurrency(subtotalAtual)}</span>
                   </div>
-                  {formData.usarMargemGlobal && (
+                  {indiretosCusto > 0 && (
+                    <div className="flex justify-between">
+                      <span>Custos indiretos (estaleiro, seguros...):</span>
+                      <span>{formatCurrency(indiretosVenda)}</span>
+                    </div>
+                  )}
+                  {!porEspecialidade && formData.usarMargemGlobal && (
                     <div className="flex justify-between">
                       <span>Margem global ({formatNumber2(margemGlobalAtual)}%):</span>
-                      <span>{formatCurrency(round2((subtotalAtual * margemGlobalAtual) / 100))}</span>
+                      <span>{formatCurrency(round2(((subtotalAtual + indiretosVenda) * margemGlobalAtual) / 100))}</span>
                     </div>
                   )}
                   <div className="flex justify-between">
@@ -1853,6 +2279,12 @@ export function OrcamentoEditor({
                       <span>Custo dos itens:</span>
                       <span>{formatCurrency(subtotalCustoAtual)}</span>
                     </div>
+                    {indiretosCusto > 0 && (
+                      <div className="flex justify-between">
+                        <span>Custos indiretos:</span>
+                        <span>{formatCurrency(indiretosCusto)}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between">
                       <span>Transporte:</span>
                       <span>{formatCurrency(transporteAtual)}</span>
@@ -1861,17 +2293,28 @@ export function OrcamentoEditor({
                       <span>Total de custo:</span>
                       <span>{formatCurrency(valorTotalCustoAtual)}</span>
                     </div>
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>Margem dos itens{formData.usarMargemItem ? "" : " (desligada)"}:</span>
-                      <span>{formatCurrency(margemItensAtual)}</span>
-                    </div>
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>Margem global{formData.usarMargemGlobal ? "" : " (desligada)"}:</span>
-                      <span>{formatCurrency(round2((subtotalAtual * margemGlobalAtual) / 100))}</span>
-                    </div>
+                    {porEspecialidade ? (
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Estrutura + margens das especialidades:</span>
+                        <span>{formatCurrency(round2(margemItensAtual + indiretosVenda - indiretosCusto))}</span>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex justify-between text-muted-foreground">
+                          <span>Margem dos itens{formData.usarMargemItem ? "" : " (desligada)"}:</span>
+                          <span>{formatCurrency(margemItensAtual)}</span>
+                        </div>
+                        <div className="flex justify-between text-muted-foreground">
+                          <span>Margem global{formData.usarMargemGlobal ? "" : " (desligada)"}:</span>
+                          <span>{formatCurrency(round2(((subtotalAtual + indiretosVenda) * margemGlobalAtual) / 100))}</span>
+                        </div>
+                      </>
+                    )}
                     <div className="flex justify-between text-primary font-medium">
                       <span>Lucro previsto:</span>
-                      <span>{formatCurrency(lucroPrevisto)}</span>
+                      <span data-testid="resumo-lucro">
+                        {formatCurrency(lucroPrevisto)} ({formatNumber2(margemVendaAtual)}% da venda)
+                      </span>
                     </div>
                     <p className="text-xs text-muted-foreground pt-1">
                       Lucro = base tributavel ({formatCurrency(baseTributavelAtual)}) - custo, sem o IVA.
@@ -2013,13 +2456,7 @@ export function OrcamentoEditor({
  */
 function estadoInicial(
   orcamento: Orcamento | null,
-  configuracao: {
-    margemPadrao?: number
-    taxaIVAPadrao?: number
-    validadeDiasPadrao?: number
-    margemItemPadraoAtiva?: boolean
-    margemGlobalPadraoAtiva?: boolean
-  },
+  configuracao: Partial<ConfiguracaoEmpresa>,
 ): OrcamentoFormState {
   const hoje = new Date()
 
@@ -2038,6 +2475,12 @@ function estadoInicial(
       margemLucro: configuracao.margemPadrao ?? 20,
       usarMargemItem: configuracao.margemItemPadraoAtiva ?? true,
       usarMargemGlobal: configuracao.margemGlobalPadraoAtiva ?? true,
+      // Propostas novas seguem a folha de obra: custo x estrutura x especialidade
+      modoPreco: "especialidade",
+      dimensoesAmbientes: {},
+      custosIndiretos: { estaleiro: 0, seguros: 0, licenciamento: 0 },
+      contextoFiscal: { regiao: "continente" },
+      discriminarPDF: false,
       transporte: 0,
       taxaIVA: configuracao.taxaIVAPadrao ?? 23,
       observacoes: "",
@@ -2068,6 +2511,12 @@ function estadoInicial(
     // Propostas de antes dos interruptores tinham as duas margens a funcionar
     usarMargemItem: orcamento.usarMargemItem ?? true,
     usarMargemGlobal: orcamento.usarMargemGlobal ?? true,
+    // Propostas gravadas antes do modelo por especialidade ficam como estavam
+    modoPreco: orcamento.modoPreco ?? "margens",
+    dimensoesAmbientes: orcamento.dimensoesAmbientes || {},
+    custosIndiretos: orcamento.custosIndiretos || { estaleiro: 0, seguros: 0, licenciamento: 0 },
+    contextoFiscal: orcamento.contextoFiscal || { regiao: "continente" },
+    discriminarPDF: !!orcamento.discriminarPDF,
     transporte: round2(orcamento.transporte || 0),
     taxaIVA: round2(orcamento.taxaIVA ?? 0),
     observacoes: orcamento.observacoes || "",

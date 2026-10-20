@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { IdentidadeDaEmpresa } from "@/components/configuracoes/identidade-da-empresa"
 import { TermosECondicoes } from "@/components/configuracoes/termos-e-condicoes"
 import { GruposImpostos } from "@/components/configuracoes/grupos-impostos"
+import { PrecosMargens } from "@/components/configuracoes/precos-margens"
 
 export default function ConfiguracoesPage() {
   // A aba inicial pode vir da URL (?aba=termos), usada pelo redirecionamento antigo
@@ -23,7 +24,7 @@ export default function ConfiguracoesPage() {
   useEffect(() => {
     if (typeof window === "undefined") return
     const aba = new URLSearchParams(window.location.search).get("aba")
-    if (aba === "termos" || aba === "conta" || aba === "impostos") setAbaInicial(aba)
+    if (aba === "termos" || aba === "conta" || aba === "impostos" || aba === "precos") setAbaInicial(aba)
   }, [])
 
   const { user, updateUserEmail, updateUserPassword } = useAuth()
@@ -108,8 +109,9 @@ export default function ConfiguracoesPage() {
 
       {/* Controlado: com defaultValue a aba vinda da URL chegava tarde e era ignorada */}
       <Tabs value={abaInicial} onValueChange={setAbaInicial} className="w-full">
-        <TabsList className="grid w-full max-w-3xl grid-cols-2 sm:grid-cols-4 h-auto">
+        <TabsList className="grid w-full max-w-4xl grid-cols-2 sm:grid-cols-5 h-auto">
           <TabsTrigger value="identidade">Identidade e propostas</TabsTrigger>
+          <TabsTrigger value="precos">Precos</TabsTrigger>
           <TabsTrigger value="impostos">Impostos</TabsTrigger>
           <TabsTrigger value="termos">Termos e condições</TabsTrigger>
           <TabsTrigger value="conta">Minha conta</TabsTrigger>
@@ -117,6 +119,10 @@ export default function ConfiguracoesPage() {
 
         <TabsContent value="identidade" className="mt-6">
           <IdentidadeDaEmpresa />
+        </TabsContent>
+
+        <TabsContent value="precos" className="mt-6">
+          <PrecosMargens />
         </TabsContent>
 
         <TabsContent value="impostos" className="mt-6">

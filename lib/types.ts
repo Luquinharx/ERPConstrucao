@@ -19,6 +19,54 @@ export interface UtilizadorSistema {
 }
 
 
+/** Especialidade com margem propria, como as colunas da folha de obra. */
+export interface Especialidade {
+  id: string
+  nome: string
+  /** Margem sobre o custo (%), somada a estrutura. */
+  margem: number
+}
+
+/** Quantidades de um comodo calculadas a partir das dimensoes. */
+export type TipoMedicao = "pavimento" | "teto" | "paredes" | "perimetro"
+
+export interface DimensoesAmbiente {
+  comprimento: number
+  largura: number
+  altura: number
+  /** Area de portas e janelas a descontar das paredes (m2). */
+  aberturas: number
+}
+
+/** Custo unitario repartido, para o PDF discriminado e para o IVA. */
+export interface DecomposicaoCusto {
+  mao_obra: number
+  materiais: number
+  outros: number
+}
+
+/** Material previsto por unidade do item (da composicao), para a lista de compras. */
+export interface MaterialPrevisto {
+  materialId: string
+  nome: string
+  unidade: string
+  /** Quantidade de material por unidade do item. */
+  porUnidade: number
+}
+
+export interface ContextoFiscal {
+  regiao: "continente" | "madeira" | "acores"
+  tipoObra?: "construcao_nova" | "reabilitacao_aru" | "remodelacao_habitacao" | "manutencao" | "obra_publica"
+  tipoCliente?: "particular" | "empresa" | "construtor" | "publica"
+  tipoOperacao?: "empreitada" | "subempreitada" | "servicos" | "materiais"
+}
+
+export interface CustosIndiretos {
+  estaleiro: number
+  seguros: number
+  licenciamento: number
+}
+
 /** Identidade visual e dados da empresa, editaveis em Configuracoes. */
 export interface ConfiguracaoEmpresa {
   id?: string
@@ -59,6 +107,12 @@ export interface ConfiguracaoEmpresa {
   validadeDiasPadrao?: number
   margemPadrao?: number
   taxaIVAPadrao?: number
+  /** Custos de estrutura (%) sobre o custo direto - o "FI Estrutura" da folha. */
+  estruturaPercent?: number
+  /** Especialidades e as suas margens. */
+  especialidades?: Especialidade[]
+  /** Custo fixo da empresa por hora de mao de obra registada. */
+  custoFixoHora?: number
   /** Grupos de impostos que os produtos escolhem. */
   gruposImpostos?: GrupoImpostos[]
   /** Propostas novas nascem com a margem por item ligada? (padrao: sim) */
@@ -253,6 +307,14 @@ export interface Material {
   /** Preco de venda ao cliente por unidade, sem IVA de venda. */
   precoVenda?: number
 
+  /** Unidade em que se compra (rolo, saco, lata...). */
+  unidadeCompra?: string
+  /** Quantas unidades tecnicas traz cada embalagem (ex.: rolo de 90 m2). */
+  qtdPorEmbalagem?: number
+  /** Codigo de barras de fabrica (EAN), para a leitura com a camera. */
+  codigoBarras?: string
+  /** Consumivel gasta-se; equipamento sai para a obra e volta. */
+  tipoItem?: "consumivel" | "equipamento"
   /** Com o controlo ligado, o produto entra nas entradas e saidas de estoque. */
   controlaEstoque?: boolean
   /** Saldo atual. So muda por movimentos de estoque, nunca a mao no cadastro. */
@@ -293,6 +355,8 @@ export interface MovimentoEstoque {
   data: string
   documento?: string
   fornecedor?: string
+  /** Material que voltou da obra ao armazem: tira ao custo da obra. */
+  devolucao?: boolean
   /** Obra para onde o material saiu. */
   orcamentoId?: string
   orcamentoNumero?: string
@@ -354,6 +418,8 @@ export interface ServicoComposicaoItem {
   materialId?: string
   /** Preenchido quando a linha de mao de obra vem de um funcionario. */
   funcionarioId?: string
+  /** Linha de mao de obra pela funcao (custo medio da equipa). */
+  funcaoId?: string
   nome: string
   descricao?: string
   unidade: string
@@ -386,6 +452,10 @@ export interface Servico {
   unidade: string
   categoriaId?: string
   categoriaNome?: string
+  /** Especialidade da margem (Construcao civil, Aguas...). */
+  especialidadeId?: string
+  /** Medicao do comodo que da a quantidade (ex.: pintura de teto -> teto). */
+  medicaoPadrao?: TipoMedicao
   maoDeObra?: number
   consumiveis?: number
   listaConsumiveis?: ServicoComposicaoItem[]
@@ -456,6 +526,14 @@ export interface ItemOrcamento {
   /** Funcao de mao de obra que da o preco ao cliente. */
   funcaoId?: string
   materialId?: string
+  /** Especialidade que da a margem (modo por especialidade). */
+  especialidadeId?: string
+  /** Quantidade ligada a uma medicao do comodo: muda quando mudam as dimensoes. */
+  medicao?: TipoMedicao
+  /** Custo unitario repartido por mao de obra, materiais e outros. */
+  decomposicao?: DecomposicaoCusto
+  /** Materiais da composicao, por unidade do item. */
+  materiaisPrevistos?: MaterialPrevisto[]
 }
 
 /** Grupos da folha de custos reais da obra (ver lib/custos-obra.ts). */
@@ -552,6 +630,18 @@ export interface Orcamento {
   usarMargemItem?: boolean
   /** Margem global sobre o subtotal. Ausente (propostas antigas) = ligada. */
   usarMargemGlobal?: boolean
+  /**
+   * Modelo de preco: "especialidade" (custo x estrutura x margem da
+   * especialidade, como a folha de obra) ou "margens" (margem por item +
+   * global). Ausente = "margens", para nao mexer em propostas antigas.
+   */
+  modoPreco?: "especialidade" | "margens"
+  /** Dimensoes de cada comodo, por nome. */
+  dimensoesAmbientes?: Record<string, DimensoesAmbiente>
+  custosIndiretos?: CustosIndiretos
+  contextoFiscal?: ContextoFiscal
+  /** No PDF de venda, mostrar material e mao de obra de cada item. */
+  discriminarPDF?: boolean
   /** Base tributavel: subtotal + margem + transporte, antes do IVA. */
   baseTributavel?: number
   /** Taxa de IVA aplicada (%). Orcamentos antigos sem este campo valem 0. */
@@ -583,6 +673,7 @@ export interface Orcamento {
    * e o que permite comparar a margem prevista com a margem que de facto houve.
    */
   custosObra?: LinhaCustoObra[]
+  adjudicacao?: Adjudicacao
   /** Custos reais da obra (mao de obra, terceiros, aluguer...). Material vem do estoque. */
   lancamentosObra?: LancamentoObra[]
   localidade?: string
@@ -609,4 +700,193 @@ export interface DashboardStats {
   receitaTotal: number
   clientesAtivos: number
   taxaConversao: number
+}
+
+// ============================================================
+// OBRA: adjudicacao, financeiro, autos, horas, faturas, diario
+// ============================================================
+
+/** Dados da adjudicacao, gravados na proposta quando o cliente aceita. */
+export interface Adjudicacao {
+  /** ISO yyyy-mm-dd. */
+  data: string
+  /** Valor adjudicado com IVA. */
+  valor: number
+  /** Sinal ja recebido, com IVA. */
+  sinal: number
+  /** Como se fatura o resto: parcelas agendadas ou por autos de medicao. */
+  plano: "parcelas" | "autos"
+  utilizador: string
+}
+
+export type TipoConta = "receber" | "pagar"
+export type EstadoConta = "pendente" | "pago"
+
+/** Conta a receber ou a pagar. E daqui que sai o fluxo de caixa. */
+export interface Conta {
+  id?: string
+  tipo: TipoConta
+  descricao: string
+  /** Valor com IVA. */
+  valor: number
+  /** ISO yyyy-mm-dd. */
+  vencimento: string
+  estado: EstadoConta
+  dataPagamento?: string
+  orcamentoId?: string
+  orcamentoNumero?: string
+  /** Cliente (a receber) ou fornecedor (a pagar). */
+  entidade?: string
+  origem: "adjudicacao" | "auto" | "fatura" | "manual"
+  origemId?: string
+  userId: string
+  createdAt: Date
+}
+
+/** Linha de um auto de medicao: o que se executou de um item do orcamento. */
+export interface LinhaAuto {
+  itemId: string
+  nome: string
+  unidade: string
+  quantidadeContratual: number
+  /** Preco unitario contratual sem IVA (ja com margem e transporte diluidos). */
+  precoUnitario: number
+  /** Valor contratual do item inteiro, sem arredondar ao unitario: medir metade da metade certa. */
+  totalContratual?: number
+  /** Medido em autos anteriores. */
+  quantidadeAnterior: number
+  /** Medido neste auto. */
+  quantidade: number
+}
+
+/** Auto de medicao: certifica o executado no periodo, a preco contratual. */
+export interface AutoMedicao {
+  id?: string
+  orcamentoId: string
+  orcamentoNumero: string
+  numero: number
+  /** ISO yyyy-mm-dd. */
+  data: string
+  linhas: LinhaAuto[]
+  /** Valor do auto sem IVA. */
+  valor: number
+  taxaIVA: number
+  estado: "rascunho" | "aprovado"
+  /** Conta a receber criada ao aprovar. */
+  contaId?: string
+  observacoes?: string
+  userId: string
+  createdAt: Date
+}
+
+/** Horas de um trabalhador numa obra, num dia. So contam depois de aprovadas. */
+export interface RegistoHoras {
+  id?: string
+  funcionarioId: string
+  funcionarioNome: string
+  orcamentoId: string
+  orcamentoNumero: string
+  /** ISO yyyy-mm-dd. */
+  data: string
+  horas: number
+  /** Custo/hora do trabalhador no momento do registo. */
+  custoHora: number
+  /** Custo fixo/hora da empresa no momento do registo. */
+  custoFixoHora: number
+  estado: "pendente" | "aprovado"
+  aprovadoPor?: string
+  observacoes?: string
+  userId: string
+  createdAt: Date
+}
+
+/** Fatura de fornecedor. So entra no custo da obra e no financeiro depois de aprovada. */
+export interface FaturaFornecedor {
+  id?: string
+  fornecedor: string
+  numero: string
+  /** ISO yyyy-mm-dd. */
+  data: string
+  vencimento: string
+  orcamentoId?: string
+  orcamentoNumero?: string
+  /** Bloco do apuramento onde o custo entra. */
+  tipo: TipoLancamentoObra
+  descricao: string
+  valorSemIVA: number
+  taxaIVA: number
+  estado: "pendente" | "aprovada" | "rejeitada"
+  aprovadoPor?: string
+  contaId?: string
+  userId: string
+  createdAt: Date
+}
+
+/** Relatorio diario de obra (RDO). */
+export interface RelatorioDiario {
+  id?: string
+  orcamentoId: string
+  orcamentoNumero: string
+  /** ISO yyyy-mm-dd. */
+  data: string
+  meteorologia: string
+  trabalhos: string
+  /** Quem esteve na obra e quantas horas: ao submeter gera registos de horas. */
+  equipa: Array<{ funcionarioId: string; nome: string; horas: number }>
+  ocorrencias?: string
+  bloqueios?: string
+  estado: "rascunho" | "submetido"
+  userId: string
+  createdAt: Date
+}
+
+/** Ficha de garantia de uma obra entregue. */
+export interface Garantia {
+  id?: string
+  orcamentoId: string
+  orcamentoNumero: string
+  clienteNome: string
+  /** ISO yyyy-mm-dd. */
+  dataEntrega: string
+  /** Anos de garantia (obras de construcao: 5 anos para defeitos estruturais em PT). */
+  anos: number
+  ocorrencias: Array<{ id: string; data: string; descricao: string; resolvida: boolean }>
+  observacoes?: string
+  userId: string
+  createdAt: Date
+}
+
+/** Pedido de cotacao a varios fornecedores, com as respostas lado a lado. */
+export interface Cotacao {
+  id?: string
+  titulo: string
+  orcamentoId?: string
+  orcamentoNumero?: string
+  itens: Array<{ id: string; descricao: string; unidade: string; quantidade: number }>
+  fornecedores: Array<{ id: string; nome: string; contacto?: string; precos: Record<string, number>; prazoDias?: number }>
+  /** Fornecedor escolhido. */
+  adjudicadoA?: string
+  estado: "aberta" | "adjudicada"
+  userId: string
+  createdAt: Date
+}
+
+/** Resumo publico de uma obra para o portal do cliente (so leitura, por link). */
+export interface PortalCliente {
+  id?: string
+  orcamentoId: string
+  clienteNome: string
+  obraNumero: string
+  /** Fotografia dos dados no momento da publicacao. */
+  resumo: {
+    valorAdjudicado: number
+    recebido: number
+    porReceber: number
+    medidoPercent: number
+    proximasParcelas: Array<{ descricao: string; valor: number; vencimento: string }>
+    autos: Array<{ numero: number; data: string; valor: number }>
+    diario: Array<{ data: string; trabalhos: string }>
+  }
+  atualizadoEm: string
+  ativo: boolean
 }

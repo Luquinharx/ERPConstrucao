@@ -25,8 +25,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Plus, Edit, Trash2, Search, X, Minus } from "lucide-react"
-import { FirebaseService } from "@/lib/firebase-service"
-import type { Servico, Material, Funcionario, ServicoComposicaoItem, ServicoGrupoComposicao } from "@/lib/types"
+import { FirebaseService, getFuncoes } from "@/lib/firebase-service"
+import type {
+  Servico,
+  Material,
+  Funcionario,
+  FuncaoMaoObra,
+  ServicoComposicaoItem,
+  ServicoGrupoComposicao,
+  TipoMedicao,
+} from "@/lib/types"
+import { useConfiguracao } from "@/hooks/use-configuracao"
+import { recalcularComposicao } from "@/lib/composicao-catalogo"
+import { MEDICOES, especialidadesDe } from "@/lib/precificacao"
+import { custoMedioFuncao } from "@/lib/produto-calculos"
 import {
   GRUPOS_COMPOSICAO,
   calcularPrecoUnitario,
@@ -53,6 +65,9 @@ interface ServicoFormState {
   quantidadeReferencia: number
   composicao: ServicoComposicaoItem[]
   observacoes: string
+  especialidadeId: string
+  /** "" = quantidade manual no orcamento. */
+  medicaoPadrao: string
 }
 
 const UNIDADES_MEDIDA = ["m2", "m", "unidade", "hora", "dia", "projeto", "litro", "kg"]
@@ -68,6 +83,8 @@ function getDefaultFormData(): ServicoFormState {
     quantidadeReferencia: 10,
     composicao: [],
     observacoes: "",
+    especialidadeId: "civil",
+    medicaoPadrao: "",
   }
 }
 
@@ -100,6 +117,9 @@ export default function ServicosPage() {
   const [activeTab, setActiveTab] = useState("sobre")
 
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([])
+  const [funcoes, setFuncoes] = useState<FuncaoMaoObra[]>([])
+  const { configuracao } = useConfiguracao()
+  const catalogo = { materiais, funcionarios, funcoes, grupos: configuracao.gruposImpostos || [] }
 
   const totais = useMemo(() => calcularTotaisComposicao(formData.composicao), [formData.composicao])
   const precoUnitario = useMemo(
@@ -112,6 +132,9 @@ export default function ServicosPage() {
       loadServicos()
       loadMateriais()
       loadFuncionarios()
+      getFuncoes()
+        .then((lista) => setFuncoes(lista.filter((f) => f.ativo !== false)))
+        .catch(() => setFuncoes([]))
     }
   }, [user])
 
@@ -177,10 +200,25 @@ export default function ServicosPage() {
    * venda aqui faria a margem ser cobrada duas vezes sobre a mao de obra.
    */
   const aplicarFuncionario = (id: string, funcionarioId: string) => {
+    // "funcao:<id>": a linha fica ligada a funcao e usa o custo medio da equipa
+    if (funcionarioId.startsWith("funcao:")) {
+      const funcao = funcoes.find((item) => item.id === funcionarioId.slice(7))
+      if (!funcao) return
+      atualizarLinha(id, {
+        funcaoId: funcao.id,
+        funcionarioId: "",
+        materialId: "",
+        nome: funcao.nome,
+        unidade: "h",
+        precoUnitario: custoMedioFuncao(funcao, funcionarios),
+      })
+      return
+    }
     const funcionario = funcionarios.find((item) => item.id === funcionarioId)
     if (!funcionario) return
     atualizarLinha(id, {
       funcionarioId,
+      funcaoId: "",
       materialId: "",
       nome: funcionario.funcao || funcionario.nome,
       unidade: "h",
@@ -242,6 +280,8 @@ export default function ServicosPage() {
         unidade: formData.unidade,
         categoriaId: formData.categoriaId,
         categoriaNome: categoriaNomeFinal,
+        especialidadeId: formData.especialidadeId || "civil",
+        medicaoPadrao: (formData.medicaoPadrao || undefined) as TipoMedicao | undefined,
         quantidadeReferencia,
         composicao: composicaoLimpa,
         totalComposicao: totaisFinais.total,
@@ -297,6 +337,8 @@ export default function ServicosPage() {
       quantidadeReferencia,
       composicao,
       observacoes: servico.observacoes || "",
+      especialidadeId: servico.especialidadeId || "civil",
+      medicaoPadrao: servico.medicaoPadrao || "",
     })
     setActiveTab("sobre")
     setIsDialogOpen(true)
@@ -440,6 +482,46 @@ export default function ServicosPage() {
                       )}
                     </div>
 
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Especialidade (margem)</Label>
+                        <Select
+                          value={formData.especialidadeId}
+                          onValueChange={(especialidadeId) => setFormData({ ...formData, especialidadeId })}
+                        >
+                          <SelectTrigger aria-label="Especialidade">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {especialidadesDe(configuracao).map((e) => (
+                              <SelectItem key={e.id} value={e.id}>
+                                {e.nome}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Quantidade no orcamento</Label>
+                        <Select
+                          value={formData.medicaoPadrao || "__manual"}
+                          onValueChange={(v) => setFormData({ ...formData, medicaoPadrao: v === "__manual" ? "" : v })}
+                        >
+                          <SelectTrigger aria-label="Medicao padrao">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__manual">Escrita a mao</SelectItem>
+                            {(Object.keys(MEDICOES) as TipoMedicao[]).map((m) => (
+                              <SelectItem key={m} value={m}>
+                                {MEDICOES[m].nome} do comodo
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
                     <div className="space-y-2">
                       <Label htmlFor="descricao">Descricao</Label>
                       <Textarea
@@ -453,6 +535,30 @@ export default function ServicosPage() {
                   </TabsContent>
                   
                   <TabsContent value="composicao" className="space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-dashed p-3 text-sm">
+                      <span className="text-muted-foreground">
+                        Linhas ligadas a um produto, funcionario ou funcao vao buscar o custo ao catalogo. No orcamento usa-se
+                        sempre o preco atual.
+                      </span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="rounded-full"
+                        onClick={() => {
+                          const atualizada = recalcularComposicao(formData.composicao, catalogo)
+                          const mudaram = atualizada.filter(
+                            (l, i) => l.precoUnitario !== formData.composicao[i].precoUnitario,
+                          ).length
+                          setFormData({ ...formData, composicao: atualizada })
+                          toast({
+                            title: mudaram ? `${mudaram} linha(s) atualizada(s)` : "Precos ja estavam atualizados",
+                          })
+                        }}
+                      >
+                        Atualizar precos do catalogo
+                      </Button>
+                    </div>
                     <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
@@ -547,18 +653,25 @@ export default function ServicosPage() {
                                           {grupo.id === "mao_obra" ? (
                                             <SeletorComBusca
                                               compacto
-                                              valor={linha.funcionarioId || ""}
+                                              valor={linha.funcaoId ? `funcao:${linha.funcaoId}` : linha.funcionarioId || ""}
                                               onChange={(value) => aplicarFuncionario(linha.id, value)}
-                                              placeholder="Puxar de um funcionario..."
-                                              placeholderBusca="Procurar funcionario..."
+                                              placeholder="Puxar de uma funcao ou funcionario..."
+                                              placeholderBusca="Procurar funcao ou funcionario..."
                                               vazio="Nenhum funcionario encontrado."
-                                              opcoes={funcionarios.map((funcionario) => ({
+                                              opcoes={[
+                                                ...funcoes.map((funcao) => ({
+                                                  valor: `funcao:${funcao.id}`,
+                                                  rotulo: `Funcao: ${funcao.nome}`,
+                                                  detalhe: `custo medio ${formatCurrency(custoMedioFuncao(funcao, funcionarios))}/h`,
+                                                })),
+                                                ...funcionarios.map((funcionario) => ({
                                                 valor: funcionario.id!,
                                                 rotulo: funcionario.nome,
                                                 detalhe: `${funcionario.funcao} - custo ${formatCurrency(
                                                   funcionario.custoHoraCalculado ?? funcionario.custoHora ?? 0,
                                                 )}/h`,
-                                              }))}
+                                              })),
+                                              ]}
                                             />
                                           ) : (
                                             <SeletorComBusca

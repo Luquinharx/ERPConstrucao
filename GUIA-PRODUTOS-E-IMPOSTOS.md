@@ -59,3 +59,17 @@ O IVA cobrado ao cliente continua a ser somado no fim do orçamento, como antes.
 - **Serviços de terceiros e outros custos**: subempreitadas, aluguer, transporte, vazadouro… sempre sem IVA.
 - No topo aparecem a venda, o custo previsto, o custo real e o **lucro real**, e a tabela "Por bloco" mostra onde se gastou mais do que o previsto (a vermelho).
 - Clique em **Gravar apuramento** para guardar os lançamentos. Os movimentos de estoque ficam gravados logo.
+
+## 7. Orçamento como a folha de obra
+- **Configurações › Preços**: estrutura (ex.: 15%) e a margem de cada especialidade (Construção civil, Águas, Gás, Eletricidade, AVAC, SCIE). Preço = custo × (1 + estrutura + margem da especialidade).
+- **Itens › Cómodos**: escolha o cómodo e indique as dimensões. Os serviços com medição (teto, pavimento, paredes, perímetro) recebem a quantidade sozinhos e acompanham as mudanças de dimensões.
+- **Serviços**: a composição puxa o custo de hoje dos produtos, dos funcionários ou da função. Em cada serviço escolhe-se a especialidade e a medição.
+- **Aba Preço**: modelo (por especialidade ou por margens), custos indiretos, contexto fiscal com o IVA sugerido e a opção de PDF com material e mão de obra discriminados.
+
+## 8. Da adjudicação ao fecho
+- **Orçamentos › mudar fase › Aceite**: valor, sinal e plano (parcelas ou autos). Passa a obra e cria as contas a receber.
+- **Obras**: cada obra tem Apuramento, Autos, Diário, Pagamentos, Garantia e Portal.
+- **Livro de ponto** e **Faturas**: registam-se e aprovam-se. Só o que está aprovado entra no custo da obra.
+- **Estoque › Bipar**: no telemóvel (é preciso HTTPS), escolha a obra e leia o QR ou o EAN. "Sai para a obra" ou "Volta da obra". **Estoque › Etiquetas** imprime os QR.
+- **Financeiro**: a receber, a pagar e alertas de vencimento (também no Dashboard).
+- **Cotações**: o mesmo pedido a vários fornecedores, com o mais barato destacado.

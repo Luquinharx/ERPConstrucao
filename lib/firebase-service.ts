@@ -17,6 +17,7 @@ import {
   DocumentSnapshot,
   runTransaction,
   where,
+  writeBatch,
 } from "firebase/firestore"
 import { db } from "./firebase"
 import { normalizarFase } from "./orcamento-fases"
@@ -55,6 +56,7 @@ import type {
   FuncaoMaoObra,
   GrupoImpostos,
   MovimentoEstoque,
+  Conta,
 } from "./types"
 
 // Função para gerar número único
@@ -1244,4 +1246,123 @@ export async function apagarUtilizador(uid: string): Promise<void> {
 export async function contarUtilizadores(): Promise<number> {
   const snap = await getCountFromServer(collection(db, "utilizadores"))
   return snap.data().count
+}
+
+// ============================================================
+// CRUD GENERICO (modulos da obra: contas, autos, horas, faturas...)
+// ============================================================
+
+/**
+ * Os modulos da obra sao todos registos simples numa colecao. Em vez de quatro
+ * funcoes por modulo, estas servem a todos: createdAt passa de Timestamp a
+ * Date na leitura, e o resto vai como esta (datas de negocio sao texto ISO).
+ */
+function lerDoc<T>(id: string, data: Record<string, any>): T {
+  return {
+    id,
+    ...data,
+    createdAt: data.createdAt?.toDate?.() || new Date(),
+    ...(data.updatedAt ? { updatedAt: data.updatedAt?.toDate?.() || new Date() } : {}),
+  } as T
+}
+
+export async function listar<T>(colecao: string, filtro?: [string, unknown]): Promise<T[]> {
+  const q = filtro ? query(collection(db, colecao), where(filtro[0], "==", filtro[1])) : query(collection(db, colecao))
+  const snap = await getDocs(q)
+  return snap.docs.map((d) => lerDoc<T>(d.id, d.data()))
+}
+
+export async function criar(colecao: string, dados: Record<string, unknown>): Promise<string> {
+  const ref = await addDoc(collection(db, colecao), { ...dados, createdAt: Timestamp.now() })
+  return ref.id
+}
+
+export async function atualizar(colecao: string, id: string, dados: Record<string, unknown>): Promise<void> {
+  await updateDoc(doc(db, colecao, id), { ...dados, updatedAt: Timestamp.now() })
+}
+
+export async function apagar(colecao: string, id: string): Promise<void> {
+  await deleteDoc(doc(db, colecao, id))
+}
+
+/**
+ * Adjudica uma proposta: muda a fase, guarda os dados e cria as contas a
+ * receber, tudo na mesma escrita. Se uma falhar, nenhuma fica gravada - nao ha
+ * proposta adjudicada sem parcelas, nem parcelas de uma proposta por adjudicar.
+ */
+export async function gravarAdjudicacao(
+  orcamentoId: string,
+  alteracoes: Partial<Orcamento>,
+  contas: Array<Omit<Conta, "id" | "createdAt">>,
+): Promise<void> {
+  const lote = writeBatch(db)
+  lote.update(doc(db, "orcamentos", orcamentoId), { ...alteracoes, updatedAt: Timestamp.now() })
+  for (const conta of contas) lote.set(doc(collection(db, "contas")), { ...conta, createdAt: Timestamp.now() })
+  await lote.commit()
+}
+
+/** Cria um registo e uma conta ligada, juntos (aprovar auto/fatura). */
+export async function aprovarComConta(
+  colecao: string,
+  id: string,
+  alteracoes: Record<string, unknown>,
+  conta: Omit<Conta, "id" | "createdAt">,
+): Promise<string> {
+  const lote = writeBatch(db)
+  const contaRef = doc(collection(db, "contas"))
+  lote.set(contaRef, { ...conta, origemId: id, createdAt: Timestamp.now() })
+  lote.update(doc(db, colecao, id), { ...alteracoes, contaId: contaRef.id, updatedAt: Timestamp.now() })
+  await lote.commit()
+  return contaRef.id
+}
+
+/**
+ * Devolucao de material da obra ao armazem: entra no estoque ao custo medio
+ * (nao mexe no medio) e fica ligada a obra, para lhe tirar esse custo.
+ */
+export async function registarDevolucao(
+  dados: { materialId: string; quantidade: number; orcamentoId: string; orcamentoNumero: string; data: string; userId: string; observacoes?: string },
+  grupos: GrupoImpostos[] = [],
+): Promise<string> {
+  const snap = await getDoc(doc(db, "materiais", dados.materialId))
+  if (!snap.exists()) throw new Error("Produto nao encontrado.")
+  const produto = { id: snap.id, ...snap.data() } as Material
+  const medio = Number(produto.custoMedio) || custoDoProduto(produto, grupos)
+  return registarMovimentoEstoque(
+    { ...dados, tipo: "entrada", custoUnitario: medio, devolucao: true },
+    { grupos },
+  )
+}
+
+/** Grava um documento com id escolhido (ex.: o token do portal do cliente). */
+export async function definir(colecao: string, id: string, dados: Record<string, unknown>): Promise<void> {
+  await setDoc(doc(db, colecao, id), dados)
+}
+
+/** Le um documento pelo id; null se nao existir. Serve o portal publico. */
+export async function lerUm<T>(colecao: string, id: string): Promise<T | null> {
+  const snap = await getDoc(doc(db, colecao, id))
+  return snap.exists() ? ({ id: snap.id, ...snap.data() } as T) : null
+}
+
+/**
+ * Apaga os dados de obra que pertencem a uma proposta: autos, diario, horas,
+ * garantia, portal e as contas que ela gerou (adjudicacao e autos).
+ *
+ * Ficam de fora as faturas de fornecedor e as contas a pagar delas (dividas
+ * reais a fornecedores) e os movimentos de estoque (historico do armazem).
+ * Cada colecao apaga-se a parte: sem permissao numa, as outras seguem.
+ */
+export async function apagarDadosDaObra(orcamentoId: string): Promise<void> {
+  const colecoes = ["autosMedicao", "rdos", "registosHoras", "garantias", "portal"]
+  await Promise.allSettled([
+    ...colecoes.map(async (colecao) => {
+      const snap = await getDocs(query(collection(db, colecao), where("orcamentoId", "==", orcamentoId)))
+      await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)))
+    }),
+    (async () => {
+      const snap = await getDocs(query(collection(db, "contas"), where("orcamentoId", "==", orcamentoId)))
+      await Promise.all(snap.docs.filter((d) => d.data().origem !== "fatura").map((d) => deleteDoc(d.ref)))
+    })(),
+  ])
 }

@@ -120,6 +120,60 @@ service cloud.firestore {
         || pode('orcamentos.custosObra');
     }
 
+    // ---------------------------------------------------------- Obra
+
+    // Contas a receber e a pagar: custo e margem sao informacao interna
+    match /contas/{docId} {
+      allow read: if pode('orcamentos.verCusto');
+      allow write: if pode('orcamentos.custosObra') || pode('orcamentos.aprovar');
+    }
+
+    // Autos de medicao: quem lanca custos cria; aprovar e um acto de quem aprova
+    match /autosMedicao/{docId} {
+      allow read: if pode('orcamentos.ver');
+      allow create, delete: if pode('orcamentos.custosObra');
+      allow update: if pode('orcamentos.custosObra') || pode('orcamentos.aprovar');
+    }
+
+    // Livro de ponto e faturas de fornecedor: registam-se pendentes e aprovam-se
+    match /registosHoras/{docId} {
+      allow read: if pode('orcamentos.verCusto') || pode('orcamentos.custosObra');
+      allow create, delete: if pode('orcamentos.custosObra') || pode('orcamentos.aprovar');
+      allow update: if pode('orcamentos.aprovar');
+    }
+
+    match /faturasFornecedor/{docId} {
+      allow read: if pode('orcamentos.verCusto') || pode('orcamentos.custosObra');
+      allow create, delete: if pode('orcamentos.custosObra');
+      allow update: if pode('orcamentos.aprovar') || pode('orcamentos.custosObra');
+    }
+
+    // Diario de obra e garantias: quem acompanha a obra
+    match /rdos/{docId} {
+      allow read: if pode('orcamentos.ver');
+      allow write: if pode('orcamentos.custosObra');
+    }
+
+    match /garantias/{docId} {
+      allow read: if pode('orcamentos.ver');
+      allow write: if pode('orcamentos.custosObra') || pode('orcamentos.editar');
+    }
+
+    // Cotacoes a fornecedores: e compra de material
+    match /cotacoes/{docId} {
+      allow read: if pode('materiais.ver');
+      allow write: if pode('materiais.gerir');
+    }
+
+    // Portal do cliente: leitura publica de UM documento por quem tem o link
+    // (o id e um token aleatorio). Listar continua fechado, para ninguem
+    // descobrir os portais dos outros clientes.
+    match /portal/{token} {
+      allow get: if true;
+      allow list: if pode('orcamentos.ver');
+      allow write: if pode('orcamentos.editar') || pode('orcamentos.aprovar');
+    }
+
     match /termos_servico/{docId} {
       allow read: if autenticado();
       allow write: if pode('configuracoes.gerir');

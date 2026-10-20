@@ -1,5 +1,16 @@
 import { calculateItemTotal, resumoDeValores } from "@/lib/orcamento-calculos"
-import type { ItemOrcamento, LancamentoObra, MovimentoEstoque, Orcamento, TipoLancamentoObra } from "@/lib/types"
+import { embalagens } from "@/lib/composicao-catalogo"
+import { custoHoras } from "@/lib/obra"
+import type {
+  FaturaFornecedor,
+  ItemOrcamento,
+  LancamentoObra,
+  Material,
+  MovimentoEstoque,
+  Orcamento,
+  RegistoHoras,
+  TipoLancamentoObra,
+} from "@/lib/types"
 import { round2 } from "@/lib/utils"
 
 /**
@@ -78,19 +89,35 @@ const percentagem = (parte: number, todo: number) => (todo > 0 ? round2((parte /
  * Junta orcamento, saidas de estoque da obra e lancamentos.
  * Saidas: so as do tipo "saida" contam como consumo de material.
  */
+export interface FontesReais {
+  /** Registos do livro de ponto desta obra (so os aprovados contam). */
+  horas?: RegistoHoras[]
+  /** Faturas de fornecedor desta obra (so as aprovadas contam). */
+  faturas?: FaturaFornecedor[]
+}
+
 export function apurarObra(
   orcamento: Orcamento,
   movimentos: MovimentoEstoque[],
   lancamentos: LancamentoObra[] = orcamento.lancamentosObra || [],
+  fontes: FontesReais = {},
 ): Apuramento {
   const itens = orcamento.itens || []
   const valores = resumoDeValores(orcamento)
 
+  const faturasAprovadas = (fontes.faturas || []).filter((f) => f.estado === "aprovada")
+  // Lancado a mao no apuramento + faturas de fornecedor aprovadas do mesmo tipo
   const real = (tipo: TipoLancamentoObra) =>
-    round2(lancamentos.filter((l) => l.tipo === tipo).reduce((s, l) => s + totalLancamento(l), 0))
+    round2(
+      lancamentos.filter((l) => l.tipo === tipo).reduce((s, l) => s + totalLancamento(l), 0) +
+        faturasAprovadas.filter((f) => f.tipo === tipo).reduce((s, f) => s + (Number(f.valorSemIVA) || 0), 0),
+    )
+  // Material: o que saiu para a obra, menos o que voltou ao armazem
   const materialReal = round2(
-    movimentos.filter((m) => m.tipo === "saida").reduce((s, m) => s + custoMovimento(m), 0),
+    movimentos.filter((m) => m.tipo === "saida").reduce((s, m) => s + custoMovimento(m), 0) -
+      movimentos.filter((m) => m.tipo === "entrada" && m.devolucao).reduce((s, m) => s + custoMovimento(m), 0),
   )
+  const ponto = custoHoras(fontes.horas || [])
 
   const materiais = somaItens(itens, "material")
   const maoObra = somaItens(itens, "mao_obra")
@@ -98,7 +125,13 @@ export function apurarObra(
 
   const blocos: BlocoApuramento[] = [
     { id: "materiais", nome: "Materiais", ...materiais, real: materialReal, ajuda: "Real = saidas de estoque para esta obra" },
-    { id: "mao_obra", nome: "Mao de obra", ...maoObra, real: real("mao_obra"), ajuda: "Real = custo informado no apuramento" },
+    {
+      id: "mao_obra",
+      nome: "Mao de obra",
+      ...maoObra,
+      real: round2(real("mao_obra") + ponto.maoObra),
+      ajuda: "Real = horas aprovadas no livro de ponto + lancamentos",
+    },
     {
       id: "servicos",
       nome: "Servicos (composicao)",
@@ -110,6 +143,14 @@ export function apurarObra(
     { id: "aluguer", nome: "Aluguer de equipamento", vendido: null, previsto: null, real: real("aluguer") },
     { id: "transporte", nome: "Transporte", vendido: valores.transporte, previsto: valores.transporte, real: real("transporte") },
     { id: "outros", nome: "Outros custos", vendido: null, previsto: null, real: real("outros") },
+    {
+      id: "estrutura",
+      nome: "Estrutura (custo fixo/hora)",
+      vendido: null,
+      previsto: null,
+      real: ponto.estrutura,
+      ajuda: "Horas aprovadas x custo fixo/hora da empresa",
+    },
   ]
 
   const custoReal = round2(blocos.reduce((s, b) => s + (b.real ?? 0), 0))
@@ -135,4 +176,44 @@ export function apurarObra(
 /** A obra pode ser apurada? So depois de o cliente adjudicar. */
 export function podeApurar(orcamento: Pick<Orcamento, "status" | "tipoDocumento">): boolean {
   return orcamento.status === "aceite" || orcamento.tipoDocumento === "obra"
+}
+
+export interface NecessidadeMaterial {
+  materialId: string
+  nome: string
+  unidade: string
+  previsto: number
+  /** Ja saiu para a obra (saidas - devolucoes). */
+  saido: number
+  falta: number
+  /** A falta convertida em embalagens de compra, se o produto as tiver. */
+  comprar: { quantidade: number; unidade: string } | null
+}
+
+/**
+ * Material que a obra precisa, pela composicao dos itens, contra o que ja
+ * saiu do estoque para ela. E a lista de compras da obra.
+ */
+export function necessidadesMaterial(
+  orcamento: Orcamento,
+  movimentos: MovimentoEstoque[],
+  materiais: Material[],
+): NecessidadeMaterial[] {
+  const previsto = new Map<string, { nome: string; unidade: string; quantidade: number }>()
+  for (const item of orcamento.itens || []) {
+    for (const m of item.materiaisPrevistos || []) {
+      const atual = previsto.get(m.materialId) || { nome: m.nome, unidade: m.unidade, quantidade: 0 }
+      atual.quantidade = round2(atual.quantidade + m.porUnidade * (Number(item.quantidade) || 0))
+      previsto.set(m.materialId, atual)
+    }
+  }
+  return [...previsto.entries()].map(([materialId, p]) => {
+    const saido = round2(
+      movimentos.filter((m) => m.materialId === materialId && m.tipo === "saida").reduce((s, m) => s + m.quantidade, 0) -
+        movimentos.filter((m) => m.materialId === materialId && m.tipo === "entrada" && m.devolucao).reduce((s, m) => s + m.quantidade, 0),
+    )
+    const falta = round2(Math.max(0, p.quantidade - saido))
+    const produto = materiais.find((m) => m.id === materialId)
+    return { materialId, nome: produto?.nome || p.nome, unidade: p.unidade, previsto: p.quantidade, saido, falta, comprar: falta > 0 ? embalagens(falta, produto) : null }
+  })
 }

@@ -43,7 +43,7 @@ import type {
   ConfiguracaoEmpresa,
   StatusOrcamento,
 } from "@/lib/types"
-import { FirebaseService } from "@/lib/firebase-service"
+import { FirebaseService, apagarDadosDaObra } from "@/lib/firebase-service"
 import { formatCurrency, formatNumber2, matchesSearch, round2, toFixed2 } from "@/lib/utils"
 import { ListToolbar } from "@/components/ui/list-toolbar"
 import { useSearchQuery } from "@/hooks/use-search-query"
@@ -52,6 +52,7 @@ import { usePermissoes } from "@/hooks/use-permissoes"
 import { CustosObraDialog } from "@/components/orcamentos/custos-obra-dialog"
 import { analisarCustoObra, CUSTOS_OBRA_ATIVO, valoresVendidosDoOrcamento } from "@/lib/custos-obra"
 import { podeApurar } from "@/lib/apuramento-obra"
+import { AdjudicacaoDialog } from "@/components/obra/adjudicacao-dialog"
 import {
   FASES_ORCAMENTO,
   getFase,
@@ -158,10 +159,24 @@ function buildOrcamentoDocumentHtml(
           const quantidadeLabel = item.valorFixo ? "Valor fixo" : toFixed2(item.quantidade)
           const numero = temAmbientes ? `${indiceGrupo + 1}.${indiceItem + 1}` : String(indice + 1)
 
+          // Discriminado: reparte o total do item pela composicao do custo
+          let repartido = ""
+          const d = item.decomposicao
+          const somaD = d ? (d.materiais || 0) + (d.mao_obra || 0) + (d.outros || 0) : 0
+          if (!isCusto && orcamento.discriminarPDF && d && somaD > 0) {
+            const parte = (valor: number) => formatCurrency(round2((totalItem * valor) / somaD))
+            const partes = [
+              d.materiais > 0 ? `Material ${parte(d.materiais)}` : "",
+              d.mao_obra > 0 ? `Mao de obra ${parte(d.mao_obra)}` : "",
+              d.outros > 0 ? `Equipamento e outros ${parte(d.outros)}` : "",
+            ].filter(Boolean)
+            repartido = `<div style="font-size:10px; color:#64748b; margin-top:2px">${partes.join(" &middot; ")}</div>`
+          }
+
           return `
         <tr>
           <td style="text-align:center; color:#64748b">${numero}</td>
-          <td>${escapeHtml(detalhe || nome)}</td>
+          <td>${escapeHtml(detalhe || nome)}${repartido}</td>
           <td style="text-align:center">${escapeHtml(item.valorFixo ? "-" : item.unidade)}</td>
           <td style="text-align:right">${quantidadeLabel}</td>
           <td style="text-align:right">${formatCurrency(precoUnitario)}</td>
@@ -475,7 +490,7 @@ function buildOrcamentoDocumentHtml(
           <div><span>Transporte:</span><span>${formatCurrency(transporte)}</span></div>
           <div class="total-final"><span>Total de custo:</span><span>${formatCurrency(totalCusto)}</span></div>
           <div style="margin-top:8px"><span>Subtotal de venda:</span><span>${formatCurrency(subtotal)}</span></div>
-          <div><span>Margem (${formatNumber2(margem)}%):</span><span>${formatCurrency(margemValor)}</span></div>
+          <div><span>Lucro previsto (sem IVA):</span><span>${formatCurrency(round2(baseTributavel - totalCusto))}</span></div>
           <div><span>Venda sem IVA (base):</span><span>${formatCurrency(baseTributavel)}</span></div>
           <div><span>IVA (${formatNumber2(taxaIVA)}%) a entregar:</span><span>${formatCurrency(valorIVA)}</span></div>
           <div><span>Total cobrado ao cliente:</span><span>${formatCurrency(totalVenda)}</span></div>
@@ -529,6 +544,8 @@ export default function OrcamentosPage() {
   // Folha de custos reais: vive num ecra proprio porque se preenche depois da
   // obra adjudicada, quando a proposta ja esta bloqueada para edicao.
   const [custosObraDe, setCustosObraDe] = useState<Orcamento | null>(null)
+  // Adjudicar abre o assistente (valor, sinal, plano de pagamento) em vez de so mudar a fase
+  const [adjudicando, setAdjudicando] = useState<Orcamento | null>(null)
 
 
   const { user } = useAuth()
@@ -593,10 +610,16 @@ export default function OrcamentosPage() {
 
   const handleDelete = async (id?: string) => {
     if (!id) return
-    if (!confirm("Tem certeza que deseja excluir este orcamento?")) return
+    if (
+      !confirm(
+        "Tem certeza que deseja excluir este orcamento?\n\nSe ja for obra, apagam-se tambem os autos, o diario, as horas, a garantia, o portal e as contas a receber dela. Faturas de fornecedor e movimentos de estoque ficam.",
+      )
+    )
+      return
 
     try {
       setLoading(true)
+      await apagarDadosDaObra(id)
       await FirebaseService.deleteOrcamento(id)
       toast({
         title: "Orcamento excluido",
@@ -941,7 +964,14 @@ O documento passa a ${depois}. A proposta nao muda de valores nem de conteudo.${
                           <>
                             {linha("Custo", formatCurrency(resumo.totalCusto))}
                             {resumo.transporte > 0 && linha("Transporte", formatCurrency(resumo.transporte))}
-                            {linha(`Margem (${formatNumber2(resumo.margem)}%)`, formatCurrency(resumo.margemValor))}
+                            {linha(
+                              `Lucro previsto (${formatNumber2(
+                                resumo.baseTributavel > 0
+                                  ? ((resumo.baseTributavel - resumo.totalCusto) / resumo.baseTributavel) * 100
+                                  : 0,
+                              )}%)`,
+                              formatCurrency(round2(resumo.baseTributavel - resumo.totalCusto)),
+                            )}
                           </>
                         )}
                         {linha("Base sem IVA", formatCurrency(resumo.baseTributavel))}
@@ -1037,6 +1067,10 @@ O documento passa a ${depois}. A proposta nao muda de valores nem de conteudo.${
                         <DropdownMenuItem
                           key={proxima}
                           onClick={() => {
+                            if (proxima === "aceite") {
+                              setAdjudicando(orcamento)
+                              return
+                            }
                             if (proxima === "cancelado") {
                               const motivo = window.prompt(
                                 "Motivo do cancelamento (fica registado para analise):",
@@ -1164,6 +1198,13 @@ O documento passa a ${depois}. A proposta nao muda de valores nem de conteudo.${
       </div>
 
       {/* Fecha o ciclo: o que se vendeu contra o que a obra custou de facto. */}
+      <AdjudicacaoDialog
+        orcamento={adjudicando}
+        orcamentos={orcamentos}
+        onOpenChange={(aberto) => !aberto && setAdjudicando(null)}
+        onAdjudicado={() => void loadData()}
+      />
+
       <CustosObraDialog
         orcamento={custosObraDe}
         open={custosObraDe !== null}
