@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { Check, Plus, Trash2, X } from "lucide-react"
+import { Check, Pencil, Plus, Trash2, X } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -55,6 +55,45 @@ export default function FaturasPage() {
   const [obras, setObras] = useState<Orcamento[]>([])
   const [aCarregar, setACarregar] = useState(true)
   const [nova, setNova] = useState<Rascunho | null>(null)
+  /** Fatura a editar (null = registo novo). */
+  const [emEdicao, setEmEdicao] = useState<FaturaFornecedor | null>(null)
+  const fechar = () => {
+    setNova(null)
+    setEmEdicao(null)
+  }
+  const editar = (f: FaturaFornecedor) => {
+    setEmEdicao(f)
+    setNova({
+      fornecedor: f.fornecedor,
+      numero: f.numero,
+      data: f.data,
+      vencimento: f.vencimento,
+      orcamentoId: f.orcamentoId || "",
+      tipo: f.tipo,
+      descricao: f.descricao || "",
+      valorSemIVA: f.valorSemIVA,
+      taxaIVA: f.taxaIVA,
+    })
+  }
+  const podeMexer = (f: FaturaFornecedor) => (f.estado === "aprovada" ? podeAprovar && podeLancar : podeLancar)
+
+  /** Apaga a fatura e, se ja aprovada, a conta a pagar que ela criou. */
+  const excluir = async (f: FaturaFornecedor) => {
+    if (!f.id) return
+    const aviso =
+      f.estado === "aprovada"
+        ? "Apagar esta fatura? A conta a pagar ligada tambem e apagada e o custo sai da obra."
+        : "Apagar esta fatura?"
+    if (!confirm(aviso)) return
+    try {
+      if (f.contaId) await apagar("contas", f.contaId)
+      await apagar("faturasFornecedor", f.id)
+      toast({ title: "Fatura apagada" })
+    } catch (e) {
+      toast({ title: "Nao foi possivel apagar", description: e instanceof Error ? e.message : String(e), variant: "destructive" })
+    }
+    await carregar()
+  }
 
   const carregar = useCallback(async () => {
     if (!user) return
@@ -75,19 +114,38 @@ export default function FaturasPage() {
     if (!nova.fornecedor.trim() || !nova.numero.trim() || nova.valorSemIVA <= 0)
       return toast({ title: "Indique fornecedor, numero e valor", variant: "destructive" })
     const obra = obras.find((o) => o.id === nova.orcamentoId)
-    await criar("faturasFornecedor", {
+    const dados = {
       ...nova,
       fornecedor: nova.fornecedor.trim(),
       numero: nova.numero.trim(),
       descricao: nova.descricao.trim(),
       valorSemIVA: round2(nova.valorSemIVA),
-      orcamentoId: obra?.id || "",
-      orcamentoNumero: obra ? numeroCompleto(obra, configuracao) : "",
-      estado: "pendente",
-      userId: user.uid,
-    })
-    toast({ title: "Fatura registada", description: "Fica pendente ate ser aprovada." })
-    setNova(null)
+      orcamentoId: obra?.id || nova.orcamentoId || "",
+      orcamentoNumero: obra ? numeroCompleto(obra, configuracao) : emEdicao?.orcamentoNumero || "",
+    }
+    try {
+      if (emEdicao?.id) {
+        await atualizar("faturasFornecedor", emEdicao.id, dados)
+        // Aprovada: a conta a pagar acompanha a fatura (o estado pago mantem-se)
+        if (emEdicao.estado === "aprovada" && emEdicao.contaId) {
+          await atualizar("contas", emEdicao.contaId, {
+            descricao: `Fatura ${dados.numero}${dados.descricao ? ` - ${dados.descricao}` : ""}`,
+            valor: round2(dados.valorSemIVA * (1 + dados.taxaIVA / 100)),
+            vencimento: dados.vencimento,
+            entidade: dados.fornecedor,
+            orcamentoId: dados.orcamentoId,
+            orcamentoNumero: dados.orcamentoNumero,
+          })
+        }
+        toast({ title: "Fatura atualizada" })
+      } else {
+        await criar("faturasFornecedor", { ...dados, estado: "pendente", userId: user.uid })
+        toast({ title: "Fatura registada", description: "Fica pendente ate ser aprovada." })
+      }
+    } catch (e) {
+      return toast({ title: "Nao foi possivel gravar", description: e instanceof Error ? e.message : String(e), variant: "destructive" })
+    }
+    fechar()
     await carregar()
   }
 
@@ -195,19 +253,15 @@ export default function FaturasPage() {
                           </Button>
                         </>
                       )}
-                      {f.estado !== "aprovada" && podeLancar && (
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          title="Apagar"
-                          onClick={async () => {
-                            if (!confirm("Apagar esta fatura?")) return
-                            await apagar("faturasFornecedor", f.id!)
-                            await carregar()
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                      {podeMexer(f) && (
+                        <>
+                          <Button size="icon" variant="ghost" title="Editar" aria-label="Editar fatura" onClick={() => editar(f)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button size="icon" variant="ghost" title="Apagar" aria-label="Apagar fatura" onClick={() => excluir(f)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </>
                       )}
                     </TableCell>
                   </TableRow>
@@ -218,11 +272,14 @@ export default function FaturasPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={!!nova} onOpenChange={(a) => !a && setNova(null)}>
+      <Dialog open={!!nova} onOpenChange={(a) => !a && fechar()}>
         <DialogContent className="sm:max-w-[560px]">
           <DialogHeader>
-            <DialogTitle>Registar fatura de fornecedor</DialogTitle>
-            <DialogDescription>Valores sem IVA. A taxa de IVA serve para a conta a pagar.</DialogDescription>
+            <DialogTitle>{emEdicao ? "Editar fatura de fornecedor" : "Registar fatura de fornecedor"}</DialogTitle>
+            <DialogDescription>
+              Valores sem IVA. A taxa de IVA serve para a conta a pagar.
+              {emEdicao?.estado === "aprovada" ? " Esta fatura ja esta aprovada: a conta a pagar e atualizada junto." : ""}
+            </DialogDescription>
           </DialogHeader>
           {nova && (
             <div className="space-y-3">
@@ -283,8 +340,8 @@ export default function FaturasPage() {
                 </div>
               </div>
               <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setNova(null)}>Cancelar</Button>
-                <Button onClick={gravar} className="rounded-full">Registar</Button>
+                <Button variant="outline" onClick={fechar}>Cancelar</Button>
+                <Button onClick={gravar} className="rounded-full">{emEdicao ? "Gravar" : "Registar"}</Button>
               </div>
             </div>
           )}

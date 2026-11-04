@@ -122,17 +122,22 @@ export interface ResumoContas {
   vencido: number
   /** A receber menos a pagar, em aberto. */
   saldo: number
+  /** Recebido menos pago: o dinheiro que de facto entrou. */
+  saldoRealizado: number
 }
 
 export function resumoContas(contas: Conta[], hoje = hojeLocal()): ResumoContas {
   const soma = (f: (c: Conta) => boolean) => round2(contas.filter(f).reduce((s, c) => s + (Number(c.valor) || 0), 0))
   const aReceber = soma((c) => c.tipo === "receber" && c.estado === "pendente")
   const aPagar = soma((c) => c.tipo === "pagar" && c.estado === "pendente")
+  const recebido = soma((c) => c.tipo === "receber" && c.estado === "pago")
+  const pago = soma((c) => c.tipo === "pagar" && c.estado === "pago")
   return {
     aReceber,
-    recebido: soma((c) => c.tipo === "receber" && c.estado === "pago"),
+    recebido,
     aPagar,
-    pago: soma((c) => c.tipo === "pagar" && c.estado === "pago"),
+    pago,
+    saldoRealizado: round2(recebido - pago),
     vencido: soma((c) => c.estado === "pendente" && c.vencimento < hoje),
     saldo: round2(aReceber - aPagar),
   }

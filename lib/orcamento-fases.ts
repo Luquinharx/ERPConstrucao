@@ -74,6 +74,16 @@ export const FASES_ORCAMENTO: FaseOrcamento[] = [
  * Converte os estados antigos para as fases novas.
  * "enviado" e "aprovado" passam ambos a Emitido; "rejeitado" a Cancelado.
  */
+/** Adjudicada: o cliente aceitou ("aprovado" nas propostas de antes das fases). */
+export function estaAdjudicada(o: { status?: string }): boolean {
+  return o.status === "aceite" || o.status === "aprovado"
+}
+
+/** Ja foi entregue ao cliente: e a base da taxa de conversao. */
+export function foiEntregue(o: { status?: string }): boolean {
+  return ["emitido", "em_negociacao", "aceite", "cancelado"].includes(normalizarFase(o.status)) || estaAdjudicada(o)
+}
+
 export function normalizarFase(estado?: string): StatusOrcamento {
   switch (estado) {
     case "enviado":

@@ -62,6 +62,8 @@ O IVA cobrado ao cliente continua a ser somado no fim do orçamento, como antes.
 
 ## 7. Orçamento como a folha de obra
 - **Configurações › Preços**: estrutura (ex.: 15%) e a margem de cada especialidade (Construção civil, Águas, Gás, Eletricidade, AVAC, SCIE). Preço = custo × (1 + estrutura + margem da especialidade).
+  - Ao mudar estas margens, os rascunhos passam a usá-las logo que se abrem (grave para guardar).
+  - **Aba Preço › Margem adicional**: soma-se às margens, só nessa proposta. Positiva serve de coeficiente de segurança; negativa, de desconto.
 - **Itens › Cómodos**: escolha o cómodo e indique as dimensões. Os serviços com medição (teto, pavimento, paredes, perímetro) recebem a quantidade sozinhos e acompanham as mudanças de dimensões.
 - **Serviços**: a composição puxa o custo de hoje dos produtos, dos funcionários ou da função. Em cada serviço escolhe-se a especialidade e a medição.
 - **Aba Preço**: modelo (por especialidade ou por margens), custos indiretos, contexto fiscal com o IVA sugerido e a opção de PDF com material e mão de obra discriminados.

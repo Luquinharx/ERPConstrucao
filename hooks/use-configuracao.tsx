@@ -74,8 +74,15 @@ export function ConfiguracaoProvider({ children }: { children: ReactNode }) {
     }
 
     void carregar()
+    // Ao voltar a este separador, le de novo: as margens podem ter mudado
+    // em Configuracoes noutro separador (o editor abre-as num novo)
+    const aoVoltar = () => {
+      if (document.visibilityState === "visible") void carregar().catch(() => undefined)
+    }
+    document.addEventListener("visibilitychange", aoVoltar)
     return () => {
       ativo = false
+      document.removeEventListener("visibilitychange", aoVoltar)
     }
   }, [user])
 

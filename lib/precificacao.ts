@@ -45,17 +45,25 @@ export function especialidade(id: string | undefined, config?: Partial<Configura
   return lista.find((e) => e.id === id) || lista[0]
 }
 
-/** Fator sobre o custo: 1 + estrutura + margem da especialidade. */
-export function fatorEspecialidade(id: string | undefined, config?: Partial<ConfiguracaoEmpresa> | null): number {
-  return 1 + (estruturaDe(config) + (Number(especialidade(id, config).margem) || 0)) / 100
+/**
+ * Fator sobre o custo: 1 + estrutura + margem da especialidade + margem
+ * adicional da proposta (coeficiente de seguranca; negativa e um desconto).
+ */
+export function fatorEspecialidade(
+  id: string | undefined,
+  config?: Partial<ConfiguracaoEmpresa> | null,
+  adicional = 0,
+): number {
+  return Math.max(0, 1 + (estruturaDe(config) + (Number(especialidade(id, config).margem) || 0) + (Number(adicional) || 0)) / 100)
 }
 
 export function precoPorEspecialidade(
   custo: number,
   id: string | undefined,
   config?: Partial<ConfiguracaoEmpresa> | null,
+  adicional = 0,
 ): number {
-  return round2((Number(custo) || 0) * fatorEspecialidade(id, config))
+  return round2((Number(custo) || 0) * fatorEspecialidade(id, config, adicional))
 }
 
 /** Margem sobre a venda (%), a leitura que interessa ao cliente: lucro / preco. */

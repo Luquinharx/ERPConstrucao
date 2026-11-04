@@ -636,6 +636,8 @@ export interface Orcamento {
    * global). Ausente = "margens", para nao mexer em propostas antigas.
    */
   modoPreco?: "especialidade" | "margens"
+  /** Margem adicional da proposta (%), somada a estrutura + especialidade. */
+  margemAdicional?: number
   /** Dimensoes de cada comodo, por nome. */
   dimensoesAmbientes?: Record<string, DimensoesAmbiente>
   custosIndiretos?: CustosIndiretos

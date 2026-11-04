@@ -78,7 +78,7 @@ export default function EtiquetasPage() {
       <Card className="print:hidden">
         <CardHeader>
           <CardTitle className="text-lg">Produtos com controlo de estoque</CardTitle>
-          <CardDescription>Indique quantas etiquetas quer de cada um.</CardDescription>
+          <CardDescription>Indique quantas etiquetas quer de cada um. As do mesmo produto têm o mesmo QR: imprima as que precisar para as prateleiras.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <Input placeholder="Procurar produto..." value={busca} onChange={(e) => setBusca(e.target.value)} />

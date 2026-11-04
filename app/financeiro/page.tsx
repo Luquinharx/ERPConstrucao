@@ -53,21 +53,41 @@ export default function FinanceiroPage() {
         <p className="mt-2 text-muted-foreground">Contas a receber e a pagar de todas as obras, com os vencimentos.</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" data-testid="resumo-financeiro">
-        {(
+      {(
+        [
           [
-            ["A receber", r.aReceber, ""],
-            ["A pagar", r.aPagar, "text-rose-700"],
-            ["Vencido", r.vencido, r.vencido > 0 ? "text-rose-700" : ""],
-            ["Saldo em aberto", r.saldo, r.saldo < 0 ? "text-rose-700" : ""],
-          ] as const
-        ).map(([nome, valor, cor]) => (
-          <Card key={nome}>
-            <CardHeader className="pb-1"><CardDescription>{nome}</CardDescription></CardHeader>
-            <CardContent className={`text-2xl font-bold tabular-nums ${cor}`}>{formatCurrency(valor)}</CardContent>
-          </Card>
-        ))}
-      </div>
+            "Realizado",
+            "resumo-realizado",
+            [
+              ["Recebido", r.recebido, "text-emerald-700"],
+              ["Pago", r.pago, "text-rose-700"],
+              ["Saldo realizado", r.saldoRealizado, r.saldoRealizado < 0 ? "text-rose-700" : ""],
+            ],
+          ],
+          [
+            "Em aberto",
+            "resumo-financeiro",
+            [
+              ["A receber", r.aReceber, ""],
+              ["A pagar", r.aPagar, "text-rose-700"],
+              ["Vencido", r.vencido, r.vencido > 0 ? "text-rose-700" : ""],
+              ["Saldo em aberto", r.saldo, r.saldo < 0 ? "text-rose-700" : ""],
+            ],
+          ],
+        ] as const
+      ).map(([grupo, testid, cartoes]) => (
+        <div key={grupo} className="space-y-2">
+          <h2 className="text-sm font-medium text-muted-foreground">{grupo}</h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" data-testid={testid}>
+            {cartoes.map(([nome, valor, cor]) => (
+              <Card key={nome}>
+                <CardHeader className="pb-1"><CardDescription>{nome}</CardDescription></CardHeader>
+                <CardContent className={`text-2xl font-bold tabular-nums ${cor}`}>{formatCurrency(valor)}</CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      ))}
 
       {alertas.length > 0 && (
         <Card className="border-amber-500/50" data-testid="alertas-vencimento">

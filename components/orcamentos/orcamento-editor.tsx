@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import {
   ChevronDown,
   ChevronRight,
@@ -122,6 +122,8 @@ interface OrcamentoFormState {
   usarMargemGlobal: boolean
   /** Modelo de preco: por especialidade (folha de obra) ou por margens. */
   modoPreco: "especialidade" | "margens"
+  /** Margem adicional desta proposta (%), somada a estrutura + especialidade. */
+  margemAdicional: number
   dimensoesAmbientes: Record<string, DimensoesAmbiente>
   custosIndiretos: CustosIndiretos
   contextoFiscal: ContextoFiscal
@@ -274,7 +276,7 @@ export function OrcamentoEditor({
       (Number(formData.custosIndiretos.seguros) || 0) +
       (Number(formData.custosIndiretos.licenciamento) || 0),
   )
-  const indiretosVenda = porEspecialidade ? precoPorEspecialidade(indiretosCusto, "civil", configuracao) : indiretosCusto
+  const indiretosVenda = porEspecialidade ? precoPorEspecialidade(indiretosCusto, "civil", configuracao, formData.margemAdicional) : indiretosCusto
   const baseTributavelAtual = calculateBaseTributavel(subtotalAtual + indiretosVenda, margemGlobalAtual, transporteAtual)
   const valorIVAAtual = calculateIVA(baseTributavelAtual, formData.taxaIVA)
   const valorTotalAtual = round2(baseTributavelAtual + valorIVAAtual)
@@ -372,7 +374,7 @@ export function OrcamentoEditor({
    */
   const precoDoItem = (precoTabela: number, custo: number, especialidadeId?: string) =>
     porEspecialidade
-      ? precoPorEspecialidade(custo, especialidadeId, configuracao)
+      ? precoPorEspecialidade(custo, especialidadeId, configuracao, formData.margemAdicional)
       : round2(formData.usarMargemItem ? precoTabela : custo)
 
   /** Venda de um servico em escolha: e vendido ao custo, salvo no modo por especialidade. */
@@ -656,12 +658,17 @@ export function OrcamentoEditor({
     }))
 
   /** Preco de um item no modelo dado, a partir do custo e do preco de tabela guardados. */
-  const repreco = (item: ItemOrcamento, modo: OrcamentoFormState["modoPreco"], usarMargemItem: boolean): ItemOrcamento => {
+  const repreco = (
+    item: ItemOrcamento,
+    modo: OrcamentoFormState["modoPreco"],
+    usarMargemItem: boolean,
+    adicional = formData.margemAdicional,
+  ): ItemOrcamento => {
     const custo = item.custoUnitario ?? item.precoUnitario
     const precoTabela = item.precoTabela ?? item.precoUnitario
     const precoUnitario =
       modo === "especialidade"
-        ? precoPorEspecialidade(custo, item.especialidadeId, configuracao)
+        ? precoPorEspecialidade(custo, item.especialidadeId, configuracao, adicional)
         : round2(usarMargemItem ? precoTabela : custo)
     return { ...item, precoTabela, precoUnitario, total: calculateItemTotal(item.quantidade, precoUnitario, item.valorFixo) }
   }
@@ -675,8 +682,46 @@ export function OrcamentoEditor({
     setFormData((atual) => ({
       ...atual,
       modoPreco,
-      itens: atual.itens.map((item) => repreco(item, modoPreco, atual.usarMargemItem)),
+      itens: atual.itens.map((item) => repreco(item, modoPreco, atual.usarMargemItem, atual.margemAdicional)),
     }))
+
+  /** Muda a margem adicional e recalcula os itens (so no modelo por especialidade). */
+  const alterarMargemAdicional = (margemAdicional: number) =>
+    setFormData((atual) => ({
+      ...atual,
+      margemAdicional,
+      itens: atual.itens.map((item) => repreco(item, atual.modoPreco, atual.usarMargemItem, margemAdicional)),
+    }))
+
+  /**
+   * Itens cujo preco ja nao bate com as margens de hoje (Configuracoes >
+   * Precos mudou depois de a proposta ser feita).
+   */
+  const itensDesatualizados = porEspecialidade
+    ? formData.itens.filter(
+        (i) => Math.abs(repreco(i, "especialidade", formData.usarMargemItem).precoUnitario - i.precoUnitario) > 0.004,
+      ).length
+    : 0
+  const atualizarMargens = () =>
+    setFormData((atual) => ({
+      ...atual,
+      itens: atual.itens.map((item) => repreco(item, atual.modoPreco, atual.usarMargemItem, atual.margemAdicional)),
+    }))
+  // So o rascunho abre no editor: o preco ainda nao foi entregue ao cliente,
+  // por isso segue sempre as margens de hoje.
+  const avisouMargens = useRef(false)
+  useEffect(() => {
+    if (!porEspecialidade || itensDesatualizados === 0) return
+    atualizarMargens()
+    if (!avisouMargens.current && orcamento) {
+      avisouMargens.current = true
+      toast({
+        title: "Precos atualizados",
+        description: `${itensDesatualizados} item(ns) passaram para as margens atuais de Configuracoes > Precos. Grave para guardar.`,
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [configuracao, porEspecialidade, itensDesatualizados])
 
   /** Muda as dimensoes de um comodo e as quantidades de todos os itens ligados a ele. */
   const alterarDimensoes = (ambiente: string, parcial: Partial<DimensoesAmbiente>) =>
@@ -844,6 +889,7 @@ export function OrcamentoEditor({
           updatedItem.custoUnitario ?? updatedItem.precoUnitario,
           updatedItem.especialidadeId,
           configuracao,
+          formData.margemAdicional,
         )
       }
 
@@ -1031,6 +1077,7 @@ export function OrcamentoEditor({
         usarMargemItem: formData.usarMargemItem,
         usarMargemGlobal: formData.usarMargemGlobal,
         modoPreco: formData.modoPreco,
+        margemAdicional: porEspecialidade ? round2(formData.margemAdicional) : 0,
         dimensoesAmbientes: formData.dimensoesAmbientes,
         custosIndiretos: formData.custosIndiretos,
         contextoFiscal: formData.contextoFiscal,
@@ -1912,7 +1959,7 @@ export function OrcamentoEditor({
                                   <SelectContent>
                                     {especialidadesDe(configuracao).map((e) => (
                                       <SelectItem key={e.id} value={e.id}>
-                                        {e.nome} ({formatNumber2(estruturaDe(configuracao) + e.margem)}%)
+                                        {e.nome} ({formatNumber2(estruturaDe(configuracao) + e.margem + (formData.margemAdicional || 0))}%)
                                       </SelectItem>
                                     ))}
                                   </SelectContent>
@@ -1995,10 +2042,29 @@ export function OrcamentoEditor({
                 <div className="flex flex-wrap gap-2">
                   {especialidadesDe(configuracao).map((e) => (
                     <Badge key={e.id} variant="outline" className="font-normal">
-                      {e.nome}: +{formatNumber2(estruturaDe(configuracao) + e.margem)}% sobre o custo
+                      {e.nome}: +{formatNumber2(estruturaDe(configuracao) + e.margem + (formData.margemAdicional || 0))}% sobre o custo
                     </Badge>
                   ))}
                 </div>
+                <div className="flex flex-wrap items-end gap-3 pt-1">
+                  <div className="space-y-1">
+                    <Label htmlFor="margemAdicional">Margem adicional desta proposta</Label>
+                    <CampoNumerico
+                      id="margemAdicional"
+                      min={-100}
+                      max={500}
+                      sufixo="%"
+                      value={formData.margemAdicional}
+                      onChange={alterarMargemAdicional}
+                      className="w-32"
+                    />
+                  </div>
+                  <p className="max-w-md pb-1 text-xs text-muted-foreground">
+                    Soma-se a estrutura e a margem de cada especialidade, so nesta proposta. Positiva serve de coeficiente de
+                    seguranca; negativa, de desconto.
+                  </p>
+                </div>
+
                 {verCusto && (
                   <p className="text-sm">
                     Lucro previsto <span className="font-medium tabular-nums">{formatCurrency(lucroPrevisto)}</span> ={" "}
@@ -2477,6 +2543,7 @@ function estadoInicial(
       usarMargemGlobal: configuracao.margemGlobalPadraoAtiva ?? true,
       // Propostas novas seguem a folha de obra: custo x estrutura x especialidade
       modoPreco: "especialidade",
+      margemAdicional: 0,
       dimensoesAmbientes: {},
       custosIndiretos: { estaleiro: 0, seguros: 0, licenciamento: 0 },
       contextoFiscal: { regiao: "continente" },
@@ -2513,6 +2580,7 @@ function estadoInicial(
     usarMargemGlobal: orcamento.usarMargemGlobal ?? true,
     // Propostas gravadas antes do modelo por especialidade ficam como estavam
     modoPreco: orcamento.modoPreco ?? "margens",
+    margemAdicional: Number(orcamento.margemAdicional) || 0,
     dimensoesAmbientes: orcamento.dimensoesAmbientes || {},
     custosIndiretos: orcamento.custosIndiretos || { estaleiro: 0, seguros: 0, licenciamento: 0 },
     contextoFiscal: orcamento.contextoFiscal || { regiao: "continente" },

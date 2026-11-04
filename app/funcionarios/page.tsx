@@ -260,6 +260,8 @@ const FUNCOES_BASE = [
   "Supervisor",
   "Encarregado",
   "Gerente de Projetos",
+  "Gerencia",
+  "Diretor",
   "Administrativo",
 ]
 
@@ -351,8 +353,15 @@ export default function FuncionariosPage() {
       .catch(() => setFuncoesCadastradas([]))
   }, [user])
   const opcoesFuncao = Array.from(
-    new Set([...funcoesCadastradas, ...FUNCOES_BASE, ...(formData.funcao ? [formData.funcao] : [])]),
-  )
+    new Set([
+      ...funcoesCadastradas,
+      ...FUNCOES_BASE,
+      // Cargos criados a mao noutros funcionarios ficam disponiveis para todos
+      ...funcionarios.map((f) => (f.funcao || "").trim()).filter(Boolean),
+      ...(formData.funcao ? [formData.funcao] : []),
+    ]),
+  ).sort((a, b) => a.localeCompare(b, "pt"))
+  const [novaFuncao, setNovaFuncao] = useState("")
 
   const loadFuncionarios = async () => {
     if (!user) return
@@ -722,7 +731,13 @@ export default function FuncionariosPage() {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="funcao">Funcao *</Label>
-                        <Select value={formData.funcao} onValueChange={(value) => setFormData({ ...formData, funcao: value })}>
+                        <Select
+                          // Remonta com a lista nova: um cargo acabado de criar aparece logo escolhido
+                          key={opcoesFuncao.join("|")}
+                          value={formData.funcao}
+                          // O select nativo escondido limpa o valor se ele ainda nao estiver na lista
+                          onValueChange={(value) => value && setFormData((atual) => ({ ...atual, funcao: value }))}
+                        >
                           <SelectTrigger className="rounded-full">
                             <SelectValue placeholder="Selecione a funcao" />
                           </SelectTrigger>
@@ -734,6 +749,34 @@ export default function FuncionariosPage() {
                             ))}
                           </SelectContent>
                         </Select>
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="Novo cargo (ex.: Diretor)"
+                            value={novaFuncao}
+                            onChange={(e) => setNovaFuncao(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && novaFuncao.trim()) {
+                                e.preventDefault()
+                                setFormData({ ...formData, funcao: novaFuncao.trim() })
+                                setNovaFuncao("")
+                              }
+                            }}
+                            className="rounded-full h-8 text-xs"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="rounded-full h-8"
+                            disabled={!novaFuncao.trim()}
+                            onClick={() => {
+                              setFormData({ ...formData, funcao: novaFuncao.trim() })
+                              setNovaFuncao("")
+                            }}
+                          >
+                            Criar
+                          </Button>
+                        </div>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="dataAdmissao">Data de Admissao</Label>
@@ -957,7 +1000,7 @@ export default function FuncionariosPage() {
                         </p>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="valorTransporte">Valor Transporte (EUR)</Label>
+                        <Label htmlFor="valorTransporte">Valores isentos de IRS (EUR)</Label>
                         <CampoNumerico
                           id="valorTransporte"
                           min={0}
@@ -1105,7 +1148,7 @@ export default function FuncionariosPage() {
                         <span>+ {formatCurrency(beneficiosMensalMedio)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground pl-4">Transporte (isento)</span>
+                        <span className="text-muted-foreground pl-4">Valores isentos de IRS</span>
                         <span>+ {formatCurrency(formData.valorTransporte)}</span>
                       </div>
                       <div className="flex justify-between text-sm border-t pt-2">
@@ -1285,7 +1328,7 @@ export default function FuncionariosPage() {
                           <span>+ {formatCurrency(valorBeneficiosCalculado)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Transporte (isento)</span>
+                          <span className="text-muted-foreground">Valores isentos de IRS</span>
                           <span>+ {formatCurrency(formData.valorTransporte)}</span>
                         </div>
                         <div className="flex justify-between text-sm border-t pt-2 font-medium">

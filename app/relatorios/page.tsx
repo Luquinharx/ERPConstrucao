@@ -7,7 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { BarChart3, TrendingUp, Download, FileText, Users, Package } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { FirebaseService } from "@/lib/firebase-service"
-import { normalizarFase } from "@/lib/orcamento-fases"
+import { estaAdjudicada, foiEntregue, normalizarFase } from "@/lib/orcamento-fases"
+import { listar } from "@/lib/firebase-service"
+import type { Conta } from "@/lib/types"
+import { formatCurrency, round2 } from "@/lib/utils"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { toast } from "@/hooks/use-toast"
 
@@ -25,6 +28,8 @@ export default function RelatoriosPage() {
     funcionariosAtivos: 0,
     materiaisCadastrados: 0,
     servicosCadastrados: 0,
+    recebido: 0,
+    pago: 0,
   })
   const [periodo, setPeriodo] = useState("mes")
   const [atividades, setAtividades] = useState([])
@@ -44,12 +49,13 @@ export default function RelatoriosPage() {
       setLoading(true)
 
       // Carregar todos os dados
-      const [orcamentos, clientes, funcionarios, materiais, servicos] = await Promise.all([
+      const [orcamentos, clientes, funcionarios, materiais, servicos, contas] = await Promise.all([
         FirebaseService.getOrcamentos(user.uid),
         FirebaseService.getClientes(user.uid),
         FirebaseService.getFuncionarios(user.uid),
         FirebaseService.getMateriais(user.uid),
         FirebaseService.getServicos(user.uid),
+        listar<Conta>("contas").catch(() => [] as Conta[]),
       ])
 
       // Filtrar por período
@@ -78,13 +84,19 @@ export default function RelatoriosPage() {
       const clientesPeriodo = clientes.filter((c) => new Date(c.createdAt) >= dataInicio)
 
       // Calcular estatísticas
-      const orcamentosAprovados = orcamentosPeriodo.filter((o) => normalizarFase(o.status) === "emitido")
+      // Aprovado = adjudicado pelo cliente
+      const orcamentosAprovados = orcamentosPeriodo.filter(estaAdjudicada)
       const orcamentosPendentes = orcamentosPeriodo.filter((o) =>
         ["rascunho", "em_revisao", "em_negociacao"].includes(normalizarFase(o.status)),
       )
       const receitaTotal = orcamentosAprovados.reduce((sum, o) => sum + (o.valorTotal || 0), 0)
-      const taxaConversao =
-        orcamentosPeriodo.length > 0 ? (orcamentosAprovados.length / orcamentosPeriodo.length) * 100 : 0
+      const entregues = orcamentosPeriodo.filter(foiEntregue).length
+      const taxaConversao = entregues > 0 ? (orcamentosAprovados.length / entregues) * 100 : 0
+      // Dinheiro que entrou e saiu no periodo, pela data do pagamento
+      const inicioISO = `${dataInicio.getFullYear()}-${String(dataInicio.getMonth() + 1).padStart(2, "0")}-${String(dataInicio.getDate()).padStart(2, "0")}`
+      const pagasNoPeriodo = contas.filter((c) => c.estado === "pago" && (c.dataPagamento || c.vencimento) >= inicioISO)
+      const somaContas = (tipo: Conta["tipo"]) =>
+        round2(pagasNoPeriodo.filter((c) => c.tipo === tipo).reduce((s, c) => s + (Number(c.valor) || 0), 0))
       const receitaMedia = orcamentosAprovados.length > 0 ? receitaTotal / orcamentosAprovados.length : 0
 
       // Contar tipos de serviço mais populares
@@ -153,6 +165,8 @@ export default function RelatoriosPage() {
         funcionariosAtivos: funcionarios.filter((f) => f.ativo).length,
         materiaisCadastrados: materiais.length,
         servicosCadastrados: servicos.length,
+        recebido: somaContas("receber"),
+        pago: somaContas("pagar"),
       })
 
       setAtividades(atividadesRecentes.slice(0, 5))
@@ -239,7 +253,20 @@ export default function RelatoriosPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Recebido</CardTitle>
+            <TrendingUp className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-emerald-700">{formatCurrency(stats.recebido)}</div>
+            <p className="text-xs text-muted-foreground">
+              Pago {formatCurrency(stats.pago)} · saldo {formatCurrency(round2(stats.recebido - stats.pago))}
+            </p>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Receita Total</CardTitle>
@@ -247,7 +274,7 @@ export default function RelatoriosPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">€{stats.receitaTotal.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">{stats.orcamentosAprovados} orçamentos aprovados</p>
+            <p className="text-xs text-muted-foreground">{stats.orcamentosAprovados} orçamentos adjudicados</p>
           </CardContent>
         </Card>
 

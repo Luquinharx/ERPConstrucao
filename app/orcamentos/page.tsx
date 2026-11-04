@@ -369,7 +369,10 @@ function buildOrcamentoDocumentHtml(
         }
         .notas ol { margin: 6px 0 0; padding-left: 18px; font-size: 10px; line-height: 1.6; color: #374151; }
         /* Pagina das condicoes gerais, no formato do documento oficial */
-        .termos { margin-top: 18px; padding-top: 4px; }
+        /* As condicoes gerais comecam sempre numa folha nova, como no documento
+           oficial: com um orcamento curto subiam para a primeira folha e o
+           papel timbrado da empresa aparecia a meio da proposta. */
+        .termos { margin-top: 0; padding-top: 4px; page-break-before: always; break-before: page; }
         .condicoes-topo { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
         .condicoes-titulo { font-size: 16px; font-weight: 800; color: ${corEscura}; }
         .condicoes-dados {
@@ -415,6 +418,13 @@ function buildOrcamentoDocumentHtml(
           background: #fff;
         }
         .rodape-espaco { height: 18mm; }
+        /* No ecra (pre-visualizacao) nao ha folhas: o rodape fixo flutuava por
+           cima do texto ao rolar. So fica fixo ao fundo da folha na impressao. */
+        @media screen {
+          .rodape { position: static; margin-top: 12mm; }
+          .rodape-espaco { display: none; }
+          .termos { margin-top: 18mm; border-top: 1px dashed #e5e7eb; padding-top: 10mm; }
+        }
       </style>
     </head>
     <body>

@@ -20,7 +20,7 @@ import {
   writeBatch,
 } from "firebase/firestore"
 import { db } from "./firebase"
-import { normalizarFase } from "./orcamento-fases"
+import { estaAdjudicada, foiEntregue, normalizarFase } from "./orcamento-fases"
 import {
   custoMedioAposEntrada,
   custoDoProduto,
@@ -925,27 +925,37 @@ export interface DashboardStats {
   receitaTotal: number
   clientesAtivos: number
   taxaConversao: number
+  /** Dinheiro ja recebido dos clientes (contas a receber pagas). */
+  recebido: number
 }
 
 export async function getDashboardStats(userId: string): Promise<DashboardStats> {
   try {
 
-    const [clientes, orcamentos] = await Promise.all([getClientes(userId), getOrcamentos(userId)])
+    const [clientes, orcamentos, contas] = await Promise.all([
+      getClientes(userId),
+      getOrcamentos(userId),
+      // Sem permissao de ver custos, o painel abre na mesma sem o recebido
+      listar<Conta>("contas").catch(() => [] as Conta[]),
+    ])
 
-    // Sem fase de adjudicacao, a referencia passa a ser a proposta emitida:
-    // e o ponto em que o documento foi entregue ao cliente
-    const emitidos = orcamentos.filter((o) => normalizarFase(o.status) === "emitido")
-    const receitaTotal = emitidos.reduce((sum, o) => sum + (o.valorTotal || 0), 0)
-    const cancelados = orcamentos.filter((o) => normalizarFase(o.status) === "cancelado").length
-    const decididos = emitidos.length + cancelados
-    const taxaConversao = decididos > 0 ? Math.round((emitidos.length / decididos) * 100) : 0
+    // Aprovado = adjudicado pelo cliente. A taxa conta so as propostas que
+    // ja lhe foram entregues (os rascunhos ainda nao tiveram resposta).
+    const adjudicados = orcamentos.filter(estaAdjudicada)
+    const receitaTotal = round2(adjudicados.reduce((sum, o) => sum + (o.valorTotal || 0), 0))
+    const entregues = orcamentos.filter(foiEntregue).length
+    const taxaConversao = entregues > 0 ? Math.round((adjudicados.length / entregues) * 100) : 0
+    const recebido = round2(
+      contas.filter((c) => c.tipo === "receber" && c.estado === "pago").reduce((s, c) => s + (Number(c.valor) || 0), 0),
+    )
 
     const stats: DashboardStats = {
       totalOrcamentos: orcamentos.length,
-      orcamentosAprovados: emitidos.length,
+      orcamentosAprovados: adjudicados.length,
       receitaTotal,
       clientesAtivos: clientes.length,
       taxaConversao,
+      recebido,
     }
 
     return stats
@@ -957,6 +967,7 @@ export async function getDashboardStats(userId: string): Promise<DashboardStats>
       receitaTotal: 0,
       clientesAtivos: 0,
       taxaConversao: 0,
+      recebido: 0,
     }
   }
 }

@@ -35,6 +35,7 @@ export default function DashboardPage() {
     receitaTotal: 0,
     clientesAtivos: 0,
     taxaConversao: 0,
+    recebido: 0,
   })
   const [loading, setLoading] = useState(true)
   const { user } = useAuth()
@@ -117,7 +118,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">{stats.orcamentosAprovados}</div>
-            <p className="text-xs text-muted-foreground">Projetos confirmados</p>
+            <p className="text-xs text-muted-foreground">Adjudicados pelo cliente</p>
           </CardContent>
         </Card>
 
@@ -128,7 +129,9 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-primary">{formatCurrency(stats.receitaTotal)}</div>
-            <p className="text-xs text-muted-foreground">Valor dos projetos aprovados</p>
+            <p className="text-xs text-muted-foreground">
+              Valor adjudicado · recebido <span className="font-medium text-foreground">{formatCurrency(stats.recebido)}</span>
+            </p>
           </CardContent>
         </Card>
 
@@ -151,7 +154,7 @@ export default function DashboardPage() {
             <TrendingUp className="h-5 w-5" />
             Taxa de Conversão
           </CardTitle>
-          <CardDescription>Percentual de orçamentos que foram aprovados</CardDescription>
+          <CardDescription>Propostas adjudicadas sobre as que já foram entregues ao cliente</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center space-x-4">
