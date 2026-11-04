@@ -34,6 +34,9 @@ export type Permissao =
   | "configuracoes.ver"
   | "configuracoes.gerir"
   | "utilizadores.gerir"
+  // Picagem de ponto
+  | "ponto.picar"
+  | "ponto.gerir"
 
 interface GrupoPermissoes {
   grupo: string
@@ -91,6 +94,17 @@ export const CATALOGO_PERMISSOES: GrupoPermissoes[] = [
     ],
   },
   {
+    grupo: "Picagem de ponto",
+    itens: [
+      { id: "ponto.picar", nome: "Picar ponto", ajuda: "So para as contas de trabalhador (n.o + PIN)" },
+      {
+        id: "ponto.gerir",
+        nome: "Gerir o ponto da equipa",
+        ajuda: "Ver picagens, aprovar ferias, faltas e correcoes, criar acessos. Quem gere funcionarios ja o tem.",
+      },
+    ],
+  },
+  {
     grupo: "Sistema",
     itens: [
       { id: "relatorios.ver", nome: "Ver relatorios" },
@@ -103,7 +117,20 @@ export const CATALOGO_PERMISSOES: GrupoPermissoes[] = [
 
 export const TODAS_PERMISSOES: Permissao[] = CATALOGO_PERMISSOES.flatMap((g) => g.itens.map((i) => i.id))
 
-export type Cargo = "administrador" | "direcao" | "orcamentista" | "tecnico" | "consulta" | "personalizado"
+export type Cargo = "administrador" | "direcao" | "orcamentista" | "tecnico" | "consulta" | "trabalhador" | "personalizado"
+
+/** Cargo das contas de picagem (n.o do funcionario + PIN): so ve o seu ponto. */
+export const CARGO_TRABALHADOR = "trabalhador"
+export const PERMISSOES_TRABALHADOR: Permissao[] = ["ponto.picar"]
+
+/**
+ * Permissoes que vem com outra. Quem gere funcionarios gere o ponto, sem ter
+ * de regravar as permissoes de quem ja existe. As regras do Firestore fazem o
+ * mesmo (gerePonto).
+ */
+export const IMPLICITAS: Partial<Record<Permissao, Permissao[]>> = {
+  "ponto.gerir": ["funcionarios.gerir"],
+}
 
 export interface DefinicaoCargo {
   id: Cargo
@@ -180,6 +207,12 @@ export const CARGOS: DefinicaoCargo[] = [
     permissoes: SO_VER,
   },
   {
+    id: "trabalhador",
+    nome: "Trabalhador (picagem)",
+    descricao: "So pica o ponto e pede ferias e faltas. Entra com o n.o de funcionario e PIN.",
+    permissoes: PERMISSOES_TRABALHADOR,
+  },
+  {
     id: "personalizado",
     nome: "Personalizado",
     descricao: "Permissoes escolhidas uma a uma.",
@@ -188,7 +221,7 @@ export const CARGOS: DefinicaoCargo[] = [
 ]
 
 export function getCargo(id?: string): DefinicaoCargo {
-  return CARGOS.find((cargo) => cargo.id === id) || CARGOS[CARGOS.length - 2]
+  return CARGOS.find((cargo) => cargo.id === id) || CARGOS.find((cargo) => cargo.id === "consulta")!
 }
 
 /** Permissoes de um cargo; em "personalizado" valem as que estiverem gravadas. */

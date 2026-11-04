@@ -138,7 +138,9 @@ export function Sidebar() {
   // Navegar fecha a barra no telemovel
   useEffect(() => setAbertaNoMovel(false), [pathname])
 
-  const entradasVisiveis = NAVEGACAO.filter((item) => !item.permissao || pode(item.permissao))
+  // A conta de trabalhador so ve o que tem permissao propria (a picagem)
+  const trabalhador = perfil?.cargo === "trabalhador"
+  const entradasVisiveis = NAVEGACAO.filter((item) => (item.permissao ? pode(item.permissao) : !trabalhador))
   const inicial = (perfil?.nome || user?.email || "?").charAt(0).toUpperCase()
   const nomeVisivel = perfil?.nome?.trim() || user?.email?.split("@")[0] || "Utilizador"
 

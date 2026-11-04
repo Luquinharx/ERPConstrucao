@@ -12,6 +12,10 @@ export interface UtilizadorSistema {
    */
   permissoes: string[]
   ativo: boolean
+  /** Conta de picagem: o funcionario a que pertence. */
+  funcionarioId?: string
+  /** Conta de picagem: numero do funcionario usado no login. */
+  numeroPonto?: string
   /** Ultimo acesso registado pela aplicacao. */
   ultimoAcesso?: Date
   createdAt?: Date
@@ -891,4 +895,105 @@ export interface PortalCliente {
   }
   atualizadoEm: string
   ativo: boolean
+}
+
+// ------------------------------------------------------------ Picagem de ponto
+
+/**
+ * Uma picagem. Nunca se edita nem apaga: um engano corrige-se com uma
+ * picagem de correcao (feita pelo gestor, com motivo) ou anulando a errada.
+ * E isto que da ao registo valor de prova (art. 202.o do Codigo do Trabalho).
+ */
+export type TipoPicagem = "entrada" | "pausa" | "retoma" | "saida"
+
+export interface Picagem {
+  id?: string
+  /** Conta de quem picou (o trabalhador, ou o gestor numa correcao). */
+  uid: string
+  funcionarioId: string
+  funcionarioNome: string
+  tipo: TipoPicagem
+  /** Hora do servidor (na app) ou a hora corrigida (correcao). */
+  hora: Date
+  /** yyyy-mm-dd local, para agrupar por dia. */
+  dia: string
+  orcamentoId?: string
+  orcamentoNumero?: string
+  /** app = picada pelo trabalhador; correcao = criada pelo gestor; anulacao = anula outra. */
+  origem: "app" | "correcao" | "anulacao"
+  /** Como se confirmou o local. */
+  metodo?: "livre" | "qr" | "gps"
+  gps?: { lat: number; lng: number; precisao: number; distancia?: number }
+  /** Na anulacao: a picagem anulada. */
+  anulaId?: string
+  motivo?: string
+  pedidoId?: string
+  feitaPor?: string
+  createdAt?: Date
+}
+
+export type TipoPedidoPonto = "correcao" | "ferias" | "falta"
+export type EstadoPedidoPonto = "pendente" | "aprovado" | "recusado" | "cancelado"
+
+export interface PedidoPonto {
+  id?: string
+  uid: string
+  funcionarioId: string
+  funcionarioNome: string
+  tipo: TipoPedidoPonto
+  estado: EstadoPedidoPonto
+  /** Ferias e faltas: periodo (yyyy-mm-dd, inclusivo). */
+  inicio?: string
+  fim?: string
+  /** Dias uteis do periodo (sem fins de semana nem feriados). */
+  diasUteis?: number
+  /** Falta: o motivo (consulta, doenca, parental...). */
+  motivoFalta?: string
+  /** Falta de parte do dia: horas. */
+  horas?: number
+  /** Correcao: a picagem que devia existir. */
+  correcao?: { dia: string; hora: string; tipo: TipoPicagem; orcamentoId?: string; orcamentoNumero?: string }
+  observacoes?: string
+  decididoPor?: string
+  decididoEm?: Date
+  respostaGestor?: string
+  createdAt?: Date
+}
+
+/** Obra disponivel para picar: copia curta da proposta, legivel pelo trabalhador. */
+export interface ObraPonto {
+  /** Igual ao id do orcamento. */
+  id?: string
+  numero: string
+  nome: string
+  morada?: string
+  ativa: boolean
+  /** Segredo do QR afixado na obra. */
+  tokenQR: string
+  local?: { lat: number; lng: number }
+  /** Raio aceite para o GPS (m). Sem valor, vale o da configuracao. */
+  raio?: number
+}
+
+/** Ligacao numero do funcionario -> conta de picagem (lida antes do login). */
+export interface AcessoPonto {
+  /** Numero do funcionario, normalizado (id do documento). */
+  id?: string
+  email: string
+  uid: string
+  funcionarioId: string
+  ativo: boolean
+}
+
+export interface ConfigPonto {
+  /** Como se confirma o local ao picar. */
+  validacao: "livre" | "qr" | "gps" | "qr_ou_gps"
+  /** Raio aceite para o GPS (m). */
+  raioMetros: number
+  /** Hora a partir da qual quem nao picou aparece em falta (hh:mm). */
+  horaLimiteEntrada: string
+  /** Dias de ferias por ano. */
+  diasFerias: number
+  /** Horas de trabalho por dia (para os saldos). */
+  horasDia: number
 }

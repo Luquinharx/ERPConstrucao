@@ -17,7 +17,7 @@ interface MainLayoutProps {
 
 export function MainLayout({ children }: MainLayoutProps) {
   const { user, loading } = useAuth()
-  const { pode, carregando: carregandoPerfil } = usePermissoes()
+  const { pode, perfil, carregando: carregandoPerfil } = usePermissoes()
   const pathname = usePathname()
   const router = useRouter()
 
@@ -30,6 +30,13 @@ export function MainLayout({ children }: MainLayoutProps) {
   useEffect(() => {
     if (!loading && !user) router.replace("/login")
   }, [loading, user, router])
+
+  // A conta de trabalhador (n.o + PIN) so tem a picagem: qualquer outro
+  // endereco leva-a de volta para la
+  const trabalhador = perfil?.cargo === "trabalhador"
+  useEffect(() => {
+    if (trabalhador && !pathname.startsWith("/picagem")) router.replace("/picagem")
+  }, [trabalhador, pathname, router])
 
   if (loading || (user && carregandoPerfil)) {
     return (
@@ -48,7 +55,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   }
 
   const entrada = entradaDaRota(pathname)
-  const semPermissao = entrada?.permissao && !pode(entrada.permissao)
+  const semPermissao = (entrada?.permissao && !pode(entrada.permissao)) || (trabalhador && !pathname.startsWith("/picagem"))
 
   return (
     <div className="flex h-screen bg-background">

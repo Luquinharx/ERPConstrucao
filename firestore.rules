@@ -38,6 +38,21 @@ service cloud.firestore {
       return ['clientes.ver', 'materiais.ver', 'servicos.ver', 'orcamentos.ver', 'relatorios.ver'];
     }
 
+    // ---- Picagem de ponto
+    // Quem gere funcionarios gere o ponto (igual a IMPLICITAS em lib/permissoes.ts)
+    function gerePonto() {
+      return pode('ponto.gerir') || pode('funcionarios.gerir');
+    }
+
+    function picador() {
+      return pode('ponto.picar');
+    }
+
+    /** Conta de trabalhador criada pelo gestor: so pode picar. */
+    function contaDeTrabalhador(dados) {
+      return dados.cargo == 'trabalhador' && dados.permissoes == ['ponto.picar'];
+    }
+
     function autoRegistoSeguro(uid) {
       return autenticado()
         && uid == request.auth.uid
@@ -52,8 +67,10 @@ service cloud.firestore {
 
       // O proprio cria o seu registo no primeiro acesso, mas so como Consulta.
       // Atribuir cargos com mais permissoes exige quem gere utilizadores.
-      allow create: if autoRegistoSeguro(uid) || pode('utilizadores.gerir');
+      allow create: if autoRegistoSeguro(uid) || pode('utilizadores.gerir')
+        || (gerePonto() && contaDeTrabalhador(request.resource.data));
       allow update: if pode('utilizadores.gerir')
+        || (gerePonto() && contaDeTrabalhador(resource.data) && contaDeTrabalhador(request.resource.data))
         || (autenticado() && uid == request.auth.uid
             && request.resource.data.cargo == resource.data.cargo
             && request.resource.data.permissoes == resource.data.permissoes);
@@ -137,9 +154,14 @@ service cloud.firestore {
 
     // Livro de ponto e faturas de fornecedor: registam-se pendentes e aprovam-se
     match /registosHoras/{docId} {
-      allow read: if pode('orcamentos.verCusto') || pode('orcamentos.custosObra');
+      allow read: if pode('orcamentos.verCusto') || pode('orcamentos.custosObra') || gerePonto();
       allow create, delete: if pode('orcamentos.custosObra') || pode('orcamentos.aprovar');
       allow update: if pode('orcamentos.aprovar');
+      // Horas vindas das picagens: o gestor do ponto envia-as pendentes; quem aprova, aprova
+      allow create, update: if gerePonto()
+        && request.resource.data.origem == 'picagem'
+        && request.resource.data.estado == 'pendente'
+        && (resource == null || resource.data.estado == 'pendente');
     }
 
     match /faturasFornecedor/{docId} {
@@ -182,6 +204,57 @@ service cloud.firestore {
     match /configuracoes/{docId} {
       allow read: if autenticado();
       allow write: if pode('configuracoes.gerir');
+    }
+
+    // Numero do funcionario -> conta. Lido antes do login (so um de cada vez:
+    // nao se consegue listar os numeros existentes).
+    match /acessosPonto/{numero} {
+      allow get: if true;
+      allow list: if gerePonto();
+      allow write: if gerePonto();
+    }
+
+    match /pontoConfig/{docId} {
+      allow read: if autenticado();
+      allow write: if gerePonto();
+    }
+
+    // Obras onde se pode picar: so numero, nome e local, sem valores
+    match /obrasPonto/{docId} {
+      allow read: if picador() || gerePonto();
+      allow write: if gerePonto();
+    }
+
+    // Picagens: nunca se editam nem apagam. O trabalhador so cria as suas,
+    // com a hora do servidor; o gestor cria correcoes e anulacoes, com motivo.
+    match /picagens/{docId} {
+      allow read: if gerePonto() || (picador() && resource.data.uid == request.auth.uid);
+      allow create: if (picador()
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.funcionarioId == perfil().funcionarioId
+          && request.resource.data.origem == 'app'
+          && request.resource.data.hora == request.time)
+        || (gerePonto()
+          && request.resource.data.origem in ['correcao', 'anulacao']
+          && request.resource.data.motivo is string
+          && request.resource.data.motivo.size() > 0);
+      allow update, delete: if false;
+    }
+
+    // Ferias, faltas e correcoes. O trabalhador cria os seus (pendentes) e
+    // so os pode cancelar enquanto pendentes; decidir e do gestor.
+    match /pedidosPonto/{docId} {
+      allow read: if gerePonto() || (picador() && resource.data.uid == request.auth.uid);
+      allow create: if picador()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.funcionarioId == perfil().funcionarioId
+        && request.resource.data.estado == 'pendente';
+      allow update: if gerePonto()
+        || (picador() && resource.data.uid == request.auth.uid
+            && resource.data.estado == 'pendente'
+            && request.resource.data.estado == 'cancelado'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'updatedAt']));
+      allow delete: if false;
     }
 
     // Tudo o resto continua fechado.

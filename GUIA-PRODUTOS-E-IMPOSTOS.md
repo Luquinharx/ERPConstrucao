@@ -75,3 +75,22 @@ O IVA cobrado ao cliente continua a ser somado no fim do orçamento, como antes.
 - **Estoque › Bipar**: no telemóvel (é preciso HTTPS), escolha a obra e leia o QR ou o EAN. "Sai para a obra" ou "Volta da obra". **Estoque › Etiquetas** imprime os QR.
 - **Financeiro**: a receber, a pagar e alertas de vencimento (também no Dashboard).
 - **Cotações**: o mesmo pedido a vários fornecedores, com o mais barato destacado.
+
+## 9. Picagem de ponto
+**Ponto da equipa** (gestor) e **Picagem** (trabalhador, no telemóvel)
+
+1. **Funcionários**: cada trabalhador precisa do **N.º do funcionário** na ficha.
+2. **Ponto da equipa › Acessos › Criar acesso**: o sistema sugere um PIN (4 a 6 dígitos). Envie ao trabalhador o link `/login?modo=pin`, o número e o PIN. Ele pode mudar o PIN na app.
+3. **Ponto da equipa › Obras**: ligue "Pode picar" nas obras. Para o GPS, defina o local (no sítio, ou com as coordenadas do Google Maps). Para o QR, imprima-o e afixe-o na obra.
+4. **Configuração**: como se confirma o local (livre, só QR, só GPS, QR ou GPS), o raio do GPS, a hora a partir da qual quem não picou fica em falta e os dias de férias.
+
+O trabalhador entra com o número e o PIN e só vê a sua picagem:
+- **Entrar** na obra, **Pausa**, **Voltar da pausa** e **Sair**;
+- pede **férias** (o saldo aparece logo), comunica **faltas** e pede **correções** quando se esquece de picar.
+
+O gestor:
+- vê quem está a trabalhar e quem está em falta;
+- aprova ou recusa os pedidos; o que aprova fica verde na app do trabalhador;
+- corrige ou anula picagens, sempre com motivo. As picagens nunca se apagam;
+- exporta o mês em CSV (art. 202.º do Código do Trabalho);
+- envia as horas por obra para o **Livro de ponto**, para entrarem no custo da obra.

@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
 
 import { getUtilizador, guardarUtilizador } from "@/lib/firebase-service"
-import { permissoesDoCargo, type Permissao } from "@/lib/permissoes"
+import { IMPLICITAS, permissoesDoCargo, type Permissao } from "@/lib/permissoes"
 import type { UtilizadorSistema } from "@/lib/types"
 import { useAuth } from "@/hooks/use-auth"
 
@@ -72,7 +72,8 @@ export function PermissoesProvider({ children }: { children: ReactNode }) {
   const pode = useCallback(
     (permissao: Permissao) => {
       if (!perfil || !perfil.ativo) return false
-      return (perfil.permissoes || []).includes(permissao)
+      const tem = perfil.permissoes || []
+      return tem.includes(permissao) || (IMPLICITAS[permissao] || []).some((p) => tem.includes(p))
     },
     [perfil],
   )
