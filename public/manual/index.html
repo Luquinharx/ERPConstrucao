@@ -120,6 +120,7 @@ hr { border: 0; border-top: 1px solid var(--risco); margin: 0; }
       <a href="#custo">5 Custo real</a>
       <a href="#telemovel">6 Telemovel</a>
       <a href="#apuramento">7 Apuramento e portal</a>
+      <a href="#ponto">8 Picagem de ponto</a>
       <a href="#situacoes">Situacoes</a>
       <a href="#permissoes">Quem faz o que</a>
       <a href="#glossario">Glossario</a>
@@ -359,6 +360,48 @@ hr { border: 0; border-top: 1px solid var(--risco); margin: 0; }
     </div>
   </section>
 
+  <section id="ponto" class="capitulo">
+    <header>
+      <span class="rotulo">Capitulo 8 · no telemovel e no escritorio</span>
+      <h2>Picagem de ponto, ferias e faltas</h2>
+      <p>O trabalhador pica a entrada, a pausa e a saida no telemovel, pede ferias e comunica faltas. A empresa valida em Ponto da equipa e o pedido fica verde na app dele. Cumpre o registo de tempos do art. 202.º do Codigo do Trabalho.</p>
+    </header>
+    <div class="duas">
+      <video class="vertical" controls preload="metadata" playsinline src="/manual/video/08-picagem-trabalhador.webm" aria-label="Video do capitulo 8: o trabalhador"></video>
+      <div class="caixa">
+        <ol class="passos">
+          <li><span>Envie ao trabalhador o link <span class="menu">/login?modo=pin</span>. Entra com o <b>n.º de funcionario</b> e o <b>PIN</b>; o telemovel lembra-se do numero.</span></li>
+          <li><span>Escolhe a obra e carrega em <span class="menu">Entrar</span>. Depois <span class="menu">Pausa</span>, <span class="menu">Voltar da pausa</span>, <span class="menu">Mudar de obra</span> e <span class="menu">Sair</span>.</span></li>
+          <li><span>A hora gravada e a do servidor, nao a do telemovel. As picagens nunca se apagam.</span></li>
+          <li><span><span class="menu">Ferias</span>: ve o saldo e pede as datas (so contam dias uteis, sem feriados nacionais).</span></li>
+          <li><span><span class="menu">Faltas</span>: motivo (consulta, doenca, licenca parental...), dias e, se for parte do dia, as horas.</span></li>
+          <li><span><span class="menu">Correcoes</span>: esqueceu-se de picar? Pede a hora certa com o motivo.</span></li>
+        </ol>
+        <p class="nota">O trabalhador so ve a sua picagem. Nao ve orcamentos, precos, salarios nem os colegas, e isso e bloqueado no servidor, nao so no ecra.</p>
+      </div>
+    </div>
+    <div class="duas">
+      <video controls preload="metadata" playsinline src="/manual/video/09-ponto-gestor.webm" aria-label="Video do capitulo 8: o gestor"></video>
+      <div class="caixa">
+        <ol class="passos">
+          <li><span><span class="menu">Ponto da equipa &gt; Acessos</span>: "Criar acesso" com um PIN de 4 a 6 digitos. "Novo PIN" troca-o; "Desativar" corta o acesso.</span></li>
+          <li><span><span class="menu">Obras</span>: ligue "Pode picar" nas obras ativas. Para GPS, defina o local e o raio; para QR, imprima e afixe na obra.</span></li>
+          <li><span><span class="menu">Configuracao</span>: livre, so QR, so GPS ou QR ou GPS; hora limite de entrada; dias de ferias (22).</span></li>
+          <li><span><span class="menu">Hoje</span>: quem esta a trabalhar, em pausa, de ferias e quem ainda nao picou depois da hora limite.</span></li>
+          <li><span><span class="menu">Pedidos</span>: aprovar ou recusar, com resposta. Fica verde ou vermelho na app do trabalhador.</span></li>
+          <li><span><span class="menu">Registos</span>: o mes de cada um, exportar CSV, imprimir e "Enviar horas para o Livro de ponto" (custo da obra).</span></li>
+          <li><span><span class="menu">Mapa de ferias</span>: a equipa no mes, por cores, com o saldo.</span></li>
+        </ol>
+      </div>
+    </div>
+    <div class="situacoes">
+      <div class="situacao"><b>Esqueceu-se de picar a saida</b><p>Ele pede a correcao na app, ou o gestor faz "Acrescentar picagem" em Registos. Fica marcado como corrigida, com motivo e quem fez.</p></div>
+      <div class="situacao"><b>Picagem errada</b><p>Em Registos &gt; Detalhe, "Anular" com o motivo. O original fica guardado, mas deixa de contar.</p></div>
+      <div class="situacao"><b>Esqueceu-se do PIN</b><p>Em Acessos, "Novo PIN". O antigo deixa de funcionar na hora.</p></div>
+      <div class="situacao"><b>Saiu da empresa</b><p>Em Acessos, "Desativar". Os registos dele ficam para consulta.</p></div>
+    </div>
+  </section>
+
   <hr>
 
   <section id="situacoes" class="capitulo">
@@ -394,6 +437,8 @@ hr { border: 0; border-top: 1px solid var(--risco); margin: 0; }
           <tr><td>Criar e editar materiais</td><td>Produtos, estoque, bipar, etiquetas, cotacoes</td></tr>
           <tr><td>Criar e editar funcionarios</td><td>Funcionarios e funcoes (custo/hora)</td></tr>
           <tr><td>Alterar identidade, termos e padroes</td><td>Configuracoes &gt; Precos e Impostos</td></tr>
+          <tr><td>Picar o ponto</td><td>So a pagina Picagem (cargo Trabalhador, entra com n.º + PIN)</td></tr>
+          <tr><td>Gerir o ponto da equipa</td><td>Ponto da equipa: aprovar ferias e faltas, corrigir, acessos, obras. Quem cria e edita funcionarios ja tem.</td></tr>
         </tbody>
       </table>
     </div>
