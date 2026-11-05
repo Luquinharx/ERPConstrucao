@@ -996,4 +996,10 @@ export interface ConfigPonto {
   diasFerias: number
   /** Horas de trabalho por dia (para os saldos). */
   horasDia: number
+  /** A empresa da a terca-feira de Carnaval (feriado facultativo, art. 235.º CT). */
+  carnaval?: boolean
+  /** Feriado municipal dado pela empresa, em "MM-DD" (ex.: "06-13" Lisboa). */
+  feriadoMunicipal?: string
+  /** Nome do feriado municipal (ex.: "Santo Antonio"). */
+  nomeFeriadoMunicipal?: string
 }

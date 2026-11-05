@@ -94,3 +94,9 @@ O gestor:
 - corrige ou anula picagens, sempre com motivo. As picagens nunca se apagam;
 - exporta o mês em CSV (art. 202.º do Código do Trabalho);
 - envia as horas por obra para o **Livro de ponto**, para entrarem no custo da obra.
+
+**Mapa de férias** (Ponto da equipa › Mapa de férias)
+- Vista **Ano**: calendário do ano inteiro, com quem está fora em cada dia (iniciais) e os feriados. Por baixo fica o mapa por trabalhador: períodos, dias, saldo e uma faixa do ano para ver as sobreposições. A vista **Mês** continua disponível.
+- Filtre por trabalhador e escolha se aparecem os pedidos por aprovar e as faltas.
+- **Imprimir para afixar** gera o mapa em A4 na horizontal, com logotipo, feriados e espaço para a assinatura. A lei (art. 241.º, n.º 9, do CT) manda fazê-lo até 15 de abril e mantê-lo afixado até 31 de outubro.
+- **Configuração › Feriados que a empresa dá**: a terça-feira de Carnaval e o feriado municipal (art. 235.º do CT). Só os ligue se estiverem no contrato coletivo ou nos contratos. Deixam de contar como dias de férias e aparecem no mapa.

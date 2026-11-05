@@ -28,6 +28,7 @@ import {
   formatarMinutos,
   horasPorObra,
   lerCoordenadas,
+  lerDiaMes,
   lerDia,
   nomeMotivoFalta,
   normalizarNumero,
@@ -84,7 +85,7 @@ export function PainelHoje({
   agora: Date
 }) {
   const hoje = diaLocal(agora)
-  const util = ehDiaUtil(hoje)
+  const util = ehDiaUtil(hoje, config)
   const passouLimite = agora >= dataHora(hoje, config.horaLimiteEntrada)
   const linhas = pessoas
     .filter((p) => p.acesso?.ativo || picagens.some((x) => x.funcionarioId === p.funcionarioId && x.dia === hoje))
@@ -117,7 +118,7 @@ export function PainelHoje({
           </Card>
         ))}
       </div>
-      {!util && <p className="text-sm text-muted-foreground">Hoje nao e dia util{feriadosPT(agora.getFullYear()).get(hoje) ? ` (${feriadosPT(agora.getFullYear()).get(hoje)})` : ""}: ninguem fica em falta.</p>}
+      {!util && <p className="text-sm text-muted-foreground">Hoje nao e dia util{feriadosPT(agora.getFullYear(), config).get(hoje) ? ` (${feriadosPT(agora.getFullYear(), config).get(hoje)})` : ""}: ninguem fica em falta.</p>}
       <Card>
         <CardContent className="pt-4">
           <Table data-testid="tabela-hoje">
@@ -283,6 +284,7 @@ export function PainelRegistos({
   gestor,
   custoFixoHora,
   podeEnviarHoras,
+  config,
   aoMudar,
 }: {
   pessoas: Pessoa[]
@@ -294,6 +296,7 @@ export function PainelRegistos({
   gestor: Gestor
   custoFixoHora: number
   podeEnviarHoras: boolean
+  config?: ConfigPonto
   aoMudar: () => Promise<void>
 }) {
   const [quem, setQuem] = useState(pessoas[0]?.funcionarioId || "")
@@ -454,7 +457,7 @@ export function PainelRegistos({
           <TableBody>
             {[...lidos].reverse().map((d) => {
               const pedido = pedidoNoDia(seusPedidos, d.dia)
-              const util = ehDiaUtil(d.dia)
+              const util = ehDiaUtil(d.dia, config)
               if (!util && d.picagens.length === 0 && !pedido) return null
               const todasDoDia = picagens.filter((p) => p.funcionarioId === quem && p.dia === d.dia).sort((a, b) => a.hora.getTime() - b.hora.getTime())
               const anuladas = new Set(todasDoDia.filter((p) => p.origem === "anulacao").map((p) => p.anulaId))
@@ -634,84 +637,6 @@ function DialogCorrecao({
         </div>
       </DialogContent>
     </Dialog>
-  )
-}
-
-// ------------------------------------------------------------ Mapa de ferias
-
-export function MapaFerias({ pessoas, pedidos, picagens, config, mes, setMes }: { pessoas: Pessoa[]; pedidos: PedidoPonto[]; picagens: Picagem[]; config: ConfigPonto; mes: string; setMes: (m: string) => void }) {
-  const dias = diasDoPeriodo(`${mes}-01`, `${mes}-31`).filter((d) => d.startsWith(mes))
-  const ano = Number(mes.slice(0, 4))
-  const feriados = feriadosPT(ano)
-  const comAcesso = pessoas.filter((p) => p.acesso || pedidos.some((x) => x.funcionarioId === p.funcionarioId))
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <CardTitle className="text-lg">Mapa de ferias e faltas</CardTitle>
-            <CardDescription>Verde: aprovado · amarelo: por aprovar · laranja: falta · ponto: picou nesse dia.</CardDescription>
-          </div>
-          <Input type="month" value={mes} onChange={(e) => e.target.value && setMes(e.target.value)} className="w-40" aria-label="Mes do mapa" />
-        </div>
-      </CardHeader>
-      <CardContent className="overflow-x-auto">
-        <table className="w-full border-collapse text-xs" data-testid="mapa-ferias">
-          <thead>
-            <tr>
-              <th className="sticky left-0 bg-background p-1 text-left">Trabalhador</th>
-              <th className="p-1 text-left">Saldo {ano}</th>
-              {dias.map((d) => (
-                <th key={d} className={`w-6 p-0.5 text-center font-normal ${!ehDiaUtil(d) ? "text-muted-foreground" : ""}`} title={feriados.get(d) || ""}>
-                  {Number(d.slice(8))}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {comAcesso.map((p) => {
-              const dele = pedidos.filter((x) => x.funcionarioId === p.funcionarioId)
-              const saldo = saldoFerias(dele, ano, config.diasFerias)
-              return (
-                <tr key={p.funcionarioId} className="border-t">
-                  <td className="sticky left-0 whitespace-nowrap bg-background p-1">{p.nome}</td>
-                  <td className="whitespace-nowrap p-1">
-                    {saldo.disponiveis}/{saldo.direito}
-                    {saldo.pendentes ? ` (+${saldo.pendentes}?)` : ""}
-                  </td>
-                  {dias.map((d) => {
-                    const pedido = pedidoNoDia(dele, d)
-                    const picou = picagens.some((x) => x.funcionarioId === p.funcionarioId && x.dia === d && x.origem !== "anulacao")
-                    const util = ehDiaUtil(d)
-                    const cor = pedido
-                      ? pedido.tipo === "ferias"
-                        ? pedido.estado === "aprovado"
-                          ? "bg-emerald-400"
-                          : "bg-amber-300"
-                        : pedido.estado === "aprovado"
-                          ? "bg-orange-400"
-                          : "bg-orange-200"
-                      : !util
-                        ? "bg-muted"
-                        : ""
-                    return (
-                      <td
-                        key={d}
-                        className={`h-6 border text-center ${cor}`}
-                        title={pedido ? `${pedido.tipo === "ferias" ? "Ferias" : nomeMotivoFalta(pedido.motivoFalta)} (${NOMES_ESTADO[pedido.estado]})` : feriados.get(d) || ""}
-                      >
-                        {picou ? "•" : ""}
-                      </td>
-                    )
-                  })}
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-        {comAcesso.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Sem trabalhadores com acesso.</p>}
-      </CardContent>
-    </Card>
   )
 }
 
@@ -1042,10 +967,16 @@ export const NOMES_VALIDACAO: Record<ConfigPonto["validacao"], string> = {
 
 export function PainelConfig({ config, aoMudar }: { config: ConfigPonto; aoMudar: () => Promise<void> }) {
   const [c, setC] = useState(config)
+  const [municipal, setMunicipal] = useState(() => (config.feriadoMunicipal ? `${config.feriadoMunicipal.slice(3)}/${config.feriadoMunicipal.slice(0, 2)}` : ""))
   const gravar = async () => {
+    const feriadoMunicipal = municipal.trim() ? lerDiaMes(municipal) : ""
+    if (municipal.trim() && !feriadoMunicipal) return toast({ title: "Feriado municipal invalido", description: "Escreva dia/mes, ex.: 13/06.", variant: "destructive" })
     try {
       await guardarConfigPonto({
         ...c,
+        carnaval: !!c.carnaval,
+        feriadoMunicipal,
+        nomeFeriadoMunicipal: (c.nomeFeriadoMunicipal || "").trim(),
         raioMetros: Math.max(50, Number(c.raioMetros) || 300),
         diasFerias: Math.max(0, Number(c.diasFerias) || 22),
         horasDia: Math.max(1, Number(c.horasDia) || 8),
@@ -1097,6 +1028,30 @@ export function PainelConfig({ config, aoMudar }: { config: ConfigPonto; aoMudar
           <div className="space-y-1">
             <Label htmlFor="horas-dia">Horas de trabalho por dia</Label>
             <Input id="horas-dia" type="number" min={1} step={0.5} value={c.horasDia} onChange={(e) => setC({ ...c, horasDia: Number(e.target.value) })} />
+          </div>
+        </div>
+        <div className="space-y-3 rounded-lg border p-3">
+          <div>
+            <Label>Feriados que a empresa da</Label>
+            <p className="text-xs text-muted-foreground">
+              Facultativos (art. 235.º CT): so contam se estiverem no contrato coletivo ou nos contratos. Nao contam como dias de ferias e aparecem no mapa.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch id="carnaval" checked={!!c.carnaval} onCheckedChange={(v) => setC({ ...c, carnaval: v })} />
+            <Label htmlFor="carnaval" className="font-normal">
+              Terca-feira de Carnaval
+            </Label>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1">
+              <Label htmlFor="municipal-dia">Feriado municipal (dia/mes)</Label>
+              <Input id="municipal-dia" placeholder="ex.: 13/06" value={municipal} onChange={(e) => setMunicipal(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="municipal-nome">Nome</Label>
+              <Input id="municipal-nome" placeholder="ex.: Santo Antonio (Lisboa)" value={c.nomeFeriadoMunicipal || ""} onChange={(e) => setC({ ...c, nomeFeriadoMunicipal: e.target.value })} />
+            </div>
           </div>
         </div>
         <Button className="rounded-full" onClick={gravar}>

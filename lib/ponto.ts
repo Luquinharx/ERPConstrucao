@@ -237,8 +237,46 @@ function pascoa(ano: number): Date {
   return new Date(ano, mes - 1, dia)
 }
 
-/** Feriados nacionais obrigatorios de Portugal (sem os municipais). */
-export function feriadosPT(ano: number): Map<string, string> {
+/** Feriados facultativos que a empresa da (art. 235.º CT). Vem da configuracao do ponto. */
+export type OpcoesFeriados = Pick<ConfigPonto, "carnaval" | "feriadoMunicipal" | "nomeFeriadoMunicipal">
+
+/** Carnaval e feriado municipal, quando a empresa os da. */
+export function feriadosFacultativos(ano: number, opcoes?: OpcoesFeriados): Map<string, string> {
+  const mapa = new Map<string, string>()
+  if (opcoes?.carnaval) {
+    const p = pascoa(ano)
+    mapa.set(diaLocal(new Date(p.getFullYear(), p.getMonth(), p.getDate() - 47)), "Carnaval")
+  }
+  if (opcoes?.feriadoMunicipal && /^\d{2}-\d{2}$/.test(opcoes.feriadoMunicipal)) {
+    mapa.set(`${ano}-${opcoes.feriadoMunicipal}`, opcoes.nomeFeriadoMunicipal?.trim() || "Feriado municipal")
+  }
+  return mapa
+}
+
+/** Le "13/06", "13-06" ou "06-13" (ja gravado) e devolve "MM-DD"; vazio se invalido. */
+export function lerDiaMes(texto: string): string {
+  const t = texto.trim()
+  if (/^\d{2}-\d{2}$/.test(t)) return t
+  const m = t.match(/^(\d{1,2})[/.](\d{1,2})$/)
+  if (!m) return ""
+  const dia = Number(m[1])
+  const mes = Number(m[2])
+  if (mes < 1 || mes > 12 || dia < 1 || dia > new Date(2024, mes, 0).getDate()) return ""
+  return `${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`
+}
+
+/**
+ * Feriados de Portugal: os nacionais obrigatorios e, se a empresa os der,
+ * o Carnaval e o feriado municipal.
+ */
+export function feriadosPT(ano: number, opcoes?: OpcoesFeriados): Map<string, string> {
+  const mapa = feriadosNacionais(ano)
+  for (const [dia, nome] of feriadosFacultativos(ano, opcoes)) if (!mapa.has(dia)) mapa.set(dia, nome)
+  return mapa
+}
+
+/** Feriados nacionais obrigatorios (art. 234.º CT). */
+export function feriadosNacionais(ano: number): Map<string, string> {
   const p = pascoa(ano)
   const mais = (dias: number) => diaLocal(new Date(p.getFullYear(), p.getMonth(), p.getDate() + dias))
   const fixos: Array<[string, string]> = [
@@ -260,13 +298,13 @@ export function feriadosPT(ano: number): Map<string, string> {
   return mapa
 }
 
-/** Dia util: nem fim de semana nem feriado nacional. */
-export function ehDiaUtil(dia: string): boolean {
+/** Dia util: nem fim de semana nem feriado (nacional ou facultativo dado pela empresa). */
+export function ehDiaUtil(dia: string, opcoes?: OpcoesFeriados): boolean {
   const [a, m, d] = dia.split("-").map(Number)
   const data = new Date(a, m - 1, d)
   const semana = data.getDay()
   if (semana === 0 || semana === 6) return false
-  return !feriadosPT(a).has(dia)
+  return !feriadosPT(a, opcoes).has(dia)
 }
 
 /** Dias do periodo (inclusivo), em yyyy-mm-dd. */
@@ -281,8 +319,8 @@ export function diasDoPeriodo(inicio: string, fim: string): string[] {
   return lista
 }
 
-export function diasUteis(inicio: string, fim: string): number {
-  return diasDoPeriodo(inicio, fim).filter(ehDiaUtil).length
+export function diasUteis(inicio: string, fim: string, opcoes?: OpcoesFeriados): number {
+  return diasDoPeriodo(inicio, fim).filter((d) => ehDiaUtil(d, opcoes)).length
 }
 
 export interface SaldoFerias {

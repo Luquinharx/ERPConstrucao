@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { RefreshCw } from "lucide-react"
 
-import { MapaFerias, PainelAcessos, PainelConfig, PainelHoje, PainelObras, PainelPedidos, PainelRegistos, type Pessoa } from "@/components/ponto/gestor"
+import { PainelAcessos, PainelConfig, PainelHoje, PainelObras, PainelPedidos, PainelRegistos, type Pessoa } from "@/components/ponto/gestor"
+import { MapaFerias } from "@/components/ponto/mapa-ferias"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
@@ -114,7 +115,7 @@ export default function PontoPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
-        <div>
+        <div className="pl-12 lg:pl-0">
           <h1 className="text-3xl font-bold">Ponto da equipa</h1>
           <p className="mt-2 text-muted-foreground">Picagens, ferias e faltas. Os trabalhadores picam no telemovel com o n.º de funcionario e PIN.</p>
         </div>
@@ -154,6 +155,7 @@ export default function PontoPage() {
             gestor={gestor}
             custoFixoHora={configuracao.custoFixoHora || 0}
             podeEnviarHoras={verFuncionarios}
+            config={config}
             aoMudar={carregar}
           />
         </TabsContent>

@@ -360,7 +360,7 @@ export default function PicagemPage() {
           <PedidoFerias pedidos={pedidos} config={config} base={{ uid: user!.uid, funcionarioId, funcionarioNome: nome }} aoGravar={carregar} />
         </TabsContent>
         <TabsContent value="faltas">
-          <PedidoFalta pedidos={pedidos} base={{ uid: user!.uid, funcionarioId, funcionarioNome: nome }} aoGravar={carregar} />
+          <PedidoFalta pedidos={pedidos} config={config} base={{ uid: user!.uid, funcionarioId, funcionarioNome: nome }} aoGravar={carregar} />
         </TabsContent>
         <TabsContent value="correcoes">
           <PedidoCorrecao pedidos={pedidos} obras={obras} base={{ uid: user!.uid, funcionarioId, funcionarioNome: nome }} aoGravar={carregar} />
@@ -483,7 +483,7 @@ function PedidoFerias({ pedidos, config, base, aoGravar }: { pedidos: PedidoPont
   const [obs, setObs] = useState("")
   const [aGravar, setAGravar] = useState(false)
   const saldo = saldoFerias(pedidos, ano, config.diasFerias)
-  const dias = inicio && fim ? diasUteis(inicio, fim) : 0
+  const dias = inicio && fim ? diasUteis(inicio, fim, config) : 0
   const minhas = pedidos.filter((p) => p.tipo === "ferias")
 
   const pedir = async () => {
@@ -535,7 +535,7 @@ function PedidoFerias({ pedidos, config, base, aoGravar }: { pedidos: PedidoPont
   )
 }
 
-function PedidoFalta({ pedidos, base, aoGravar }: { pedidos: PedidoPonto[]; base: Base; aoGravar: () => Promise<void> }) {
+function PedidoFalta({ pedidos, config, base, aoGravar }: { pedidos: PedidoPonto[]; config: ConfigPonto; base: Base; aoGravar: () => Promise<void> }) {
   const [inicio, setInicio] = useState(diaLocal(new Date()))
   const [fim, setFim] = useState(diaLocal(new Date()))
   const [motivo, setMotivo] = useState("consulta")
@@ -553,7 +553,7 @@ function PedidoFalta({ pedidos, base, aoGravar }: { pedidos: PedidoPonto[]; base
         tipo: "falta",
         inicio,
         fim: fim || inicio,
-        diasUteis: diasUteis(inicio, fim || inicio),
+        diasUteis: diasUteis(inicio, fim || inicio, config),
         motivoFalta: motivo,
         horas: Number(horas.replace(",", ".")) || 0,
         observacoes: obs.trim(),
