@@ -395,10 +395,11 @@ export function lerCoordenadas(texto: string): { lat: number; lng: number } | nu
 // ------------------------------------------------------------ Estados dos pedidos
 
 export const CORES_ESTADO: Record<EstadoPedidoPonto, string> = {
-  pendente: "border-amber-400 bg-amber-50 text-amber-800",
-  aprovado: "border-emerald-400 bg-emerald-50 text-emerald-800",
-  recusado: "border-rose-400 bg-rose-50 text-rose-800",
-  cancelado: "border-slate-300 bg-slate-50 text-slate-500",
+  // Com versão para o tema escuro: antes ficava texto escuro sobre fundo claro ilegível
+  pendente: "border-amber-400 bg-amber-50 text-amber-800 dark:border-amber-500/60 dark:bg-amber-500/10 dark:text-amber-300",
+  aprovado: "border-emerald-400 bg-emerald-50 text-emerald-800 dark:border-emerald-500/60 dark:bg-emerald-500/10 dark:text-emerald-300",
+  recusado: "border-rose-400 bg-rose-50 text-rose-800 dark:border-rose-500/60 dark:bg-rose-500/10 dark:text-rose-300",
+  cancelado: "border-slate-300 bg-slate-50 text-slate-500 dark:border-slate-600 dark:bg-slate-500/10 dark:text-slate-400",
 }
 export const NOMES_ESTADO: Record<EstadoPedidoPonto, string> = {
   pendente: m("Pendente"),

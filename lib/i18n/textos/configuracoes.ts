@@ -382,4 +382,14 @@ export const textos: Dicionario = {
     "pt-BR": "Estoque insuficiente: há {saldo} {unidade} de {produto}. Registre primeiro a entrada ou um ajuste.",
     en: "Insufficient stock: there are {saldo} {unidade} of {produto}. Record a stock in or an adjustment first.",
   },
+  // Símbolo da marca
+  "Símbolo (só o ícone, sem o nome)": { "pt-BR": "Símbolo (só o ícone, sem o nome)", en: "Symbol (icon only, without the name)" },
+  "Sem símbolo": { "pt-BR": "Sem símbolo", en: "No symbol" },
+  "Carregar símbolo": { "pt-BR": "Enviar símbolo", en: "Upload symbol" },
+  "Aparece no menu lateral quando está recolhido e no separador do navegador. De preferência quadrado.": { "pt-BR": "Aparece no menu lateral quando está recolhido e na aba do navegador. De preferência quadrado.", en: "Shown in the side menu when it is collapsed and in the browser tab. Square works best." },
+  // Cores de fundo
+  "Cor de fundo - tema claro": { "pt-BR": "Cor de fundo - tema claro", en: "Background colour - light theme" },
+  "Cor de fundo - tema escuro": { "pt-BR": "Cor de fundo - tema escuro", en: "Background colour - dark theme" },
+  "Repor": { "pt-BR": "Restaurar", en: "Reset" },
+  "Os cartões, a barra dos separadores e as linhas ganham tons desta cor. Mude o tema no menu do utilizador para ver o outro.": { "pt-BR": "Os cartões, a barra das abas e as linhas ganham tons desta cor. Mude o tema no menu do usuário para ver o outro.", en: "Cards, the tab bar and dividers take shades of this colour. Switch the theme in the user menu to see the other one." },
 }

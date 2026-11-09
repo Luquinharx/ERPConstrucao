@@ -7,6 +7,9 @@ const config = {
     "./pages/**/*.{ts,tsx}",
     "./components/**/*.{ts,tsx}",
     "./app/**/*.{ts,tsx}",
+    // Classes de cor definidas em lib/ (estados dos pedidos, fases...) e hooks/
+    "./lib/**/*.{ts,tsx}",
+    "./hooks/**/*.{ts,tsx}",
     "./src/**/*.{ts,tsx}",
     "*.{js,ts,jsx,tsx,mdx}",
   ],

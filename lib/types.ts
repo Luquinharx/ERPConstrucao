@@ -78,6 +78,8 @@ export interface ConfiguracaoEmpresa {
   slogan?: string
   /** URL publica ou data URL do logotipo. */
   logoUrl?: string
+  /** Só o símbolo, sem o nome (menu lateral recolhido e ícone do separador). */
+  logoSimboloUrl?: string
   /**
    * Fundo por tras do logotipo, para ele ser legivel em qualquer tema:
    * auto = placa clara so no modo escuro; claro/escuro = placa sempre;
@@ -88,6 +90,10 @@ export interface ConfiguracaoEmpresa {
   corPrimaria: string
   corSecundaria: string
   corEscura: string
+  /** Fundo do sistema no tema claro (cartões, barras e linhas acompanham). */
+  corFundoClaro?: string
+  /** Fundo do sistema no tema escuro. */
+  corFundoEscuro?: string
   fonte: string
 
   /** Denominacao social completa, ex.: TECKNOWHOW, Lda. */

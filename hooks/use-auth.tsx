@@ -21,7 +21,6 @@ interface AuthContextType {
   user: User | null
   loading: boolean
   login: (email: string, password: string) => Promise<void>
-  register: (email: string, password: string, name?: string) => Promise<void>
   logout: () => Promise<void>
   resetPassword: (email: string) => Promise<void>
   updateUserProfile: (displayName: string) => Promise<void>
@@ -87,12 +86,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     toast({ title: t("Sessão iniciada"), description: t("Bem-vindo de volta.") })
   }
 
-  const register = async (email: string, password: string, name?: string) => {
-    const r = await pedirAuth("registar", { email, senha: password, nome: name })
-    setUser(r.user || null)
-    toast({ title: t("Conta criada"), description: t("Bem-vindo ao sistema.") })
-  }
-
   const logout = async () => {
     try {
       await pedirAuth("sair")
@@ -138,7 +131,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     loading,
     login,
-    register,
     logout,
     resetPassword,
     updateUserProfile,

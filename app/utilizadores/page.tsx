@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { Loader2, ShieldCheck, Trash2, UserCog, Users } from "lucide-react"
+import { KeyRound, Loader2, ShieldCheck, Trash2, UserCog, UserPlus, Users, Wand2 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -21,10 +21,11 @@ import { Switch } from "@/components/ui/switch"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { ListToolbar } from "@/components/ui/list-toolbar"
 import { toast } from "@/hooks/use-toast"
-import { useAuth } from "@/hooks/use-auth"
+import { pedirAuth, useAuth } from "@/hooks/use-auth"
 import { usePermissoes } from "@/hooks/use-permissoes"
 import { useSearchQuery } from "@/hooks/use-search-query"
-import { apagarUtilizador, getUtilizadores, guardarUtilizador } from "@/lib/firebase-service"
+import { getUtilizadores, guardarUtilizador } from "@/lib/firebase-service"
+import { mensagemDeErroAuth } from "@/lib/auth-mensagens"
 import {
   CARGOS,
   CATALOGO_PERMISSOES,
@@ -37,6 +38,16 @@ import { formatDate, matchesSearch } from "@/lib/utils"
 import { t } from "@/lib/i18n"
 import { SemAcesso } from "@/components/sem-acesso"
 
+/** Palavra-passe inicial aleatória, fácil de ditar (sem 0/O, 1/l). */
+function gerarSenha(): string {
+  const letras = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"
+  const bytes = new Uint8Array(10)
+  crypto.getRandomValues(bytes)
+  return Array.from(bytes, (b) => letras[b % letras.length]).join("")
+}
+
+const NOVO_VAZIO = { nome: "", email: "", senha: "", cargo: "consulta" }
+
 export default function UtilizadoresPage() {
   const { user } = useAuth()
   const { pode, perfil, recarregar } = usePermissoes()
@@ -47,8 +58,66 @@ export default function UtilizadoresPage() {
   const [emEdicao, setEmEdicao] = useState<UtilizadorSistema | null>(null)
   const [guardando, setGuardando] = useState(false)
   const [aApagar, setAApagar] = useState<UtilizadorSistema | null>(null)
+  const [novo, setNovo] = useState<typeof NOVO_VAZIO | null>(null)
+  const [aCriar, setACriar] = useState(false)
+  const [senhaNova, setSenhaNova] = useState("")
+  const [aDefinirSenha, setADefinirSenha] = useState(false)
 
   const podeGerir = pode("utilizadores.gerir")
+
+  /** Só o administrador cria contas: nome, email, palavra-passe inicial e cargo. */
+  const criarUtilizador = async () => {
+    if (!novo) return
+    if (!novo.email.trim()) return toast({ title: t("Indique o email."), variant: "destructive" })
+    if (novo.senha.length < 6) return toast({ title: t("A palavra-passe tem de ter pelo menos 6 caracteres."), variant: "destructive" })
+    setACriar(true)
+    try {
+      await pedirAuth("criar-utilizador", {
+        nome: novo.nome.trim(),
+        email: novo.email.trim(),
+        senha: novo.senha,
+        cargo: novo.cargo,
+        permissoes: permissoesDoCargo(novo.cargo),
+      })
+      toast({
+        title: t("Utilizador criado"),
+        description: t("{email} já pode entrar com a palavra-passe que definiu.", { email: novo.email.trim() }),
+      })
+      setNovo(null)
+      await carregar()
+    } catch (error) {
+      toast({
+        title: t("Não foi possível criar o utilizador"),
+        description: mensagemDeErroAuth(error, t("Tente novamente.")),
+        variant: "destructive",
+      })
+    } finally {
+      setACriar(false)
+    }
+  }
+
+  /** Palavra-passe nova para outra pessoa (as sessões abertas dela terminam). */
+  const definirSenha = async () => {
+    if (!emEdicao?.id) return
+    if (senhaNova.length < 6) return toast({ title: t("A palavra-passe tem de ter pelo menos 6 caracteres."), variant: "destructive" })
+    setADefinirSenha(true)
+    try {
+      await pedirAuth("definir-senha", { uid: emEdicao.id, senha: senhaNova })
+      toast({
+        title: t("Palavra-passe definida"),
+        description: t("Comunique a palavra-passe nova a {email}.", { email: emEdicao.email }),
+      })
+      setSenhaNova("")
+    } catch (error) {
+      toast({
+        title: t("Não foi possível definir a palavra-passe"),
+        description: mensagemDeErroAuth(error, t("Tente novamente.")),
+        variant: "destructive",
+      })
+    } finally {
+      setADefinirSenha(false)
+    }
+  }
 
   const carregar = useCallback(async () => {
     try {
@@ -95,21 +164,15 @@ export default function UtilizadoresPage() {
     }
   }
 
-  /**
-   * Remove o perfil, nao a conta de autenticacao.
-   *
-   * A conta continua a existir no Firebase Auth e a pessoa consegue entrar;
-   * volta a aparecer aqui como Consulta. Para a impedir de entrar de vez, a
-   * conta tem de ser apagada na consola do Firebase.
-   */
+  /** Remove a pessoa do sistema: o perfil e a conta de acesso (deixa de conseguir entrar). */
   const removerPerfil = async () => {
     if (!aApagar?.id) return
 
     try {
-      await apagarUtilizador(aApagar.id)
+      await pedirAuth("remover-utilizador", { uid: aApagar.id })
       toast({
-        title: t("Perfil removido"),
-        description: t("{email} deixou de ter permissões no sistema.", { email: aApagar.email }),
+        title: t("Utilizador removido"),
+        description: t("{email} deixou de ter acesso ao sistema.", { email: aApagar.email }),
       })
       setAApagar(null)
       await carregar()
@@ -162,6 +225,10 @@ export default function UtilizadoresPage() {
             {t("Quem entra no sistema e o que cada um pode fazer em cada ecrã.")}
           </p>
         </div>
+        <Button className="rounded-full" onClick={() => setNovo({ ...NOVO_VAZIO, senha: gerarSenha() })} data-testid="novo-utilizador">
+          <UserPlus className="mr-2 h-4 w-4" />
+          {t("Novo utilizador")}
+        </Button>
       </div>
 
       {/* Cargos disponiveis */}
@@ -208,7 +275,7 @@ export default function UtilizadoresPage() {
             {t("Contas")}
           </CardTitle>
           <CardDescription>
-            {t("As contas aparecem aqui no primeiro acesso. Quem se regista entra como Consulta até receber um cargo.")}
+            {t("Só o administrador cria contas, em \"Novo utilizador\". Não há registo livre no ecrã de entrada.")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -216,6 +283,7 @@ export default function UtilizadoresPage() {
             <div
               key={item.id}
               className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3"
+              data-utilizador={item.email}
             >
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
@@ -240,7 +308,7 @@ export default function UtilizadoresPage() {
               </div>
 
               <div className="flex items-center gap-2">
-                <Button variant="outline" className="rounded-full" onClick={() => setEmEdicao({ ...item })}>
+                <Button variant="outline" className="rounded-full" onClick={() => { setEmEdicao({ ...item }); setSenhaNova("") }}>
                   <UserCog className="mr-2 h-4 w-4" />
                   {t("Gerir")}
                 </Button>
@@ -251,7 +319,7 @@ export default function UtilizadoresPage() {
                     size="icon"
                     className="rounded-full text-muted-foreground hover:text-destructive"
                     onClick={() => setAApagar(item)}
-                    aria-label={t("Remover o perfil de {email}", { email: item.email })}
+                    aria-label={t("Remover {email}", { email: item.email })}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -318,6 +386,36 @@ export default function UtilizadoresPage() {
                 />
               </label>
 
+              {/* Palavra-passe definida pelo administrador (a pessoa esqueceu-se, por exemplo) */}
+              {emEdicao.id !== user?.uid && (
+                <div className="space-y-2 rounded-lg border p-3">
+                  <Label htmlFor="senha-nova-utilizador" className="flex items-center gap-2">
+                    <KeyRound className="h-4 w-4" />
+                    {t("Definir nova palavra-passe")}
+                  </Label>
+                  <div className="flex flex-wrap gap-2">
+                    <Input
+                      id="senha-nova-utilizador"
+                      value={senhaNova}
+                      onChange={(e) => setSenhaNova(e.target.value)}
+                      placeholder={t("Pelo menos 6 caracteres")}
+                      className="min-w-[200px] flex-1 rounded-full font-mono"
+                      autoComplete="off"
+                    />
+                    <Button type="button" variant="outline" className="rounded-full" onClick={() => setSenhaNova(gerarSenha())}>
+                      <Wand2 className="mr-2 h-4 w-4" />
+                      {t("Gerar")}
+                    </Button>
+                    <Button type="button" className="rounded-full" onClick={definirSenha} disabled={aDefinirSenha || !senhaNova}>
+                      {aDefinirSenha ? <Loader2 className="h-4 w-4 animate-spin" /> : t("Definir")}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {t("A pessoa passa a entrar com esta palavra-passe e as sessões que tinha abertas terminam.")}
+                  </p>
+                </div>
+              )}
+
               {emEdicao.id === user?.uid && (
                 <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-xs">
                   {t("Está a alterar a sua própria conta. Se retirar a permissão de gerir utilizadores, deixa de poder voltar a este ecrã.")}
@@ -368,16 +466,16 @@ export default function UtilizadoresPage() {
       <Dialog open={!!aApagar} onOpenChange={(aberto) => !aberto && setAApagar(null)}>
         <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
-            <DialogTitle>{t("Remover perfil")}</DialogTitle>
+            <DialogTitle>{t("Remover utilizador")}</DialogTitle>
             <DialogDescription>{aApagar?.email}</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3 text-sm">
             <p>
-              {t("Esta pessoa deixa de ter permissões no sistema. O perfil sai desta lista e todas as suas permissões são eliminadas.")}
+              {t("A conta de acesso e o perfil são eliminados: esta pessoa deixa de conseguir entrar no sistema. O que registou (orçamentos, picagens...) mantém-se.")}
             </p>
             <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-xs">
-              {t("A conta de acesso continua a existir. Se voltar a entrar, reaparece aqui como Consulta. Para lhe tirar todo o acesso, desative a conta em vez de remover o perfil.")}
+              {t("Para lhe tirar o acesso só por uns tempos, desative a conta em \"Gerir\" em vez de a remover.")}
             </div>
           </div>
 
@@ -387,9 +485,89 @@ export default function UtilizadoresPage() {
             </Button>
             <Button variant="destructive" className="rounded-full" onClick={removerPerfil}>
               <Trash2 className="mr-2 h-4 w-4" />
-              {t("Remover perfil")}
+              {t("Remover utilizador")}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Novo utilizador (só o administrador) */}
+      <Dialog open={!!novo} onOpenChange={(aberto) => !aberto && setNovo(null)}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle>{t("Novo utilizador")}</DialogTitle>
+            <DialogDescription>
+              {t("A pessoa entra com este email e esta palavra-passe. Depois pode mudá-la em Configurações.")}
+            </DialogDescription>
+          </DialogHeader>
+
+          {novo && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="novo-nome">{t("Nome")}</Label>
+                <Input
+                  id="novo-nome"
+                  value={novo.nome}
+                  onChange={(e) => setNovo({ ...novo, nome: e.target.value })}
+                  placeholder={t("Nome da pessoa")}
+                  className="rounded-full"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="novo-email">{t("Email")}</Label>
+                <Input
+                  id="novo-email"
+                  type="email"
+                  value={novo.email}
+                  onChange={(e) => setNovo({ ...novo, email: e.target.value })}
+                  placeholder={t("nome@empresa.pt")}
+                  className="rounded-full"
+                  autoComplete="off"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="novo-senha">{t("Palavra-passe inicial")}</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="novo-senha"
+                    value={novo.senha}
+                    onChange={(e) => setNovo({ ...novo, senha: e.target.value })}
+                    className="flex-1 rounded-full font-mono"
+                    autoComplete="off"
+                  />
+                  <Button type="button" variant="outline" className="rounded-full" onClick={() => setNovo({ ...novo, senha: gerarSenha() })}>
+                    <Wand2 className="mr-2 h-4 w-4" />
+                    {t("Gerar")}
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>{t("Cargo")}</Label>
+                <Select value={novo.cargo} onValueChange={(cargo) => setNovo({ ...novo, cargo })}>
+                  <SelectTrigger className="rounded-full" data-testid="novo-cargo">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CARGOS.filter((c) => c.id !== "personalizado" && c.id !== "trabalhador").map((cargo) => (
+                      <SelectItem key={cargo.id} value={cargo.id}>
+                        {t(cargo.nome)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">{t(getCargo(novo.cargo).descricao)}</p>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" className="rounded-full" onClick={() => setNovo(null)}>
+                  {t("Cancelar")}
+                </Button>
+                <Button className="rounded-full min-w-[140px]" onClick={criarUtilizador} disabled={aCriar}>
+                  {aCriar ? <Loader2 className="h-4 w-4 animate-spin" /> : t("Criar utilizador")}
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

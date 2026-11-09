@@ -6,6 +6,7 @@ import {
   autenticar,
   contaDaSessao,
   contaPorEmail,
+  contaPorUid,
   criarConta,
   criarTokenRecuperacao,
   fecharOutrasSessoes,
@@ -20,8 +21,22 @@ import { pedinteDe } from "@/lib/server/documentos"
 import { emailConfigurado, enviarEmail } from "@/lib/server/email"
 import { consultar } from "@/lib/server/pg"
 import { COOKIE_IDIOMA, ehIdioma, idiomaDoNavegador, t } from "@/lib/i18n"
+import { CARGOS, TODAS_PERMISSOES, permissoesDoCargo } from "@/lib/permissoes"
 
 export const dynamic = "force-dynamic"
+
+class SemPermissao extends Error {}
+
+/** Conta com sessão, perfil ativo e a permissão de gerir utilizadores (o administrador). */
+async function exigirGestorDeUtilizadores() {
+  const conta = await contaDaSessao()
+  if (!conta) throw new SemPermissao()
+  const { perfil } = await pedinteDe(conta.uid)
+  if (!(perfil?.ativo === true && Array.isArray(perfil.permissoes) && perfil.permissoes.includes("utilizadores.gerir"))) {
+    throw new SemPermissao()
+  }
+  return conta
+}
 
 const ok = (corpo: Record<string, unknown> = {}) => NextResponse.json({ ok: true, ...corpo })
 const falha = (code: string, estado = 400) => NextResponse.json({ erro: { code } }, { status: estado })
@@ -67,10 +82,48 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ aca
         await fecharSessao()
         return ok()
 
-      case "registar": {
-        const conta = await criarConta(validarEmail(corpo.email), validarSenhaNova(corpo.senha), corpo.nome)
-        await abrirSessao(conta.uid)
-        return ok({ user: paraUtilizador(conta) })
+      // Registo livre desligado: só o administrador cria contas (criar-utilizador)
+      case "registar":
+        return falha("auth/operation-not-allowed", 403)
+
+      /** Conta nova criada pelo administrador, já com o cargo e as permissões. */
+      case "criar-utilizador": {
+        await exigirGestorDeUtilizadores()
+        const email = validarEmail(corpo.email)
+        const nome = String(corpo.nome || "").trim().slice(0, 120)
+        const cargo = String(corpo.cargo || "consulta")
+        if (!CARGOS.some((c) => c.id === cargo)) return falha("invalid-argument")
+        const permissoes = (Array.isArray(corpo.permissoes) ? corpo.permissoes : permissoesDoCargo(cargo)).filter(
+          (p: unknown): p is string => typeof p === "string" && (TODAS_PERMISSOES as string[]).includes(p),
+        )
+        const nova = await criarConta(email, validarSenhaNova(corpo.senha), nome || null)
+        const agora = new Date().toISOString()
+        await consultar(
+          `INSERT INTO documentos (colecao, id, dados) VALUES ('utilizadores', $1, $2::jsonb)
+           ON CONFLICT (colecao, id) DO NOTHING`,
+          [nova.uid, JSON.stringify({ email, nome, cargo, permissoes, ativo: true, createdAt: { $ts: agora }, updatedAt: { $ts: agora } })],
+        )
+        return ok({ uid: nova.uid })
+      }
+
+      /** O administrador define a palavra-passe de outra pessoa (fecha as sessões dela). */
+      case "definir-senha": {
+        await exigirGestorDeUtilizadores()
+        const uid = String(corpo.uid || "")
+        if (!(await contaPorUid(uid))) return falha("auth/user-not-found", 404)
+        await mudarSenha(uid, validarSenhaNova(corpo.senha))
+        await consultar("DELETE FROM sessoes WHERE uid = $1", [uid])
+        return ok()
+      }
+
+      /** Remove a pessoa do sistema: perfil e conta de acesso (as sessões caem). */
+      case "remover-utilizador": {
+        const gestor = await exigirGestorDeUtilizadores()
+        const uid = String(corpo.uid || "")
+        if (!uid || uid === gestor.uid) return falha("invalid-argument")
+        await consultar("DELETE FROM documentos WHERE colecao = 'utilizadores' AND id = $1", [uid])
+        await consultar("DELETE FROM contas WHERE uid = $1", [uid])
+        return ok()
       }
 
       case "perfil": {
@@ -162,6 +215,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ aca
         return falha("not-found", 404)
     }
   } catch (e) {
+    if (e instanceof SemPermissao) return falha("permission-denied", 403)
     if (e instanceof ErroAuth) return falha(e.code, e.code === "auth/too-many-requests" ? 429 : 400)
     console.error(`[api/auth/${acao}]`, e)
     return falha("auth/internal-error", 500)

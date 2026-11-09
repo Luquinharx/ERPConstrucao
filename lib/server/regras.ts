@@ -26,7 +26,6 @@ export interface ContextoRegra {
   perfil: Dados | null
 }
 
-const PERMISSOES_DE_CONSULTA = ["clientes.ver", "materiais.ver", "servicos.ver", "orcamentos.ver", "relatorios.ver"]
 
 const iguais = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 
@@ -54,15 +53,9 @@ export function permite(c: ContextoRegra): boolean {
       if (op === "get") return autenticado && (id === uid || pode("utilizadores.gerir"))
       if (op === "list") return autenticado
       if (op === "create") {
-        // O proprio cria o seu registo no primeiro acesso, mas so como Consulta.
-        // Sem este limite, quem se registasse podia ficar administrador sozinho.
-        const autoRegistoSeguro =
-          autenticado &&
-          id === uid &&
-          depois?.cargo === "consulta" &&
-          Array.isArray(depois?.permissoes) &&
-          depois.permissoes.every((p: string) => PERMISSOES_DE_CONSULTA.includes(p))
-        return autoRegistoSeguro || pode("utilizadores.gerir") || (gerePonto() && contaDeTrabalhador(depois))
+        // Perfis novos só pelo administrador (ou contas de picagem pelo gestor do
+        // ponto). Já não há auto-registo como Consulta no primeiro acesso.
+        return pode("utilizadores.gerir") || (gerePonto() && contaDeTrabalhador(depois))
       }
       if (op === "update") {
         return (
@@ -166,10 +159,12 @@ export function permite(c: ContextoRegra): boolean {
     case "obrasPonto":
       return verGerir(picador() || gerePonto(), gerePonto())
 
-    // Picagens: nunca se editam nem apagam. O trabalhador so cria as suas (a
+    // Picagens: nunca se editam; só o administrador as elimina. O trabalhador so cria as suas (a
     // hora e posta pelo servidor); o gestor cria correcoes e anulacoes.
     case "picagens":
       if (leitura) return gerePonto() || (picador() && antes?.uid === uid)
+      // Eliminar (ex.: registos de teste): só o administrador
+      if (op === "delete") return pode("utilizadores.gerir")
       if (op !== "create") return false
       return (
         (picador() && depois?.uid === uid && depois?.funcionarioId === perfil?.funcionarioId && depois?.origem === "app") ||
@@ -198,7 +193,8 @@ export function permite(c: ContextoRegra): boolean {
           alterados.every((k) => k === "estado" || k === "updatedAt")
         )
       }
-      return false
+      // Eliminar pedidos (limpar o histórico): só o administrador
+      return pode("utilizadores.gerir")
     }
 
     // Tudo o resto continua fechado

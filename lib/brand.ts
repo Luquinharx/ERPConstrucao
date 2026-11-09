@@ -11,12 +11,16 @@ export const CONFIGURACAO_PADRAO: ConfiguracaoEmpresa = {
   nome: "TEC KNOW HOW",
   slogan: "Construção Civil e Remodelações",
   logoUrl: "/marca/logo-tecknowhow.png",
+  logoSimboloUrl: "/marca/simbolo-tecknowhow.png",
   logoFundo: "auto",
 
   // Laranja da marca (hsl 24 95% 53%), azul-marinho do simbolo e cinza escuro
   corPrimaria: "#F97316",
   corSecundaria: "#0F1073",
   corEscura: "#262626",
+  corFundoClaro: "#FFFFFF",
+  // Grafite neutro: sem puxar ao azul nem ao castanho
+  corFundoEscuro: "#0E0F12",
   fonte: "Montserrat",
 
   razaoSocial: "TECKNOWHOW, Lda.",
@@ -142,6 +146,19 @@ function faviconDasIniciais(nome: string, corFundo: string): string {
   return canvas.toDataURL("image/png")
 }
 
+/**
+ * Símbolo da marca (só o ícone, sem o nome).
+ *
+ * Se a empresa trocou o logótipo e não indicou um símbolo, não se mostra o
+ * símbolo antigo da TEC KNOW HOW: devolve null e quem chama usa outra coisa.
+ */
+export function simboloDaMarca(config: ConfiguracaoEmpresa): string | null {
+  if (config.logoSimboloUrl && (config.logoSimboloUrl !== CONFIGURACAO_PADRAO.logoSimboloUrl || config.logoUrl === CONFIGURACAO_PADRAO.logoUrl)) {
+    return config.logoSimboloUrl
+  }
+  return null
+}
+
 /** Aplica o titulo do separador e o icone do navegador. */
 function aplicarTituloEIcone(config: ConfiguracaoEmpresa) {
   if (typeof document === "undefined") return
@@ -151,7 +168,8 @@ function aplicarTituloEIcone(config: ConfiguracaoEmpresa) {
 
   let icone = ""
   try {
-    icone = config.logoUrl || faviconDasIniciais(config.nome, config.corPrimaria)
+    // O símbolo quadrado lê-se melhor no separador do que o logótipo largo
+    icone = simboloDaMarca(config) || config.logoUrl || faviconDasIniciais(config.nome, config.corPrimaria)
   } catch {
     icone = ""
   }
@@ -189,13 +207,44 @@ export function aplicarIdentidade(config: ConfiguracaoEmpresa) {
   const tingir = (luzClara: string, luzEscura: string) =>
     `${matiz} ${escuro ? "25%" : "40%"} ${escuro ? luzEscura : luzClara}`
 
-  raiz.style.setProperty("--accent", tingir("95%", "20%"))
-  raiz.style.setProperty("--accent-foreground", escuro ? "0 0% 98%" : `${matiz} 40% 15%`)
-  raiz.style.setProperty("--secondary", tingir("96%", "18%"))
-  raiz.style.setProperty("--secondary-foreground", escuro ? "0 0% 98%" : `${matiz} 40% 15%`)
-  raiz.style.setProperty("--muted", tingir("96%", "18%"))
-  raiz.style.setProperty("--border", `${matiz} ${escuro ? "18%" : "25%"} ${escuro ? "24%" : "88%"}`)
-  raiz.style.setProperty("--input", `${matiz} ${escuro ? "18%" : "25%"} ${escuro ? "24%" : "88%"}`)
+  /**
+   * Fundo escolhido nas Configurações (um para cada tema). Cartões, barras de
+   * separadores, menus e linhas derivam desta cor, para tudo combinar: antes o
+   * tema escuro misturava o fundo azul-marinho com barras castanhas (o laranja
+   * da marca escurecido).
+   */
+  const fundoHex = (escuro ? config.corFundoEscuro : config.corFundoClaro) || (escuro ? "#0E0F12" : "#FFFFFF")
+  const [fh, fs, fl] = hexParaHsl(fundoHex).split(" ").map((x) => Number.parseFloat(x))
+  const tom = (luz: number, sat = fs) => `${Math.round(fh)} ${Math.round(Math.min(sat, 100))}% ${Math.round(Math.max(0, Math.min(100, luz)))}%`
+  const escurecer = escuro ? 1 : -1 // no escuro os elementos sobem de luz, no claro descem
+
+  raiz.style.setProperty("--background", tom(fl))
+  raiz.style.setProperty("--foreground", escuro ? "0 0% 98%" : "222 47% 11%")
+  // Cartões: no claro ficam brancos (destacam-se de um fundo tingido); no escuro um pouco acima do fundo
+  raiz.style.setProperty("--card", escuro ? tom(fl + 3) : "0 0% 100%")
+  raiz.style.setProperty("--card-foreground", escuro ? "0 0% 98%" : "222 47% 11%")
+  raiz.style.setProperty("--popover", escuro ? tom(fl + 4) : "0 0% 100%")
+  raiz.style.setProperty("--popover-foreground", escuro ? "0 0% 98%" : "222 47% 11%")
+
+  if (escuro) {
+    raiz.style.setProperty("--muted", tom(fl + 8 * escurecer, Math.min(fs, 12)))
+    raiz.style.setProperty("--muted-foreground", tom(68, Math.min(fs, 10)))
+    raiz.style.setProperty("--accent", tom(fl + 11, Math.min(fs, 14)))
+    raiz.style.setProperty("--accent-foreground", "0 0% 98%")
+    raiz.style.setProperty("--secondary", tom(fl + 9, Math.min(fs, 12)))
+    raiz.style.setProperty("--secondary-foreground", "0 0% 98%")
+    raiz.style.setProperty("--border", tom(fl + 14, Math.min(fs, 12)))
+    raiz.style.setProperty("--input", tom(fl + 14, Math.min(fs, 12)))
+  } else {
+    raiz.style.setProperty("--accent", tingir("95%", "20%"))
+    raiz.style.setProperty("--accent-foreground", `${matiz} 40% 15%`)
+    raiz.style.setProperty("--secondary", tingir("96%", "18%"))
+    raiz.style.setProperty("--secondary-foreground", `${matiz} 40% 15%`)
+    raiz.style.setProperty("--muted", tingir("96%", "18%"))
+    raiz.style.setProperty("--muted-foreground", "215 16% 47%")
+    raiz.style.setProperty("--border", `${matiz} 25% 88%`)
+    raiz.style.setProperty("--input", `${matiz} 25% 88%`)
+  }
 
   // Disponiveis para uso direto (documentos, graficos)
   raiz.style.setProperty("--marca-primaria", config.corPrimaria)

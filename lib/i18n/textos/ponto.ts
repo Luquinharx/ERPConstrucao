@@ -502,4 +502,18 @@ export const textos: Dicionario = {
     en: "Leave calendar drawn up under article 241(9) of the Portuguese Labour Code: prepared by 15 April and posted in the workplace between that date and 31 October. Later changes are recorded in the system.",
   },
   "A gerência": { "pt-BR": "A gerência", en: "Management" },
+  // Eliminar pedidos e picagens (administrador)
+  "Pedido eliminado": { "pt-BR": "Pedido excluído", en: "Request deleted" },
+  "{n} pedidos eliminados": { "pt-BR": "{n} pedidos excluídos", en: "{n} requests deleted" },
+  "Eliminar este pedido de vez?": { "pt-BR": "Excluir este pedido definitivamente?", en: "Delete this request permanently?" },
+  "Eliminar pedido": { "pt-BR": "Excluir pedido", en: "Delete request" },
+  "Eliminar os {n} pedidos já decididos? Os pendentes ficam. Não se pode desfazer.": { "pt-BR": "Excluir os {n} pedidos já decididos? Os pendentes ficam. Não é possível desfazer.", en: "Delete the {n} requests already decided? Pending ones stay. This cannot be undone." },
+  "Limpar decididos": { "pt-BR": "Limpar decididos", en: "Clear decided" },
+  "Picagem eliminada": { "pt-BR": "Registro de ponto excluído", en: "Clock record deleted" },
+  "{n} picagens eliminadas": { "pt-BR": "{n} registros de ponto excluídos", en: "{n} clock records deleted" },
+  "Eliminar esta picagem de vez? Não fica nenhum registo dela.": { "pt-BR": "Excluir este registro de ponto definitivamente? Não fica nenhum rastro dele.", en: "Delete this clock record permanently? No trace of it will remain." },
+  "Eliminar picagem": { "pt-BR": "Excluir registro de ponto", en: "Delete clock record" },
+  "Eliminar as {n} picagens de {dia}? O dia fica sem registo. Não se pode desfazer.": { "pt-BR": "Excluir os {n} registros de ponto de {dia}? O dia fica sem registro. Não é possível desfazer.", en: "Delete the {n} clock records for {dia}? The day will have no record. This cannot be undone." },
+  "Eliminar picagens deste dia": { "pt-BR": "Excluir registros deste dia", en: "Delete this day's records" },
+  "Eliminar é só para registos errados ou de teste: o Código do Trabalho pede que o registo de tempos se guarde. Para corrigir um dia real, use Anular ou Acrescentar picagem.": { "pt-BR": "Excluir é só para registros errados ou de teste: o Código do Trabalho português exige que o registro de tempos seja guardado. Para corrigir um dia real, use Anular ou Adicionar registro de ponto.", en: "Deleting is only for wrong or test records: the Portuguese Labour Code requires time records to be kept. To fix a real day, use Void or Add clock record." },
 }

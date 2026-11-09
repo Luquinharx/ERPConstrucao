@@ -164,23 +164,14 @@ export async function autenticar(emailBruto: unknown, senha: unknown, ip: string
 
   if (conta?.hash) {
     if (await confirmarSenha(senha, conta.hash)) return conta
-  } else if (!conta || conta.firebase) {
-    // Ainda nao migrada (ou so conhecida pelo perfil): confirma no Firebase
+  } else if (conta?.firebase) {
+    // Conta trazida do Firebase e ainda sem palavra-passe aqui: confirma lá uma vez.
+    // Emails que só existem no Firebase NÃO entram: contas novas só pelo administrador.
     const fb = await confirmarNoFirebase(email, senha)
-    if (fb && (!conta || conta.uid === fb.uid)) {
-      const hash = await cifrarSenha(senha)
-      if (conta) {
-        const [c] = await consultar<LinhaConta>(
-          "UPDATE contas SET hash = $2, firebase = false, nome = coalesce(nome, $3), atualizado_em = now() WHERE uid = $1 RETURNING *",
-          [conta.uid, hash, fb.nome],
-        )
-        return c
-      }
+    if (fb && conta.uid === fb.uid) {
       const [c] = await consultar<LinhaConta>(
-        `INSERT INTO contas (uid, email, nome, hash) VALUES ($1, $2, $3, $4)
-         ON CONFLICT (uid) DO UPDATE SET hash = EXCLUDED.hash, email = EXCLUDED.email, firebase = false, atualizado_em = now()
-         RETURNING *`,
-        [fb.uid, email, fb.nome, hash],
+        "UPDATE contas SET hash = $2, firebase = false, nome = coalesce(nome, $3), atualizado_em = now() WHERE uid = $1 RETURNING *",
+        [conta.uid, await cifrarSenha(senha), fb.nome],
       )
       return c
     }

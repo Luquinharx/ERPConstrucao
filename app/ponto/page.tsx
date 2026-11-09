@@ -143,10 +143,11 @@ export default function PontoPage() {
           <PainelHoje pessoas={pessoas} picagens={picagens} pedidos={pedidos} config={config} agora={agora} />
         </TabsContent>
         <TabsContent value="pedidos">
-          <PainelPedidos pedidos={pedidos} gestor={gestor} aoMudar={carregar} />
+          <PainelPedidos pedidos={pedidos} gestor={gestor} aoMudar={carregar} podeApagar={pode("utilizadores.gerir")} />
         </TabsContent>
         <TabsContent value="registos">
           <PainelRegistos
+            podeApagar={pode("utilizadores.gerir")}
             pessoas={pessoas}
             picagens={picagens}
             pedidos={pedidos}

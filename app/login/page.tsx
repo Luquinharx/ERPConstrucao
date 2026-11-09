@@ -91,10 +91,7 @@ export default function LoginPage() {
       descricao={t("Use as credenciais da sua conta para aceder ao sistema.")}
       rodape={
         <p className="text-center text-sm text-muted-foreground">
-          {t("Ainda não tem conta?")}{" "}
-          <Link href="/register" className="font-medium text-primary hover:underline">
-            {t("Criar conta")}
-          </Link>
+          {t("Ainda não tem conta? Peça-a ao administrador do sistema.")}
         </p>
       }
     >

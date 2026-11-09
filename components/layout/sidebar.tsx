@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useTheme } from "next-themes"
-import { ChevronLeft, LogOut, Menu, Monitor, Moon, PanelLeft, Pin, Settings, Sun, User, X } from "lucide-react"
+import { Check, ChevronLeft, LogOut, Menu, Monitor, Moon, PanelLeft, Pin, Settings, Sun, User, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -21,10 +21,11 @@ import { useAuth } from "@/hooks/use-auth"
 import { useConfiguracao } from "@/hooks/use-configuracao"
 import { usePermissoes } from "@/hooks/use-permissoes"
 import { MarcaDaEmpresa } from "@/components/marca-da-empresa"
-import { SeletorIdioma } from "@/components/seletor-idioma"
+import { useIdioma } from "@/hooks/use-idioma"
 import { getCargo } from "@/lib/permissoes"
 import { NAVEGACAO } from "@/lib/navegacao"
-import { t } from "@/lib/i18n"
+import { simboloDaMarca } from "@/lib/brand"
+import { IDIOMAS, t } from "@/lib/i18n"
 
 const CHAVE_ESTADO = "barra-lateral-aberta"
 
@@ -34,6 +35,8 @@ export function Sidebar() {
   const { configuracao } = useConfiguracao()
   const { pode, perfil } = usePermissoes()
   const { setTheme } = useTheme()
+  const { idioma, mudarIdioma } = useIdioma()
+  const simbolo = simboloDaMarca(configuracao)
 
   /** Aberta por cima do conteudo, no telemovel. */
   const [abertaNoMovel, setAbertaNoMovel] = useState(false)
@@ -122,18 +125,25 @@ export function Sidebar() {
    * navegavel. O conteudo ganha espaco sem a navegacao desaparecer.
    */
   useEffect(() => {
-    const aoClicarFora = (evento: MouseEvent) => {
+    const aoClicarFora = (evento: PointerEvent) => {
       if (menuAberto) return
       if (!referencia.current || referencia.current.contains(evento.target as Node)) return
-      // Menus abertos a partir da barra (ex.: idioma) vivem num portal fora dela
+      // Menus abertos a partir da barra (ex.: conta e idioma) vivem num portal fora dela
       if ((evento.target as Element | null)?.closest?.("[role='menu']")) return
 
       setAbertaNoMovel(false)
+      setEmHover(false)
       if (window.innerWidth >= 1024 && fixada) alternarFixada(false)
     }
 
-    document.addEventListener("mousedown", aoClicarFora)
-    return () => document.removeEventListener("mousedown", aoClicarFora)
+    /**
+     * pointerdown na fase de captura, e não mousedown: listas, menus e caixas
+     * de seleção (Radix) cancelam o pointerdown e o browser deixa então de
+     * enviar o mousedown. A barra fixada ficava aberta ao clicar nesses botões.
+     * Na captura o evento chega aqui antes de qualquer componente o travar.
+     */
+    document.addEventListener("pointerdown", aoClicarFora, true)
+    return () => document.removeEventListener("pointerdown", aoClicarFora, true)
   }, [fixada, menuAberto])
 
   // Navegar fecha a barra aberta por hover
@@ -179,6 +189,15 @@ export function Sidebar() {
         <div className="flex h-16 items-center justify-center border-b border-border px-3">
           {aberta ? (
             <MarcaDaEmpresa tamanho="sm" />
+          ) : simbolo ? (
+            // Fechada: só o símbolo da marca, sem o nome
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={simbolo}
+              alt={configuracao.nome}
+              className="h-9 w-9 object-contain dark:rounded-md dark:bg-white/95 dark:p-0.5"
+              data-testid="simbolo-marca"
+            />
           ) : (
             <PanelLeft className="h-5 w-5 text-primary" aria-hidden />
           )}
@@ -280,17 +299,22 @@ export function Sidebar() {
               </DropdownMenuItem>
 
               <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">{t("Idioma")}</DropdownMenuLabel>
+              {IDIOMAS.map((i) => (
+                <DropdownMenuItem key={i.id} onClick={() => mudarIdioma(i.id)} data-idioma={i.id} lang={i.id}>
+                  <span className="mr-2 w-4 text-[10px] font-semibold text-muted-foreground">{i.curto}</span>
+                  <span className="flex-1">{i.nome}</span>
+                  {i.id === idioma && <Check className="ml-2 h-4 w-4" />}
+                </DropdownMenuItem>
+              ))}
+
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive">
                 <LogOut className="mr-2 h-4 w-4" />
                 {t("Sair")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-
-          {/* Idioma: o mesmo elemento nos dois estados, para o menu nao fechar ao recolher */}
-          <div className={cn("mt-2 flex", aberta ? "px-1" : "justify-center")}>
-            <SeletorIdioma compacto={!aberta} />
-          </div>
 
           {/*
             Fixar / recolher, so no computador.

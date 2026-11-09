@@ -225,7 +225,31 @@ export async function anularPicagem(p: Picagem, motivo: string, gestor: { uid: s
   })
 }
 
+/**
+ * Elimina picagens de vez (só o administrador; ex.: registos de teste).
+ * Leva também as anulações que apontam para elas, para não ficarem órfãs.
+ */
+export async function eliminarPicagens(alvo: Picagem[], todas: Picagem[]): Promise<void> {
+  const ids = new Set(alvo.map((p) => p.id!))
+  for (const p of todas) if (p.origem === "anulacao" && p.anulaId && ids.has(p.anulaId)) ids.add(p.id!)
+  const lista = [...ids]
+  for (let i = 0; i < lista.length; i += 400) {
+    const lote = writeBatch(db)
+    for (const id of lista.slice(i, i + 400)) lote.delete(doc(db, "picagens", id))
+    await lote.commit()
+  }
+}
+
 // ------------------------------------------------------------ Pedidos
+
+/** Elimina pedidos de férias/faltas/correções (só o administrador). */
+export async function eliminarPedidos(ids: string[]): Promise<void> {
+  for (let i = 0; i < ids.length; i += 400) {
+    const lote = writeBatch(db)
+    for (const id of ids.slice(i, i + 400)) lote.delete(doc(db, "pedidosPonto", id))
+    await lote.commit()
+  }
+}
 
 export async function getMeusPedidos(uid: string): Promise<PedidoPonto[]> {
   const snap = await getDocs(query(collection(db, "pedidosPonto"), where("uid", "==", uid)))

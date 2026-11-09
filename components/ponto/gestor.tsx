@@ -2,7 +2,7 @@
 
 import { Fragment, useMemo, useState } from "react"
 import QRCode from "qrcode"
-import { Ban, Check, Copy, Download, KeyRound, LocateFixed, Plus, Printer, QrCode, Send, X } from "lucide-react"
+import { Ban, Check, Copy, Download, KeyRound, LocateFixed, Plus, Printer, QrCode, Send, Trash2, X } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -40,6 +40,8 @@ import {
 } from "@/lib/ponto"
 import {
   anularPicagem,
+  eliminarPedidos,
+  eliminarPicagens,
   corrigirPicagem,
   criarAcessoPonto,
   decidirPedido,
@@ -192,10 +194,37 @@ export function PainelHoje({
 
 // ------------------------------------------------------------ Pedidos
 
-export function PainelPedidos({ pedidos, gestor, aoMudar }: { pedidos: PedidoPonto[]; gestor: Gestor; aoMudar: () => Promise<void> }) {
+export function PainelPedidos({
+  pedidos,
+  gestor,
+  aoMudar,
+  podeApagar = false,
+}: {
+  pedidos: PedidoPonto[]
+  gestor: Gestor
+  aoMudar: () => Promise<void>
+  /** Administrador: pode eliminar pedidos e limpar o histórico. */
+  podeApagar?: boolean
+}) {
   const [resposta, setResposta] = useState<Record<string, string>>({})
   const [aDecidir, setADecidir] = useState("")
+  const [aEliminar, setAEliminar] = useState(false)
+
+  const eliminar = async (ids: string[], pergunta: string) => {
+    if (ids.length === 0 || !confirm(pergunta)) return
+    setAEliminar(true)
+    try {
+      await eliminarPedidos(ids)
+      toast({ title: ids.length === 1 ? t("Pedido eliminado") : t("{n} pedidos eliminados", { n: ids.length }) })
+      await aoMudar()
+    } catch (e) {
+      toast({ title: t("Não foi possível eliminar"), description: e instanceof Error ? e.message : String(e), variant: "destructive" })
+    } finally {
+      setAEliminar(false)
+    }
+  }
   const pendentes = pedidos.filter((p) => p.estado === "pendente").sort((a, b) => (a.createdAt?.getTime() || 0) - (b.createdAt?.getTime() || 0))
+  const decididosTodos = pedidos.filter((p) => p.estado !== "pendente")
   const outros = pedidos
     .filter((p) => p.estado !== "pendente")
     .sort((a, b) => (b.decididoEm?.getTime() || b.createdAt?.getTime() || 0) - (a.decididoEm?.getTime() || a.createdAt?.getTime() || 0))
@@ -258,13 +287,46 @@ export function PainelPedidos({ pedidos, gestor, aoMudar }: { pedidos: PedidoPon
                 <X className="mr-1 h-3 w-3" />
                 {t("Recusar")}
               </Button>
+              {podeApagar && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="rounded-full text-muted-foreground hover:text-destructive"
+                  disabled={aEliminar}
+                  onClick={() => eliminar([p.id!], t("Eliminar este pedido de vez?"))}
+                  aria-label={t("Eliminar pedido")}
+                  title={t("Eliminar pedido")}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           ))}
         </CardContent>
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">{t("Decididos")}</CardTitle>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle className="text-lg">{t("Decididos")}</CardTitle>
+            {podeApagar && decididosTodos.length > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="rounded-full text-destructive"
+                disabled={aEliminar}
+                data-testid="limpar-decididos"
+                onClick={() =>
+                  eliminar(
+                    decididosTodos.map((p) => p.id!),
+                    t("Eliminar os {n} pedidos já decididos? Os pendentes ficam. Não se pode desfazer.", { n: decididosTodos.length }),
+                  )
+                }
+              >
+                <Trash2 className="mr-1 h-3 w-3" />
+                {t("Limpar decididos")}
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-2">
           {outros.length === 0 && <p className="py-4 text-center text-sm text-muted-foreground">{t("Ainda nenhum.")}</p>}
@@ -273,8 +335,20 @@ export function PainelPedidos({ pedidos, gestor, aoMudar }: { pedidos: PedidoPon
               <span>
                 <span className="font-medium">{p.funcionarioNome}</span> · {descricao(p)}
               </span>
-              <span className="text-xs">
+              <span className="flex items-center gap-2 text-xs">
                 {p.decididoPor ? t("{estado} por {quem}", { estado: t(NOMES_ESTADO[p.estado]), quem: p.decididoPor }) : t(NOMES_ESTADO[p.estado])}
+                {podeApagar && (
+                  <button
+                    type="button"
+                    className="rounded-full p-1 opacity-70 hover:bg-background/60 hover:opacity-100"
+                    disabled={aEliminar}
+                    onClick={() => eliminar([p.id!], t("Eliminar este pedido de vez?"))}
+                    aria-label={t("Eliminar pedido")}
+                    title={t("Eliminar pedido")}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </span>
             </div>
           ))}
@@ -298,6 +372,7 @@ export function PainelRegistos({
   podeEnviarHoras,
   config,
   aoMudar,
+  podeApagar = false,
 }: {
   pessoas: Pessoa[]
   picagens: Picagem[]
@@ -310,8 +385,22 @@ export function PainelRegistos({
   podeEnviarHoras: boolean
   config?: ConfigPonto
   aoMudar: () => Promise<void>
+  /** Administrador: pode eliminar picagens (ex.: registos de teste). */
+  podeApagar?: boolean
 }) {
   const [quem, setQuem] = useState(pessoas[0]?.funcionarioId || "")
+
+  /** Eliminar de vez, com confirmação (a lei pede que o registo de tempos se guarde). */
+  const eliminar = async (alvo: Picagem[], pergunta: string) => {
+    if (alvo.length === 0 || !confirm(pergunta)) return
+    try {
+      await eliminarPicagens(alvo, picagens)
+      toast({ title: alvo.length === 1 ? t("Picagem eliminada") : t("{n} picagens eliminadas", { n: alvo.length }) })
+      await aoMudar()
+    } catch (e) {
+      toast({ title: t("Não foi possível eliminar"), description: e instanceof Error ? e.message : String(e), variant: "destructive" })
+    }
+  }
   const [aberto, setAberto] = useState("")
   const [corrigir, setCorrigir] = useState<{ dia: string } | null>(null)
   const [aEnviar, setAEnviar] = useState(false)
@@ -485,14 +574,14 @@ export function PainelRegistos({
                     <TableCell className="tabular-nums font-medium">{formatarMinutos(d.minutosTrabalho)}</TableCell>
                     <TableCell className="text-xs">{[...new Set(d.segmentos.map((s) => s.orcamentoNumero).filter(Boolean))].join(", ") || "-"}</TableCell>
                     <TableCell className="space-x-1 text-xs">
-                      {d.incompleto && d.dia !== hoje && <Badge variant="outline" className="border-rose-300 text-rose-700">{t("Falta picar")}</Badge>}
+                      {d.incompleto && d.dia !== hoje && <Badge variant="outline" className="border-rose-300 text-rose-700 dark:border-rose-500/60 dark:text-rose-400">{t("Falta picar")}</Badge>}
                       {d.picagens.some((p) => p.origem === "correcao") && <Badge variant="outline">{t("Corrigida")}</Badge>}
                       {pedido && (
                         <Badge variant="outline" className={CORES_ESTADO[pedido.estado]}>
                           {pedido.tipo === "ferias" ? t("Férias") : nomeMotivoFalta(pedido.motivoFalta)}
                         </Badge>
                       )}
-                      {util && d.picagens.length === 0 && !pedido && d.dia !== hoje && <Badge variant="outline" className="border-rose-300 text-rose-700">{t("Sem registo")}</Badge>}
+                      {util && d.picagens.length === 0 && !pedido && d.dia !== hoje && <Badge variant="outline" className="border-rose-300 text-rose-700 dark:border-rose-500/60 dark:text-rose-400">{t("Sem registo")}</Badge>}
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-right print:hidden">
                       <Button size="sm" variant="ghost" onClick={() => setAberto(aberto === d.dia ? "" : d.dia)}>
@@ -533,13 +622,49 @@ export function PainelRegistos({
                                   {t("Anular")}
                                 </Button>
                               )}
+                              {podeApagar && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="text-destructive"
+                                  onClick={() => eliminar([p], t("Eliminar esta picagem de vez? Não fica nenhum registo dela."))}
+                                  aria-label={t("Eliminar picagem")}
+                                >
+                                  <Trash2 className="mr-1 h-3 w-3" />
+                                  {t("Eliminar")}
+                                </Button>
+                              )}
                             </li>
                           ))}
                         </ul>
-                        <Button size="sm" variant="outline" className="mt-2 rounded-full" onClick={() => setCorrigir({ dia: d.dia })}>
-                          <Plus className="mr-1 h-3 w-3" />
-                          {t("Acrescentar picagem")}
-                        </Button>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <Button size="sm" variant="outline" className="rounded-full" onClick={() => setCorrigir({ dia: d.dia })}>
+                            <Plus className="mr-1 h-3 w-3" />
+                            {t("Acrescentar picagem")}
+                          </Button>
+                          {podeApagar && todasDoDia.length > 0 && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="rounded-full text-destructive"
+                              data-testid="eliminar-dia"
+                              onClick={() =>
+                                eliminar(
+                                  todasDoDia,
+                                  t("Eliminar as {n} picagens de {dia}? O dia fica sem registo. Não se pode desfazer.", { n: todasDoDia.length, dia: formatDate(d.dia) }),
+                                )
+                              }
+                            >
+                              <Trash2 className="mr-1 h-3 w-3" />
+                              {t("Eliminar picagens deste dia")}
+                            </Button>
+                          )}
+                        </div>
+                        {podeApagar && (
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            {t("Eliminar é só para registos errados ou de teste: o Código do Trabalho pede que o registo de tempos se guarde. Para corrigir um dia real, use Anular ou Acrescentar picagem.")}
+                          </p>
+                        )}
                       </TableCell>
                     </TableRow>
                   )}

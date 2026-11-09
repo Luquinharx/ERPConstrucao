@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/hooks/use-toast"
 import { useConfiguracao } from "@/hooks/use-configuracao"
-import { FONTES_DISPONIVEIS, PALETAS, corDeTexto } from "@/lib/brand"
+import { FONTES_DISPONIVEIS, PALETAS, corDeTexto, simboloDaMarca } from "@/lib/brand"
 import type { ConfiguracaoEmpresa } from "@/lib/types"
 import { t } from "@/lib/i18n"
 
@@ -27,10 +27,10 @@ export function IdentidadeDaEmpresa() {
 
   useEffect(() => setForm(configuracao), [configuracao])
 
-  // Pre-visualiza cor e fonte enquanto se mexe, sem gravar
+  // Pré-visualiza cores e fonte enquanto se mexe, sem gravar
   useEffect(() => {
-    prever({ corPrimaria: form.corPrimaria, fonte: form.fonte })
-  }, [form.corPrimaria, form.fonte, prever])
+    prever({ corPrimaria: form.corPrimaria, fonte: form.fonte, corFundoClaro: form.corFundoClaro, corFundoEscuro: form.corFundoEscuro })
+  }, [form.corPrimaria, form.fonte, form.corFundoClaro, form.corFundoEscuro, prever])
 
   const alterar = (campos: Partial<ConfiguracaoEmpresa>) => setForm((atual) => ({ ...atual, ...campos }))
 
@@ -153,6 +153,59 @@ export function IdentidadeDaEmpresa() {
               className="rounded-full"
             />
           </div>
+
+          {/* Símbolo: só o ícone, para o menu recolhido e o separador do navegador */}
+          <div className="space-y-2 border-t pt-4">
+            <Label>{t("Símbolo (só o ícone, sem o nome)")}</Label>
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex h-16 w-16 items-center justify-center rounded-lg border bg-background p-2">
+                {simboloDaMarca(form) ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={simboloDaMarca(form)!} alt={form.nome} className="max-h-12 max-w-12 object-contain" />
+                ) : (
+                  <span className="text-center text-[10px] leading-tight text-muted-foreground">{t("Sem símbolo")}</span>
+                )}
+              </div>
+              <div className="space-y-2">
+                <input
+                  id="ficheiro-simbolo"
+                  type="file"
+                  accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    const ficheiro = e.target.files?.[0]
+                    if (!ficheiro) return
+                    if (ficheiro.size > LIMITE_LOGO_KB * 1024) {
+                      toast({
+                        title: t("Imagem demasiado grande"),
+                        description: t("O logótipo deve ter menos de {kb} KB. Reduza a imagem e tente de novo.", { kb: LIMITE_LOGO_KB }),
+                        variant: "destructive",
+                      })
+                      return
+                    }
+                    const leitor = new FileReader()
+                    leitor.onload = () => alterar({ logoSimboloUrl: String(leitor.result) })
+                    leitor.readAsDataURL(ficheiro)
+                  }}
+                />
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" onClick={() => document.getElementById("ficheiro-simbolo")?.click()}>
+                    <Upload className="h-4 w-4 mr-2" />
+                    {t("Carregar símbolo")}
+                  </Button>
+                  {form.logoSimboloUrl && (
+                    <Button type="button" variant="ghost" onClick={() => alterar({ logoSimboloUrl: "" })}>
+                      <X className="h-4 w-4 mr-2" />
+                      {t("Remover")}
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {t("Aparece no menu lateral quando está recolhido e no separador do navegador. De preferência quadrado.")}
+                </p>
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -221,6 +274,38 @@ export function IdentidadeDaEmpresa() {
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">{ajuda}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Fundo do sistema, um por tema; cartões, barras e linhas acompanham */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            {[
+              { campo: "corFundoClaro" as const, rotulo: t("Cor de fundo - tema claro"), padrao: "#FFFFFF" },
+              { campo: "corFundoEscuro" as const, rotulo: t("Cor de fundo - tema escuro"), padrao: "#0E0F12" },
+            ].map(({ campo, rotulo, padrao }) => (
+              <div key={campo} className="space-y-2">
+                <Label htmlFor={campo}>{rotulo}</Label>
+                <div className="flex gap-2">
+                  <input
+                    id={campo}
+                    type="color"
+                    value={form[campo] || padrao}
+                    onChange={(e) => alterar({ [campo]: e.target.value })}
+                    className="h-10 w-12 cursor-pointer rounded-md border bg-transparent"
+                  />
+                  <Input
+                    value={form[campo] || padrao}
+                    onChange={(e) => alterar({ [campo]: e.target.value })}
+                    className="rounded-full font-mono text-sm"
+                  />
+                  <Button type="button" variant="ghost" className="rounded-full" onClick={() => alterar({ [campo]: padrao })}>
+                    {t("Repor")}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {t("Os cartões, a barra dos separadores e as linhas ganham tons desta cor. Mude o tema no menu do utilizador para ver o outro.")}
+                </p>
               </div>
             ))}
           </div>
