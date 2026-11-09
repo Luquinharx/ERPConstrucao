@@ -4,12 +4,12 @@ import { m } from "@/lib/i18n"
 /**
  * Identidade visual da empresa.
  *
- * Todos os valores sao parametrizaveis em Configuracoes e guardados no Firestore.
+ * Todos os valores são parametrizáveis nas Configurações e guardados na base de dados.
  * Os defaults abaixo seguem a marca TEC KNOW HOW (site institucional).
  */
 export const CONFIGURACAO_PADRAO: ConfiguracaoEmpresa = {
   nome: "TEC KNOW HOW",
-  slogan: "Construcao Civil e Remodelacoes",
+  slogan: "Construção Civil e Remodelações",
   logoUrl: "/marca/logo-tecknowhow.png",
   logoFundo: "auto",
 
@@ -22,7 +22,7 @@ export const CONFIGURACAO_PADRAO: ConfiguracaoEmpresa = {
   razaoSocial: "TECKNOWHOW, Lda.",
   capitalSocial: "5.000,00 euros",
   nif: "519208609",
-  morada: "Rua Aquario do Mirante, n.o 18, porta 26, 1.o",
+  morada: "Rua Aquário do Mirante, n.º 18, porta 26, 1.º",
   codigoPostal: "2745-019",
   cidade: "Queluz - Sintra",
   telefone: "913 503 036 / 967 550 706",
