@@ -1,3 +1,4 @@
+import { m, t } from "./i18n"
 import type { StatusOrcamento } from "./types"
 
 /**
@@ -9,7 +10,9 @@ import type { StatusOrcamento } from "./types"
  */
 export interface FaseOrcamento {
   id: StatusOrcamento
+  /** Texto marcado com m(): mostrar com t(fase.nome). */
   nome: string
+  /** Texto marcado com m(): mostrar com t(fase.descricao). */
   descricao: string
   /** A proposta pode ser editada nesta fase? */
   editavel: boolean
@@ -22,48 +25,48 @@ export interface FaseOrcamento {
 export const FASES_ORCAMENTO: FaseOrcamento[] = [
   {
     id: "rascunho",
-    nome: "Rascunho",
-    descricao: "Em elaboracao. Medicoes, precos e custos ainda a ser montados.",
+    nome: m("Rascunho"),
+    descricao: m("Em elaboração. Medições, preços e custos ainda a ser montados."),
     editavel: true,
     seguintes: ["em_revisao", "cancelado"],
     cor: "bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-500/40",
   },
   {
     id: "em_revisao",
-    nome: "Em Revisao",
-    descricao: "Concluida pelo orcamentista, aguarda validacao de margens e viabilidade.",
+    nome: m("Em revisão"),
+    descricao: m("Concluída pelo orçamentista, aguarda validação de margens e viabilidade."),
     editavel: false,
     seguintes: ["rascunho", "emitido", "cancelado"],
     cor: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/40",
   },
   {
     id: "emitido",
-    nome: "Emitido",
-    descricao: "Entregue formalmente ao cliente. O documento fica congelado.",
+    nome: m("Emitido"),
+    descricao: m("Entregue formalmente ao cliente. O documento fica congelado."),
     editavel: false,
     seguintes: ["em_negociacao", "aceite", "cancelado"],
     cor: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40",
   },
   {
     id: "em_negociacao",
-    nome: "Em Negociacao",
-    descricao: "O cliente esta a renegociar valores, prazos ou medicoes.",
+    nome: m("Em negociação"),
+    descricao: m("O cliente está a renegociar valores, prazos ou medições."),
     editavel: false,
     seguintes: ["emitido", "aceite", "cancelado"],
     cor: "bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/40",
   },
   {
     id: "aceite",
-    nome: "Aceite",
-    descricao: "O cliente adjudicou. Pode passar a obra e seguir para faturacao.",
+    nome: m("Aceite"),
+    descricao: m("O cliente adjudicou. Pode passar a obra e seguir para faturação."),
     editavel: false,
     seguintes: ["cancelado"],
     cor: "bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/40",
   },
   {
     id: "cancelado",
-    nome: "Cancelado",
-    descricao: "O cliente recusou a proposta ou o concurso foi anulado.",
+    nome: m("Cancelado"),
+    descricao: m("O cliente recusou a proposta ou o concurso foi anulado."),
     editavel: false,
     seguintes: ["rascunho"],
     cor: "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/40",
@@ -138,5 +141,5 @@ export function exigeMotivo(estado: StatusOrcamento): boolean {
 export function nomeDaVersao(revisao = 0): string {
   if (!revisao) return "1.0"
   const letra = String.fromCharCode(64 + revisao) // 1 -> A
-  return `Rev. ${letra}`
+  return t("Rev. {letra}", { letra })
 }

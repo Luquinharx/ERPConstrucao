@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { AlertCircle, CheckCircle, RefreshCw, Database } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { FirebaseService } from "@/lib/firebase-service"
+import { localeIntl, t } from "@/lib/i18n"
 
 export default function StatusPage() {
   const [status, setStatus] = useState<'loading' | 'connected' | 'error'>('loading')
@@ -38,10 +39,10 @@ export default function StatusPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Database className="h-6 w-6" />
-            Status da Conexão
+            {t("Estado da ligação")}
           </CardTitle>
           <CardDescription>
-            Verifique a conexão com o banco de dados Firebase
+            {t("Verifique a ligação à base de dados")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -49,16 +50,16 @@ export default function StatusPage() {
             {status === 'loading' && (
               <div className="flex flex-col items-center gap-2 text-muted-foreground">
                 <RefreshCw className="h-10 w-10 animate-spin" />
-                <p>Verificando conexão...</p>
+                <p>{t("A verificar a ligação...")}</p>
               </div>
             )}
 
             {status === 'connected' && (
               <div className="flex flex-col items-center gap-2 text-green-500">
                 <CheckCircle className="h-16 w-16" />
-                <p className="text-xl font-medium">Conectado</p>
+                <p className="text-xl font-medium">{t("Ligado")}</p>
                 <p className="text-sm text-muted-foreground text-center">
-                  A comunicação com o banco de dados está funcionando corretamente.
+                  {t("A comunicação com a base de dados está a funcionar corretamente.")}
                 </p>
               </div>
             )}
@@ -66,9 +67,9 @@ export default function StatusPage() {
             {status === 'error' && (
               <div className="flex flex-col items-center gap-2 text-red-500">
                 <AlertCircle className="h-16 w-16" />
-                <p className="text-xl font-medium">Erro de Conexão</p>
+                <p className="text-xl font-medium">{t("Erro de ligação")}</p>
                 <p className="text-sm text-muted-foreground text-center">
-                  Não foi possível conectar ao banco de dados. Verifique sua internet ou as configurações do Firebase.
+                  {t("Não foi possível ligar à base de dados. Verifique a Internet ou a configuração do servidor.")}
                 </p>
               </div>
             )}
@@ -80,12 +81,12 @@ export default function StatusPage() {
               onClick={checkConnection} 
               disabled={status === 'loading'}
             >
-              {status === 'loading' ? 'Verificando...' : 'Testar Novamente'}
+              {status === 'loading' ? t("A verificar...") : t("Testar de novo")}
             </Button>
             
             {lastChecked && (
               <p className="text-xs text-center text-muted-foreground">
-                Última verificação: {lastChecked.toLocaleTimeString()}
+                {t("Última verificação: {hora}", { hora: lastChecked.toLocaleTimeString(localeIntl()) })}
               </p>
             )}
           </div>

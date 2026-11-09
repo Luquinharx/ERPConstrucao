@@ -15,6 +15,7 @@ import { EcraDeAcesso } from "@/components/layout/ecra-de-acesso"
 import { useAuth } from "@/hooks/use-auth"
 import { mensagemDeErroAuth } from "@/lib/auth-mensagens"
 import { entrarComPin } from "@/lib/ponto-service"
+import { t } from "@/lib/i18n"
 
 const CHAVE_NUMERO = "ponto-ultimo-numero"
 
@@ -58,7 +59,7 @@ export default function LoginPage() {
       }
       router.push("/picagem")
     } catch (error) {
-      setErro(error instanceof Error ? error.message : "Nao foi possivel entrar.")
+      setErro(error instanceof Error ? error.message : t("Não foi possível entrar."))
       setPin("")
     } finally {
       setAEntrar(false)
@@ -69,16 +70,16 @@ export default function LoginPage() {
     evento.preventDefault()
     setErro("")
 
-    if (!email.trim()) return setErro("Indique o email.")
-    if (!palavraPasse) return setErro("Indique a palavra-passe.")
+    if (!email.trim()) return setErro(t("Indique o email."))
+    if (!palavraPasse) return setErro(t("Indique a palavra-passe."))
 
     setAEntrar(true)
     try {
       await login(email.trim(), palavraPasse)
       router.push("/dashboard")
     } catch (error) {
-      // A causa concreta vem do Firebase; so cai no texto geral se for desconhecida
-      setErro(mensagemDeErroAuth(error, "Nao foi possivel entrar. Tente de novo."))
+      // A causa concreta vem do servidor; so cai no texto geral se for desconhecida
+      setErro(mensagemDeErroAuth(error, t("Não foi possível entrar. Tente de novo.")))
     } finally {
       setAEntrar(false)
     }
@@ -86,13 +87,13 @@ export default function LoginPage() {
 
   return (
     <EcraDeAcesso
-      titulo="Entrar"
-      descricao="Use as credenciais da sua conta para aceder ao sistema."
+      titulo={t("Entrar")}
+      descricao={t("Use as credenciais da sua conta para aceder ao sistema.")}
       rodape={
         <p className="text-center text-sm text-muted-foreground">
-          Ainda nao tem conta?{" "}
+          {t("Ainda não tem conta?")}{" "}
           <Link href="/register" className="font-medium text-primary hover:underline">
-            Criar conta
+            {t("Criar conta")}
           </Link>
         </p>
       }
@@ -100,8 +101,8 @@ export default function LoginPage() {
       <div className="mb-4 grid grid-cols-2 gap-1 rounded-full bg-muted p-1 text-sm" role="tablist">
         {(
           [
-            ["email", "Email"],
-            ["pin", "N.º + PIN"],
+            ["email", t("Email")],
+            ["pin", t("N.º + PIN")],
           ] as const
         ).map(([id, nome]) => (
           <button
@@ -129,14 +130,14 @@ export default function LoginPage() {
             </Alert>
           )}
           <div className="space-y-2">
-            <Label htmlFor="numero">N.º de funcionário</Label>
+            <Label htmlFor="numero">{t("N.º de funcionário")}</Label>
             <div className="relative">
               <Hash className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 id="numero"
                 inputMode="numeric"
                 autoComplete="username"
-                placeholder="Ex.: 03"
+                placeholder={t("Ex.: 03")}
                 value={numero}
                 onChange={(e) => setNumero(e.target.value)}
                 className="rounded-full pl-11"
@@ -145,7 +146,7 @@ export default function LoginPage() {
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="pin">PIN</Label>
+            <Label htmlFor="pin">{t("PIN")}</Label>
             <div className="relative">
               <KeyRound className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -154,7 +155,7 @@ export default function LoginPage() {
                 inputMode="numeric"
                 autoComplete="current-password"
                 maxLength={6}
-                placeholder="4 a 6 digitos"
+                placeholder={t("4 a 6 dígitos")}
                 value={pin}
                 onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
                 className="rounded-full pl-11 tracking-[0.4em]"
@@ -163,9 +164,9 @@ export default function LoginPage() {
             </div>
           </div>
           <Button type="submit" className="w-full rounded-full" disabled={aEntrar}>
-            {aEntrar ? "A entrar..." : "Entrar para picar"}
+            {aEntrar ? t("A entrar...") : t("Entrar para picar")}
           </Button>
-          <p className="text-center text-xs text-muted-foreground">Esqueceu o PIN? Peça um novo ao seu encarregado.</p>
+          <p className="text-center text-xs text-muted-foreground">{t("Esqueceu o PIN? Peça um novo ao seu encarregado.")}</p>
         </form>
       ) : (
       <form onSubmit={submeter} className="space-y-4">
@@ -177,14 +178,14 @@ export default function LoginPage() {
         )}
 
         <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">{t("Email")}</Label>
           <div className="relative">
             <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               id="email"
               type="email"
               autoComplete="email"
-              placeholder="nome@empresa.pt"
+              placeholder={t("nome@empresa.pt")}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="rounded-full pl-11"
@@ -196,9 +197,9 @@ export default function LoginPage() {
 
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <Label htmlFor="palavra-passe">Palavra-passe</Label>
+            <Label htmlFor="palavra-passe">{t("Palavra-passe")}</Label>
             <Link href="/recuperar-palavra-passe" className="text-xs text-muted-foreground hover:text-primary hover:underline">
-              Esqueceu-se?
+              {t("Esqueceu-se?")}
             </Link>
           </div>
           <div className="relative">
@@ -207,7 +208,7 @@ export default function LoginPage() {
               id="palavra-passe"
               type={visivel ? "text" : "password"}
               autoComplete="current-password"
-              placeholder="A sua palavra-passe"
+              placeholder={t("A sua palavra-passe")}
               value={palavraPasse}
               onChange={(e) => setPalavraPasse(e.target.value)}
               className="rounded-full pl-11 pr-12"
@@ -219,7 +220,7 @@ export default function LoginPage() {
               onClick={() => setVisivel(!visivel)}
               disabled={aEntrar}
               className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
-              aria-label={visivel ? "Esconder palavra-passe" : "Mostrar palavra-passe"}
+              aria-label={visivel ? t("Esconder palavra-passe") : t("Mostrar palavra-passe")}
             >
               {visivel ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
@@ -230,10 +231,10 @@ export default function LoginPage() {
           {aEntrar ? (
             <>
               <LoadingSpinner size="sm" className="mr-2" />
-              A entrar...
+              {t("A entrar...")}
             </>
           ) : (
-            "Entrar"
+            t("Entrar")
           )}
         </Button>
       </form>

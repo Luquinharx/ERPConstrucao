@@ -1,5 +1,6 @@
 import { diasAte } from "@/lib/obra"
 import type { Garantia } from "@/lib/types"
+import { m } from "@/lib/i18n"
 
 /** Fim da garantia (ISO): data de entrega + anos. */
 export function fimGarantia(g: Pick<Garantia, "dataEntrega" | "anos">): string {
@@ -19,7 +20,7 @@ export function estadoGarantia(g: Pick<Garantia, "dataEntrega" | "anos">): Estad
 }
 
 export const ESTADOS_GARANTIA: Record<EstadoGarantia, { nome: string; cor: string }> = {
-  em_garantia: { nome: "Em garantia", cor: "border-emerald-500/40 text-emerald-700" },
-  a_expirar: { nome: "A expirar", cor: "border-amber-500/40 text-amber-700" },
-  expirada: { nome: "Expirada", cor: "border-slate-500/40 text-slate-600" },
+  em_garantia: { nome: m("Em garantia"), cor: "border-emerald-500/40 text-emerald-700" },
+  a_expirar: { nome: m("A expirar"), cor: "border-amber-500/40 text-amber-700" },
+  expirada: { nome: m("Expirada"), cor: "border-slate-500/40 text-slate-600" },
 }

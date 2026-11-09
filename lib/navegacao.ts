@@ -21,6 +21,7 @@ import {
 } from "lucide-react"
 
 import type { Permissao } from "@/lib/permissoes"
+import { m } from "@/lib/i18n"
 
 export interface EntradaDeNavegacao {
   name: string
@@ -38,26 +39,26 @@ export interface EntradaDeNavegacao {
  * para decidir se a pagina abre.
  */
 export const NAVEGACAO: EntradaDeNavegacao[] = [
-  { name: "Dashboard", href: "/dashboard", icon: Home },
-  { name: "Orçamentos", href: "/orcamentos", icon: Calculator, permissao: "orcamentos.ver" },
-  { name: "Obras", href: "/obras", icon: Building2, permissao: "orcamentos.ver" },
-  { name: "Picagem", href: "/picagem", icon: Fingerprint, permissao: "ponto.picar" },
-  { name: "Ponto da equipa", href: "/ponto", icon: CalendarClock, permissao: "ponto.gerir" },
-  { name: "Livro de ponto", href: "/horas", icon: Clock, permissao: "orcamentos.custosObra" },
-  { name: "Faturas", href: "/faturas", icon: FileText, permissao: "orcamentos.custosObra" },
-  { name: "Financeiro", href: "/financeiro", icon: Wallet, permissao: "orcamentos.verCusto" },
-  { name: "Garantias", href: "/garantias", icon: BadgeCheck, permissao: "orcamentos.ver" },
-  { name: "Clientes", href: "/clientes", icon: Users, permissao: "clientes.ver" },
-  { name: "Funcionários", href: "/funcionarios", icon: Users, permissao: "funcionarios.ver" },
-  { name: "Funções", href: "/funcoes", icon: HardHat, permissao: "funcionarios.ver" },
-  { name: "Produtos", href: "/materiais", icon: Package, permissao: "materiais.ver" },
-  { name: "Estoque", href: "/estoque", icon: Boxes, permissao: "materiais.ver" },
-  { name: "Cotações", href: "/cotacoes", icon: Scale, permissao: "materiais.ver" },
-  { name: "Categorias", href: "/categorias", icon: Tags, permissao: "materiais.ver" },
-  { name: "Serviços", href: "/servicos", icon: Wrench, permissao: "servicos.ver" },
-  { name: "Relatórios", href: "/relatorios", icon: BarChart3, permissao: "relatorios.ver" },
-  { name: "Utilizadores", href: "/utilizadores", icon: ShieldCheck, permissao: "utilizadores.gerir" },
-  { name: "Configurações", href: "/configuracoes", icon: Settings, permissao: "configuracoes.ver" },
+  { name: m("Painel"), href: "/dashboard", icon: Home },
+  { name: m("Orçamentos"), href: "/orcamentos", icon: Calculator, permissao: "orcamentos.ver" },
+  { name: m("Obras"), href: "/obras", icon: Building2, permissao: "orcamentos.ver" },
+  { name: m("Picagem"), href: "/picagem", icon: Fingerprint, permissao: "ponto.picar" },
+  { name: m("Ponto da equipa"), href: "/ponto", icon: CalendarClock, permissao: "ponto.gerir" },
+  { name: m("Livro de ponto"), href: "/horas", icon: Clock, permissao: "orcamentos.custosObra" },
+  { name: m("Faturas"), href: "/faturas", icon: FileText, permissao: "orcamentos.custosObra" },
+  { name: m("Financeiro"), href: "/financeiro", icon: Wallet, permissao: "orcamentos.verCusto" },
+  { name: m("Garantias"), href: "/garantias", icon: BadgeCheck, permissao: "orcamentos.ver" },
+  { name: m("Clientes"), href: "/clientes", icon: Users, permissao: "clientes.ver" },
+  { name: m("Funcionários"), href: "/funcionarios", icon: Users, permissao: "funcionarios.ver" },
+  { name: m("Funções"), href: "/funcoes", icon: HardHat, permissao: "funcionarios.ver" },
+  { name: m("Produtos"), href: "/materiais", icon: Package, permissao: "materiais.ver" },
+  { name: m("Stock"), href: "/estoque", icon: Boxes, permissao: "materiais.ver" },
+  { name: m("Cotações"), href: "/cotacoes", icon: Scale, permissao: "materiais.ver" },
+  { name: m("Categorias"), href: "/categorias", icon: Tags, permissao: "materiais.ver" },
+  { name: m("Serviços"), href: "/servicos", icon: Wrench, permissao: "servicos.ver" },
+  { name: m("Relatórios"), href: "/relatorios", icon: BarChart3, permissao: "relatorios.ver" },
+  { name: m("Utilizadores"), href: "/utilizadores", icon: ShieldCheck, permissao: "utilizadores.gerir" },
+  { name: m("Configurações"), href: "/configuracoes", icon: Settings, permissao: "configuracoes.ver" },
 ]
 
 /** A entrada que corresponde a uma rota, incluindo as suas subpaginas. */

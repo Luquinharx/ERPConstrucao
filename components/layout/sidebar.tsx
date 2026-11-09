@@ -21,8 +21,10 @@ import { useAuth } from "@/hooks/use-auth"
 import { useConfiguracao } from "@/hooks/use-configuracao"
 import { usePermissoes } from "@/hooks/use-permissoes"
 import { MarcaDaEmpresa } from "@/components/marca-da-empresa"
+import { SeletorIdioma } from "@/components/seletor-idioma"
 import { getCargo } from "@/lib/permissoes"
 import { NAVEGACAO } from "@/lib/navegacao"
+import { t } from "@/lib/i18n"
 
 const CHAVE_ESTADO = "barra-lateral-aberta"
 
@@ -123,6 +125,8 @@ export function Sidebar() {
     const aoClicarFora = (evento: MouseEvent) => {
       if (menuAberto) return
       if (!referencia.current || referencia.current.contains(evento.target as Node)) return
+      // Menus abertos a partir da barra (ex.: idioma) vivem num portal fora dela
+      if ((evento.target as Element | null)?.closest?.("[role='menu']")) return
 
       setAbertaNoMovel(false)
       if (window.innerWidth >= 1024 && fixada) alternarFixada(false)
@@ -142,7 +146,7 @@ export function Sidebar() {
   const trabalhador = perfil?.cargo === "trabalhador"
   const entradasVisiveis = NAVEGACAO.filter((item) => (item.permissao ? pode(item.permissao) : !trabalhador))
   const inicial = (perfil?.nome || user?.email || "?").charAt(0).toUpperCase()
-  const nomeVisivel = perfil?.nome?.trim() || user?.email?.split("@")[0] || "Utilizador"
+  const nomeVisivel = perfil?.nome?.trim() || user?.email?.split("@")[0] || t("Utilizador")
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -153,7 +157,7 @@ export function Sidebar() {
           size="icon"
           onClick={() => setAbertaNoMovel(!abertaNoMovel)}
           className="bg-background/80 shadow-sm backdrop-blur-sm"
-          aria-label={abertaNoMovel ? "Fechar menu" : "Abrir menu"}
+          aria-label={abertaNoMovel ? t("Fechar menu") : t("Abrir menu")}
         >
           {abertaNoMovel ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </Button>
@@ -196,7 +200,7 @@ export function Sidebar() {
                 )}
               >
                 <item.icon className="h-4 w-4 shrink-0" />
-                {aberta && <span className="truncate">{item.name}</span>}
+                {aberta && <span className="truncate">{t(item.name)}</span>}
               </Link>
             )
 
@@ -205,7 +209,7 @@ export function Sidebar() {
             return (
               <Tooltip key={item.name}>
                 <TooltipTrigger asChild>{ligacao}</TooltipTrigger>
-                <TooltipContent side="right">{item.name}</TooltipContent>
+                <TooltipContent side="right">{t(item.name)}</TooltipContent>
               </Tooltip>
             )
           })}
@@ -221,7 +225,7 @@ export function Sidebar() {
                   "flex w-full items-center rounded-lg transition-colors hover:bg-accent",
                   aberta ? "gap-3 p-2" : "justify-center p-1.5",
                 )}
-                aria-label="Conta e definicoes"
+                aria-label={t("Conta e definições")}
               >
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
                   {inicial}
@@ -230,7 +234,7 @@ export function Sidebar() {
                   <span className="min-w-0 flex-1 text-left">
                     <span className="block truncate text-sm font-medium">{nomeVisivel}</span>
                     <span className="block truncate text-xs text-muted-foreground">
-                      {perfil ? getCargo(perfil.cargo).nome : configuracao.nome}
+                      {perfil ? t(getCargo(perfil.cargo).nome) : configuracao.nome}
                     </span>
                   </span>
                 )}
@@ -241,47 +245,52 @@ export function Sidebar() {
               <DropdownMenuLabel className="font-normal">
                 <span className="block text-sm font-medium">{nomeVisivel}</span>
                 <span className="block truncate text-xs text-muted-foreground">{user?.email}</span>
-                {perfil && <span className="mt-1 block text-xs text-primary">{getCargo(perfil.cargo).nome}</span>}
+                {perfil && <span className="mt-1 block text-xs text-primary">{t(getCargo(perfil.cargo).nome)}</span>}
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
 
               <DropdownMenuItem asChild>
                 <Link href="/configuracoes?aba=conta">
                   <User className="mr-2 h-4 w-4" />
-                  Os meus dados
+                  {t("Os meus dados")}
                 </Link>
               </DropdownMenuItem>
               {pode("configuracoes.ver") && (
                 <DropdownMenuItem asChild>
                   <Link href="/configuracoes">
                     <Settings className="mr-2 h-4 w-4" />
-                    Configurações
+                    {t("Configurações")}
                   </Link>
                 </DropdownMenuItem>
               )}
 
               <DropdownMenuSeparator />
-              <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Tema</DropdownMenuLabel>
+              <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">{t("Tema")}</DropdownMenuLabel>
               <DropdownMenuItem onClick={() => setTheme("light")}>
                 <Sun className="mr-2 h-4 w-4" />
-                Claro
+                {t("Claro")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setTheme("dark")}>
                 <Moon className="mr-2 h-4 w-4" />
-                Escuro
+                {t("Escuro")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setTheme("system")}>
                 <Monitor className="mr-2 h-4 w-4" />
-                Sistema
+                {t("Sistema")}
               </DropdownMenuItem>
 
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive">
                 <LogOut className="mr-2 h-4 w-4" />
-                Sair
+                {t("Sair")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {/* Idioma: o mesmo elemento nos dois estados, para o menu nao fechar ao recolher */}
+          <div className={cn("mt-2 flex", aberta ? "px-1" : "justify-center")}>
+            <SeletorIdioma compacto={!aberta} />
+          </div>
 
           {/*
             Fixar / recolher, so no computador.
@@ -296,14 +305,14 @@ export function Sidebar() {
               "mt-2 hidden w-full items-center rounded-lg py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground lg:flex",
               aberta ? "gap-2 px-3" : "justify-center px-2",
             )}
-            aria-label={fixada ? "Recolher menu" : "Fixar menu aberto"}
+            aria-label={fixada ? t("Recolher menu") : t("Fixar menu aberto")}
           >
             {fixada ? (
               <ChevronLeft className="h-4 w-4" />
             ) : (
               <Pin className="h-4 w-4" />
             )}
-            {aberta && <span>{fixada ? "Recolher" : "Fixar aberto"}</span>}
+            {aberta && <span>{fixada ? t("Recolher") : t("Fixar aberto")}</span>}
           </button>
         </div>
       </div>

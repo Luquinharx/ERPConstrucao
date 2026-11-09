@@ -16,6 +16,7 @@ import { numeroCompleto } from "@/lib/numeracao"
 import { resumoContas } from "@/lib/obra"
 import type { Conta } from "@/lib/types"
 import { formatCurrency } from "@/lib/utils"
+import { m, t } from "@/lib/i18n"
 
 /** Contas a receber e a pagar desta obra. */
 export default function PagamentosObraPage() {
@@ -33,24 +34,24 @@ export default function PagamentosObraPage() {
   }, [carregar])
 
   if (carregando || aCarregar) return <LoadingSpinner size="lg" />
-  if (!pode("orcamentos.verCusto")) return <SemAcesso area="Pagamentos" requisito="a permissao de ver custos e margem" />
-  if (!orcamento) return <p>Proposta nao encontrada.</p>
+  if (!pode("orcamentos.verCusto")) return <SemAcesso area={t("Pagamentos")} requisito={t("a permissão de ver custos e margem")} />
+  if (!orcamento) return <p>{t("Proposta não encontrada.")}</p>
   const r = resumoContas(contas)
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <CabecalhoObra orcamento={orcamento} subtitulo="pagamentos" />
+      <CabecalhoObra orcamento={orcamento} subtitulo={t("pagamentos")} />
       <div className="grid gap-4 sm:grid-cols-4" data-testid="resumo-pagamentos">
         {(
           [
-            ["Adjudicado", orcamento.adjudicacao?.valor ?? null],
-            ["Recebido", r.recebido],
-            ["Por receber", r.aReceber],
-            ["Vencido", r.vencido],
+            [m("Adjudicado"), orcamento.adjudicacao?.valor ?? null],
+            [m("Recebido"), r.recebido],
+            [m("Por receber"), r.aReceber],
+            [m("Vencido"), r.vencido],
           ] as const
         ).map(([nome, valor]) => (
           <Card key={nome}>
-            <CardHeader className="pb-1"><CardDescription>{nome}</CardDescription></CardHeader>
+            <CardHeader className="pb-1"><CardDescription>{t(nome)}</CardDescription></CardHeader>
             <CardContent className="text-2xl font-bold tabular-nums">{valor === null ? "-" : formatCurrency(valor)}</CardContent>
           </Card>
         ))}

@@ -38,7 +38,7 @@ import type {
 import { useConfiguracao } from "@/hooks/use-configuracao"
 import { recalcularComposicao } from "@/lib/composicao-catalogo"
 import { MEDICOES, especialidadesDe } from "@/lib/precificacao"
-import { custoMedioFuncao } from "@/lib/produto-calculos"
+import { custoMedioFuncao, nomeUnidade } from "@/lib/produto-calculos"
 import {
   GRUPOS_COMPOSICAO,
   calcularPrecoUnitario,
@@ -54,6 +54,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { SeletorComBusca } from "@/components/ui/seletor-com-busca"
 import { SERVICE_CATEGORY_PRESETS, getServiceCategoryName } from "@/lib/service-categories"
 import { v4 as uuidv4 } from "uuid"
+import { m, t } from "@/lib/i18n"
 
 interface ServicoFormState {
   nome: string
@@ -72,6 +73,23 @@ interface ServicoFormState {
 
 const UNIDADES_MEDIDA = ["m2", "m", "unidade", "hora", "dia", "projeto", "litro", "kg"]
 const UNIDADES_LINHA = ["h", "dia", "un", "m2", "m", "kg", "litro", "vg", "cj"]
+
+/** Rótulo mostrado de cada unidade (o código gravado não muda). */
+const ROTULOS_UNIDADE: Record<string, string> = {
+  unidade: m("unidade"),
+  hora: m("hora"),
+  dia: m("dia"),
+  projeto: m("projeto"),
+  litro: m("litro"),
+  un: m("un"),
+  vg: m("vg"),
+  cj: m("cj"),
+}
+
+function rotuloUnidade(unidade: string | undefined): string {
+  const rotulo = unidade ? ROTULOS_UNIDADE[unidade] : undefined
+  return rotulo ? t(rotulo) : nomeUnidade(unidade)
+}
 
 function getDefaultFormData(): ServicoFormState {
   return {
@@ -236,8 +254,8 @@ export default function ServicosPage() {
     } catch (error) {
       console.error("Erro ao carregar servicos:", error)
       toast({
-        title: "Erro ao carregar servicos",
-        description: "Nao foi possivel carregar a lista de servicos.",
+        title: t("Erro ao carregar serviços"),
+        description: t("Não foi possível carregar a lista de serviços."),
         variant: "destructive",
       })
     } finally {
@@ -251,8 +269,8 @@ export default function ServicosPage() {
 
     if (!formData.nome.trim()) {
       toast({
-        title: "Nome obrigatorio",
-        description: "Informe o nome do servico.",
+        title: t("Nome obrigatório"),
+        description: t("Indique o nome do serviço."),
         variant: "destructive",
       })
       setActiveTab("sobre")
@@ -263,7 +281,7 @@ export default function ServicosPage() {
     try {
       const categoriaNomeFinal =
         formData.categoriaId === "outros"
-          ? formData.categoriaNome.trim() || "Outros"
+          ? formData.categoriaNome.trim() || t("Outros")
           : getServiceCategoryName(formData.categoriaId)
 
       // Linhas em branco (sem nome e sem valor) nao sao gravadas
@@ -297,14 +315,14 @@ export default function ServicosPage() {
       if (editingServico) {
         await FirebaseService.updateServico(editingServico.id!, servicoData)
         toast({
-          title: "Servico atualizado",
-          description: "Os dados do servico foram atualizados com sucesso.",
+          title: t("Serviço atualizado"),
+          description: t("Os dados do serviço foram atualizados com sucesso."),
         })
       } else {
         await FirebaseService.addServico(servicoData, user.uid)
         toast({
-          title: "Servico cadastrado",
-          description: "O servico foi cadastrado com sucesso.",
+          title: t("Serviço registado"),
+          description: t("O serviço foi registado com sucesso."),
         })
       }
 
@@ -314,8 +332,8 @@ export default function ServicosPage() {
     } catch (error) {
       console.error("Erro ao salvar servico:", error)
       toast({
-        title: "Erro ao salvar servico",
-        description: "Nao foi possivel salvar os dados do servico.",
+        title: t("Erro ao guardar serviço"),
+        description: t("Não foi possível guardar os dados do serviço."),
         variant: "destructive",
       })
     } finally {
@@ -345,20 +363,20 @@ export default function ServicosPage() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Tem certeza que deseja excluir este servico?")) return
+    if (!confirm(t("Tem a certeza de que pretende eliminar este serviço?"))) return
 
     try {
       await FirebaseService.deleteServico(id)
       toast({
-        title: "Servico excluido",
-        description: "O servico foi excluido com sucesso.",
+        title: t("Serviço eliminado"),
+        description: t("O serviço foi eliminado com sucesso."),
       })
       await loadServicos()
     } catch (error) {
       console.error("Erro ao excluir servico:", error)
       toast({
-        title: "Erro ao excluir servico",
-        description: "Nao foi possivel excluir o servico.",
+        title: t("Erro ao eliminar serviço"),
+        description: t("Não foi possível eliminar o serviço."),
         variant: "destructive",
       })
     }
@@ -391,8 +409,8 @@ export default function ServicosPage() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Servicos</h1>
-          <p className="text-muted-foreground">Gerencie servicos com categoria e composicao de custo</p>
+          <h1 className="text-3xl font-bold tracking-tight">{t("Serviços")}</h1>
+          <p className="text-muted-foreground">{t("Faça a gestão dos serviços, com categoria e composição de custo")}</p>
         </div>
         <div className="flex space-x-2">
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
@@ -402,46 +420,46 @@ export default function ServicosPage() {
             <DialogTrigger asChild>
               <Button disabled={!pode("servicos.gerir")} onClick={resetForm}>
                 <Plus className="mr-2 h-4 w-4" />
-                Novo Servico
+                {t("Novo Serviço")}
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[1100px] max-h-[92vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>{editingServico ? "Editar Servico" : "Novo Servico"}</DialogTitle>
+                <DialogTitle>{editingServico ? t("Editar Serviço") : t("Novo Serviço")}</DialogTitle>
                 <DialogDescription>
-                  {editingServico ? "Atualize as informacoes do servico." : "Adicione um novo servico ao sistema."}
+                  {editingServico ? t("Atualize as informações do serviço.") : t("Adicione um novo serviço ao sistema.")}
                 </DialogDescription>
               </DialogHeader>
               
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-2">
                 <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="sobre">Sobre</TabsTrigger>
-                  <TabsTrigger value="composicao">Composicao do Servico</TabsTrigger>
+                  <TabsTrigger value="sobre">{t("Sobre")}</TabsTrigger>
+                  <TabsTrigger value="composicao">{t("Composição do Serviço")}</TabsTrigger>
                 </TabsList>
                 
                 <form onSubmit={handleSubmit} className="mt-4 space-y-5">
                   <TabsContent value="sobre" className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="nome">Nome do Servico</Label>
+                        <Label htmlFor="nome">{t("Nome do Serviço")}</Label>
                         <Input
                           id="nome"
                           value={formData.nome}
                           onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-                          placeholder="Ex: Pintura de parede interna"
+                          placeholder={t("Ex.: Pintura de parede interior")}
                           required
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="unidade">Unidade de Medida</Label>
+                        <Label htmlFor="unidade">{t("Unidade de Medida")}</Label>
                         <Select value={formData.unidade} onValueChange={(value) => setFormData({ ...formData, unidade: value })}>
                           <SelectTrigger>
-                            <SelectValue placeholder="Selecione a unidade" />
+                            <SelectValue placeholder={t("Selecione a unidade")} />
                           </SelectTrigger>
                           <SelectContent className="max-h-72">
                             {UNIDADES_MEDIDA.map((unidade) => (
                               <SelectItem key={unidade} value={unidade}>
-                                {unidade}
+                                {rotuloUnidade(unidade)}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -451,18 +469,18 @@ export default function ServicosPage() {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label>Categoria</Label>
+                        <Label>{t("Categoria")}</Label>
                         <Select
                           value={formData.categoriaId}
                           onValueChange={(value) => setFormData({ ...formData, categoriaId: value, categoriaNome: "" })}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Selecione a categoria" />
+                            <SelectValue placeholder={t("Selecione a categoria")} />
                           </SelectTrigger>
                           <SelectContent className="max-h-72">
                             {SERVICE_CATEGORY_PRESETS.map((category) => (
                               <SelectItem key={category.id} value={category.id}>
-                                {category.nome}
+                                {t(category.nome)}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -471,12 +489,12 @@ export default function ServicosPage() {
 
                       {formData.categoriaId === "outros" && (
                         <div className="space-y-2">
-                          <Label htmlFor="categoriaNome">Nome da Categoria</Label>
+                          <Label htmlFor="categoriaNome">{t("Nome da Categoria")}</Label>
                           <Input
                             id="categoriaNome"
                             value={formData.categoriaNome}
                             onChange={(e) => setFormData({ ...formData, categoriaNome: e.target.value })}
-                            placeholder="Digite a categoria"
+                            placeholder={t("Escreva a categoria")}
                           />
                         </div>
                       )}
@@ -484,37 +502,37 @@ export default function ServicosPage() {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label>Especialidade (margem)</Label>
+                        <Label>{t("Especialidade (margem)")}</Label>
                         <Select
                           value={formData.especialidadeId}
                           onValueChange={(especialidadeId) => setFormData({ ...formData, especialidadeId })}
                         >
-                          <SelectTrigger aria-label="Especialidade">
+                          <SelectTrigger aria-label={t("Especialidade")}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
                             {especialidadesDe(configuracao).map((e) => (
                               <SelectItem key={e.id} value={e.id}>
-                                {e.nome}
+                                {t(e.nome)}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label>Quantidade no orcamento</Label>
+                        <Label>{t("Quantidade no orçamento")}</Label>
                         <Select
                           value={formData.medicaoPadrao || "__manual"}
                           onValueChange={(v) => setFormData({ ...formData, medicaoPadrao: v === "__manual" ? "" : v })}
                         >
-                          <SelectTrigger aria-label="Medicao padrao">
+                          <SelectTrigger aria-label={t("Medição padrão")}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="__manual">Escrita a mao</SelectItem>
-                            {(Object.keys(MEDICOES) as TipoMedicao[]).map((m) => (
-                              <SelectItem key={m} value={m}>
-                                {MEDICOES[m].nome} do comodo
+                            <SelectItem value="__manual">{t("Escrita à mão")}</SelectItem>
+                            {(Object.keys(MEDICOES) as TipoMedicao[]).map((med) => (
+                              <SelectItem key={med} value={med}>
+                                {t("{medicao} da divisão", { medicao: t(MEDICOES[med].nome) })}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -523,12 +541,12 @@ export default function ServicosPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="descricao">Descricao</Label>
+                      <Label htmlFor="descricao">{t("Descrição")}</Label>
                       <Textarea
                         id="descricao"
                         value={formData.descricao}
                         onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
-                        placeholder="Descreva o servico detalhadamente..."
+                        placeholder={t("Descreva o serviço em detalhe...")}
                         rows={3}
                       />
                     </div>
@@ -537,8 +555,9 @@ export default function ServicosPage() {
                   <TabsContent value="composicao" className="space-y-4">
                     <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-dashed p-3 text-sm">
                       <span className="text-muted-foreground">
-                        Linhas ligadas a um produto, funcionario ou funcao vao buscar o custo ao catalogo. No orcamento usa-se
-                        sempre o preco atual.
+                        {t(
+                          "Linhas ligadas a um produto, funcionário ou função vão buscar o custo ao catálogo. No orçamento usa-se sempre o preço atual.",
+                        )}
                       </span>
                       <Button
                         type="button"
@@ -552,18 +571,22 @@ export default function ServicosPage() {
                           ).length
                           setFormData({ ...formData, composicao: atualizada })
                           toast({
-                            title: mudaram ? `${mudaram} linha(s) atualizada(s)` : "Precos ja estavam atualizados",
+                            title: mudaram
+                              ? mudaram === 1
+                                ? t("{n} linha atualizada", { n: mudaram })
+                                : t("{n} linhas atualizadas", { n: mudaram })
+                              : t("Os preços já estavam atualizados"),
                           })
                         }}
                       >
-                        Atualizar precos do catalogo
+                        {t("Atualizar preços do catálogo")}
                       </Button>
                     </div>
                     <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="quantidadeReferencia">
-                            Composicao montada para quantos {formData.unidade}?
+                            {t("Composição montada para quantos {unidade}?", { unidade: rotuloUnidade(formData.unidade) })}
                           </Label>
                           <CampoNumerico
                             id="quantidadeReferencia"
@@ -573,7 +596,7 @@ export default function ServicosPage() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label>Preco por {formData.unidade} (calculado)</Label>
+                          <Label>{t("Preço por {unidade} (calculado)", { unidade: rotuloUnidade(formData.unidade) })}</Label>
                           <div className="flex h-10 items-center rounded-md border bg-background px-3">
                             <span className="text-lg font-semibold text-primary">
                               {formatCurrency(precoUnitario)}
@@ -582,10 +605,15 @@ export default function ServicosPage() {
                         </div>
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        Lance abaixo tudo o que gasta para executar {toFixed2(formData.quantidadeReferencia)}{" "}
-                        {formData.unidade}. O sistema divide o total pela quantidade de referencia e chega ao preco
-                        unitario: {formatCurrency(totais.total)} / {toFixed2(formData.quantidadeReferencia)} ={" "}
-                        {formatCurrency(precoUnitario)} por {formData.unidade}.
+                        {t(
+                          "Registe abaixo tudo o que gasta para executar {quantidade} {unidade}. O sistema divide o total pela quantidade de referência e chega ao preço unitário: {total} / {quantidade} = {preco} por {unidade}.",
+                          {
+                            quantidade: toFixed2(formData.quantidadeReferencia),
+                            unidade: rotuloUnidade(formData.unidade),
+                            total: formatCurrency(totais.total),
+                            preco: formatCurrency(precoUnitario),
+                          },
+                        )}
                       </p>
                     </div>
 
@@ -597,8 +625,8 @@ export default function ServicosPage() {
                         <div key={grupo.id} className="rounded-lg border overflow-hidden">
                           <div className={`flex items-center justify-between gap-3 px-4 py-2 border-b ${grupo.cor}`}>
                             <div className="min-w-0">
-                              <div className="text-sm font-semibold">{grupo.nome}</div>
-                              <div className="text-xs opacity-80">{grupo.descricao}</div>
+                              <div className="text-sm font-semibold">{t(grupo.nome)}</div>
+                              <div className="text-xs opacity-80">{t(grupo.descricao)}</div>
                             </div>
                             <div className="flex shrink-0 items-center gap-3">
                               <span className="text-sm font-semibold">{formatCurrency(totalGrupo)}</span>
@@ -609,14 +637,14 @@ export default function ServicosPage() {
                                 onClick={() => adicionarLinha(grupo.id)}
                               >
                                 <Plus className="h-3 w-3 mr-1" />
-                                Linha
+                                {t("Linha")}
                               </Button>
                             </div>
                           </div>
 
                           {linhas.length === 0 ? (
                             <p className="px-4 py-3 text-xs text-muted-foreground">
-                              Nenhuma linha neste grupo.
+                              {t("Nenhuma linha neste grupo.")}
                             </p>
                           ) : (
                             <div className="overflow-x-auto">
@@ -628,12 +656,12 @@ export default function ServicosPage() {
                               <Table className="w-full min-w-[840px] table-fixed [&_th]:px-2 [&_td]:px-2 [&_td]:py-2">
                                 <TableHeader>
                                   <TableRow className="bg-muted/60">
-                                    <TableHead className="w-auto">Descricao</TableHead>
-                                    <TableHead className="w-[96px]">UN</TableHead>
-                                    <TableHead className="w-[108px] text-center">Qtd padrao</TableHead>
-                                    <TableHead className="w-[108px] text-center">Qtd pontual</TableHead>
-                                    <TableHead className="w-[116px] text-right">V. UN</TableHead>
-                                    <TableHead className="w-[112px] text-right">V. TOTAL</TableHead>
+                                    <TableHead className="w-auto">{t("Descrição")}</TableHead>
+                                    <TableHead className="w-[96px]">{t("UN")}</TableHead>
+                                    <TableHead className="w-[108px] text-center">{t("Qtd. padrão")}</TableHead>
+                                    <TableHead className="w-[108px] text-center">{t("Qtd. pontual")}</TableHead>
+                                    <TableHead className="w-[116px] text-right">{t("V. UN")}</TableHead>
+                                    <TableHead className="w-[112px] text-right">{t("V. TOTAL")}</TableHead>
                                     <TableHead className="w-[44px]"></TableHead>
                                   </TableRow>
                                 </TableHeader>
@@ -646,7 +674,7 @@ export default function ServicosPage() {
                                           <Input
                                             value={linha.nome}
                                             onChange={(e) => atualizarLinha(linha.id, { nome: e.target.value })}
-                                            placeholder="Descricao da linha"
+                                            placeholder={t("Descrição da linha")}
                                             title={linha.nome}
                                             className="h-8 w-full text-sm"
                                           />
@@ -655,21 +683,24 @@ export default function ServicosPage() {
                                               compacto
                                               valor={linha.funcaoId ? `funcao:${linha.funcaoId}` : linha.funcionarioId || ""}
                                               onChange={(value) => aplicarFuncionario(linha.id, value)}
-                                              placeholder="Puxar de uma funcao ou funcionario..."
-                                              placeholderBusca="Procurar funcao ou funcionario..."
-                                              vazio="Nenhum funcionario encontrado."
+                                              placeholder={t("Puxar de uma função ou funcionário...")}
+                                              placeholderBusca={t("Procurar função ou funcionário...")}
+                                              vazio={t("Nenhum funcionário encontrado.")}
                                               opcoes={[
                                                 ...funcoes.map((funcao) => ({
                                                   valor: `funcao:${funcao.id}`,
-                                                  rotulo: `Funcao: ${funcao.nome}`,
-                                                  detalhe: `custo medio ${formatCurrency(custoMedioFuncao(funcao, funcionarios))}/h`,
+                                                  rotulo: t("Função: {nome}", { nome: funcao.nome }),
+                                                  detalhe: t("custo médio {valor}/h", {
+                                                    valor: formatCurrency(custoMedioFuncao(funcao, funcionarios)),
+                                                  }),
                                                 })),
                                                 ...funcionarios.map((funcionario) => ({
                                                 valor: funcionario.id!,
                                                 rotulo: funcionario.nome,
-                                                detalhe: `${funcionario.funcao} - custo ${formatCurrency(
-                                                  funcionario.custoHoraCalculado ?? funcionario.custoHora ?? 0,
-                                                )}/h`,
+                                                detalhe: t("{funcao} - custo {valor}/h", {
+                                                  funcao: funcionario.funcao,
+                                                  valor: formatCurrency(funcionario.custoHoraCalculado ?? funcionario.custoHora ?? 0),
+                                                }),
                                               })),
                                               ]}
                                             />
@@ -678,13 +709,13 @@ export default function ServicosPage() {
                                               compacto
                                               valor={linha.materialId || ""}
                                               onChange={(value) => aplicarMaterial(linha.id, value)}
-                                              placeholder="Puxar de um material..."
-                                              placeholderBusca="Procurar material..."
-                                              vazio="Nenhum material encontrado."
+                                              placeholder={t("Puxar de um material...")}
+                                              placeholderBusca={t("Procurar material...")}
+                                              vazio={t("Nenhum material encontrado.")}
                                               opcoes={materiais.map((material) => ({
                                                 valor: material.id!,
                                                 rotulo: material.nome,
-                                                detalhe: `${formatCurrency(material.precoUnitario)} / ${material.unidade}`,
+                                                detalhe: `${formatCurrency(material.precoUnitario)} / ${nomeUnidade(material.unidade)}`,
                                               }))}
                                             />
                                           )}
@@ -700,7 +731,7 @@ export default function ServicosPage() {
                                             <SelectContent className="max-h-72">
                                               {UNIDADES_LINHA.map((unidade) => (
                                                 <SelectItem key={unidade} value={unidade}>
-                                                  {unidade}
+                                                  {rotuloUnidade(unidade)}
                                                 </SelectItem>
                                               ))}
                                             </SelectContent>
@@ -722,7 +753,7 @@ export default function ServicosPage() {
                                             min={0}
                                             value={linha.quantidadePontual}
                                             onChange={(quantidadePontual) => atualizarLinha(linha.id, { quantidadePontual })}
-                                            title="0 desliga a linha sem a apagar"
+                                            title={t("0 desliga a linha sem a apagar")}
                                           />
                                         </TableCell>
                                         <TableCell>
@@ -759,12 +790,12 @@ export default function ServicosPage() {
                     })}
 
                     <div className="space-y-2">
-                      <Label htmlFor="observacoes">Condicoes de Composicao / Observacoes</Label>
+                      <Label htmlFor="observacoes">{t("Condições de Composição / Observações")}</Label>
                       <Textarea
                         id="observacoes"
                         value={formData.observacoes}
                         onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
-                        placeholder="Observacoes internas sobre a execucao e composicao"
+                        placeholder={t("Observações internas sobre a execução e a composição")}
                         rows={2}
                       />
                     </div>
@@ -772,18 +803,21 @@ export default function ServicosPage() {
                     <div className="rounded-md border bg-muted/20 p-4 space-y-2">
                       {GRUPOS_COMPOSICAO.filter((grupo) => (totais.porGrupo[grupo.id] || 0) !== 0).map((grupo) => (
                         <div key={grupo.id} className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">{grupo.nome}:</span>
+                          <span className="text-muted-foreground">{t(grupo.nome)}:</span>
                           <span>{formatCurrency(totais.porGrupo[grupo.id] || 0)}</span>
                         </div>
                       ))}
                       <div className="flex items-center justify-between text-base font-semibold pt-2 border-t">
                         <span>
-                          Total para {toFixed2(formData.quantidadeReferencia)} {formData.unidade}:
+                          {t("Total para {quantidade} {unidade}:", {
+                            quantidade: toFixed2(formData.quantidadeReferencia),
+                            unidade: rotuloUnidade(formData.unidade),
+                          })}
                         </span>
                         <span>{formatCurrency(totais.total)}</span>
                       </div>
                       <div className="flex items-center justify-between text-base font-semibold">
-                        <span>Preco por {formData.unidade}:</span>
+                        <span>{t("Preço por {unidade}:", { unidade: rotuloUnidade(formData.unidade) })}</span>
                         <span className="text-primary">{formatCurrency(precoUnitario)}</span>
                       </div>
                     </div>
@@ -791,10 +825,10 @@ export default function ServicosPage() {
 
                   <DialogFooter className="pt-4">
                     <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                      Cancelar
+                      {t("Cancelar")}
                     </Button>
                     <Button type="submit" disabled={loading}>
-                      {loading ? "Salvando..." : editingServico ? "Atualizar" : "Salvar"}
+                      {loading ? t("A guardar...") : editingServico ? t("Atualizar") : t("Guardar")}
                     </Button>
                   </DialogFooter>
                 </form>
@@ -808,33 +842,35 @@ export default function ServicosPage() {
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
         onClear={clearSearch}
-        placeholder="Buscar servicos por nome, descricao, categoria ou unidade..."
+        placeholder={t("Pesquisar serviços por nome, descrição, categoria ou unidade...")}
         resultCount={filteredServicos.length}
         totalCount={servicos.length}
       />
 
       <Card>
         <CardHeader>
-          <CardTitle>Lista de Servicos</CardTitle>
+          <CardTitle>{t("Lista de Serviços")}</CardTitle>
           <CardDescription>
-            {servicos.length} servico{servicos.length !== 1 ? "s" : ""} cadastrado{servicos.length !== 1 ? "s" : ""}
+            {servicos.length === 1
+              ? t("{n} serviço registado", { n: servicos.length })
+              : t("{n} serviços registados", { n: servicos.length })}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {filteredServicos.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-muted-foreground">{searchTerm ? "Nenhum servico encontrado." : "Nenhum servico cadastrado."}</p>
+              <p className="text-muted-foreground">{searchTerm ? t("Nenhum serviço encontrado.") : t("Nenhum serviço registado.")}</p>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Categoria</TableHead>
-                  <TableHead>Unidade</TableHead>
-                  <TableHead>Composicao</TableHead>
-                  <TableHead>Preco Final</TableHead>
-                  <TableHead className="text-right">Acoes</TableHead>
+                  <TableHead>{t("Nome")}</TableHead>
+                  <TableHead>{t("Categoria")}</TableHead>
+                  <TableHead>{t("Unidade")}</TableHead>
+                  <TableHead>{t("Composição")}</TableHead>
+                  <TableHead>{t("Preço Final")}</TableHead>
+                  <TableHead className="text-right">{t("Ações")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -848,33 +884,41 @@ export default function ServicosPage() {
                     <TableRow key={servico.id}>
                       <TableCell className="font-medium">
                         <div>{servico.nome}</div>
-                        <div className="text-xs text-muted-foreground max-w-xs truncate">{servico.descricao || "Sem descricao"}</div>
+                        <div className="text-xs text-muted-foreground max-w-xs truncate">{servico.descricao || t("Sem descrição")}</div>
                       </TableCell>
                       <TableCell>
                         <Badge variant="secondary">{getServiceCategoryName(servico.categoriaId, servico.categoriaNome)}</Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline">{servico.unidade}</Badge>
+                        <Badge variant="outline">{rotuloUnidade(servico.unidade)}</Badge>
                       </TableCell>
                       <TableCell>
                         {formatoAntigo ? (
                           <Badge variant="outline" className="text-xs text-amber-600 border-amber-500/50">
-                            Formato antigo - abrir e rever
+                            {t("Formato antigo - abrir e rever")}
                           </Badge>
                         ) : (
                           <div className="text-xs text-muted-foreground">
                             <div>
-                              {formatCurrency(totalComposicao)} para {toFixed2(referencia)} {servico.unidade}
+                              {t("{total} para {quantidade} {unidade}", {
+                                total: formatCurrency(totalComposicao),
+                                quantidade: toFixed2(referencia),
+                                unidade: rotuloUnidade(servico.unidade),
+                              })}
                             </div>
                             <div>
-                              {linhas} linha{linhas === 1 ? "" : "s"} na composicao
+                              {linhas === 1
+                                ? t("{n} linha na composição", { n: linhas })
+                                : t("{n} linhas na composição", { n: linhas })}
                             </div>
                           </div>
                         )}
                       </TableCell>
                       <TableCell className="font-semibold">
                         {formatCurrency(servico.preco || 0)}
-                        <div className="text-xs font-normal text-muted-foreground">por {servico.unidade}</div>
+                        <div className="text-xs font-normal text-muted-foreground">
+                          {t("por {unidade}", { unidade: rotuloUnidade(servico.unidade) })}
+                        </div>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end space-x-2">

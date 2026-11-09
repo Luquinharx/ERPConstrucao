@@ -23,6 +23,7 @@ import { ESTADOS_GARANTIA, estadoGarantia, fimGarantia } from "@/lib/garantias"
 import { numeroCompleto } from "@/lib/numeracao"
 import type { Garantia } from "@/lib/types"
 import { formatDate, hojeLocal } from "@/lib/utils"
+import { t } from "@/lib/i18n"
 
 /** Pos-obra: a ficha da obra entregue, o prazo de garantia e as ocorrencias. */
 export default function GarantiaPage() {
@@ -47,8 +48,8 @@ export default function GarantiaPage() {
   }, [carregar])
 
   if (carregando || aCarregar) return <LoadingSpinner size="lg" />
-  if (!pode("orcamentos.ver")) return <SemAcesso area="Garantia" />
-  if (!orcamento) return <p>Proposta nao encontrada.</p>
+  if (!pode("orcamentos.ver")) return <SemAcesso area={t("Garantia")} />
+  if (!orcamento) return <p>{t("Proposta não encontrada.")}</p>
 
   const criarFicha = async () => {
     if (!user || !orcamento.id) return
@@ -61,7 +62,7 @@ export default function GarantiaPage() {
       ocorrencias: [],
       userId: user.uid,
     })
-    toast({ title: "Obra entregue", description: "Ficha de garantia criada." })
+    toast({ title: t("Obra entregue"), description: t("Ficha de garantia criada.") })
     await carregar()
   }
 
@@ -73,53 +74,54 @@ export default function GarantiaPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <CabecalhoObra orcamento={orcamento} subtitulo="garantia" />
+      <CabecalhoObra orcamento={orcamento} subtitulo={t("garantia")} />
 
       {!ficha ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Entregar a obra</CardTitle>
+            <CardTitle className="text-lg">{t("Entregar a obra")}</CardTitle>
             <CardDescription>
-              Cria a ficha de garantia. Em empreitadas de imoveis o prazo legal habitual e de 5 anos (art. 1225.o do
-              Codigo Civil); ajuste se o contrato disser outra coisa.
+              {t(
+                "Cria a ficha de garantia. Em empreitadas de imóveis o prazo legal habitual é de 5 anos (art. 1225.º do Código Civil); ajuste se o contrato disser outra coisa.",
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap items-end gap-3">
             <div className="space-y-1">
-              <Label>Data de entrega</Label>
+              <Label>{t("Data de entrega")}</Label>
               <Input type="date" value={nova.dataEntrega} onChange={(e) => setNova({ ...nova, dataEntrega: e.target.value })} />
             </div>
             <div className="space-y-1">
-              <Label>Anos de garantia</Label>
-              <CampoNumerico decimais={0} min={0} aria-label="Anos de garantia" value={nova.anos} onChange={(anos) => setNova({ ...nova, anos })} className="w-28" />
+              <Label>{t("Anos de garantia")}</Label>
+              <CampoNumerico decimais={0} min={0} aria-label={t("Anos de garantia")} value={nova.anos} onChange={(anos) => setNova({ ...nova, anos })} className="w-28" />
             </div>
-            {podeGerir && <Button onClick={criarFicha} className="rounded-full">Criar ficha de garantia</Button>}
+            {podeGerir && <Button onClick={criarFicha} className="rounded-full">{t("Criar ficha de garantia")}</Button>}
           </CardContent>
         </Card>
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-3" data-testid="ficha-garantia">
             <Card>
-              <CardHeader className="pb-1"><CardDescription>Entregue em</CardDescription></CardHeader>
+              <CardHeader className="pb-1"><CardDescription>{t("Entregue em")}</CardDescription></CardHeader>
               <CardContent className="text-xl font-bold">{formatDate(ficha.dataEntrega)}</CardContent>
             </Card>
             <Card>
-              <CardHeader className="pb-1"><CardDescription>Garantia ate</CardDescription></CardHeader>
+              <CardHeader className="pb-1"><CardDescription>{t("Garantia até")}</CardDescription></CardHeader>
               <CardContent className="text-xl font-bold">{formatDate(fimGarantia(ficha))}</CardContent>
             </Card>
             <Card>
-              <CardHeader className="pb-1"><CardDescription>Estado</CardDescription></CardHeader>
+              <CardHeader className="pb-1"><CardDescription>{t("Estado")}</CardDescription></CardHeader>
               <CardContent>
                 <Badge variant="outline" className={ESTADOS_GARANTIA[estadoGarantia(ficha)].cor}>
-                  {ESTADOS_GARANTIA[estadoGarantia(ficha)].nome}
+                  {t(ESTADOS_GARANTIA[estadoGarantia(ficha)].nome)}
                 </Badge>
               </CardContent>
             </Card>
           </div>
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Ocorrencias pos-entrega</CardTitle>
-              <CardDescription>Reclamacoes do cliente durante a garantia.</CardDescription>
+              <CardTitle className="text-lg">{t("Ocorrências pós-entrega")}</CardTitle>
+              <CardDescription>{t("Reclamações do cliente durante a garantia.")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {podeGerir && (
@@ -135,14 +137,14 @@ export default function GarantiaPage() {
                     setOcorrencia("")
                   }}
                 >
-                  <Input placeholder="Ex.: fissura no teto da sala" value={ocorrencia} onChange={(e) => setOcorrencia(e.target.value)} aria-label="Nova ocorrencia" />
+                  <Input placeholder={t("Ex.: fissura no teto da sala")} value={ocorrencia} onChange={(e) => setOcorrencia(e.target.value)} aria-label={t("Nova ocorrência")} />
                   <Button type="submit" variant="outline">
                     <Plus className="mr-1 h-4 w-4" />
-                    Registar
+                    {t("Registar ocorrência")}
                   </Button>
                 </form>
               )}
-              {ficha.ocorrencias.length === 0 && <p className="text-sm text-muted-foreground">Sem ocorrencias.</p>}
+              {ficha.ocorrencias.length === 0 && <p className="text-sm text-muted-foreground">{t("Sem ocorrências.")}</p>}
               {ficha.ocorrencias.map((o) => (
                 <div key={o.id} className="flex items-center justify-between gap-2 rounded-lg border p-2 text-sm">
                   <span className={o.resolvida ? "text-muted-foreground line-through" : ""}>
@@ -156,7 +158,7 @@ export default function GarantiaPage() {
                       onClick={() => gravarOcorrencias(ficha.ocorrencias.map((x) => (x.id === o.id ? { ...x, resolvida: true } : x)))}
                     >
                       <Check className="mr-1 h-3 w-3" />
-                      Resolvida
+                      {t("Resolvida")}
                     </Button>
                   )}
                 </div>

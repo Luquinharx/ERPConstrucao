@@ -10,14 +10,15 @@ import { useConfiguracao } from "@/hooks/use-configuracao"
 import { numeroCompleto } from "@/lib/numeracao"
 import { getFase } from "@/lib/orcamento-fases"
 import type { Orcamento } from "@/lib/types"
+import { m, t } from "@/lib/i18n"
 
 const ABAS = [
-  ["apuramento", "Apuramento"],
-  ["autos", "Autos de medicao"],
-  ["diario", "Diario (RDO)"],
-  ["pagamentos", "Pagamentos"],
-  ["garantia", "Garantia"],
-  ["portal", "Portal do cliente"],
+  ["apuramento", m("Apuramento")],
+  ["autos", m("Autos de medição")],
+  ["diario", m("Diário (RDO)")],
+  ["pagamentos", m("Pagamentos")],
+  ["garantia", m("Garantia")],
+  ["portal", m("Portal do cliente")],
 ] as const
 
 /**
@@ -40,12 +41,12 @@ export function CabecalhoObra({ orcamento, subtitulo }: { orcamento: Orcamento; 
             size="icon"
             onClick={() => router.push("/obras")}
             className="rounded-full"
-            title="Voltar as obras"
+            title={t("Voltar às obras")}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">Obra {numeroCompleto(orcamento, configuracao)}</h1>
+            <h1 className="text-2xl font-bold">{t("Obra {numero}", { numero: numeroCompleto(orcamento, configuracao) })}</h1>
             <p className="text-sm text-muted-foreground">
               {orcamento.cliente.nome}
               {subtitulo ? ` · ${subtitulo}` : ""}
@@ -53,10 +54,10 @@ export function CabecalhoObra({ orcamento, subtitulo }: { orcamento: Orcamento; 
           </div>
         </div>
         <Badge variant="outline" className={fase.cor}>
-          {fase.nome}
+          {t(fase.nome)}
         </Badge>
       </div>
-      <nav className="flex flex-wrap gap-1 rounded-lg bg-muted p-1" aria-label="Separadores da obra">
+      <nav className="flex flex-wrap gap-1 rounded-lg bg-muted p-1" aria-label={t("Separadores da obra")}>
         {ABAS.map(([rota, nome]) => {
           const href = `/orcamentos/${orcamento.id}/${rota}`
           const ativa = pathname === href
@@ -68,7 +69,7 @@ export function CabecalhoObra({ orcamento, subtitulo }: { orcamento: Orcamento; 
                 ativa ? "bg-background font-medium shadow-sm" : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              {nome}
+              {t(nome)}
             </Link>
           )
         })}

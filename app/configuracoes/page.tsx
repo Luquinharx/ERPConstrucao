@@ -16,6 +16,7 @@ import { IdentidadeDaEmpresa } from "@/components/configuracoes/identidade-da-em
 import { TermosECondicoes } from "@/components/configuracoes/termos-e-condicoes"
 import { GruposImpostos } from "@/components/configuracoes/grupos-impostos"
 import { PrecosMargens } from "@/components/configuracoes/precos-margens"
+import { t } from "@/lib/i18n"
 
 export default function ConfiguracoesPage() {
   // A aba inicial pode vir da URL (?aba=termos), usada pelo redirecionamento antigo
@@ -46,14 +47,14 @@ export default function ConfiguracoesPage() {
       await updateUserEmail(newEmail, passwordParaEmail)
       setPasswordParaEmail("")
       toast({
-        title: "Confirme no email novo",
-        description: `Enviámos uma mensagem para ${newEmail}. O endereço só muda depois de clicar no link.`,
+        title: t("Email alterado"),
+        description: t("A partir de agora entra com {email}.", { email: newEmail }),
       })
     } catch (error: any) {
       console.error("Erro ao atualizar email:", error)
       toast({
-        title: "Erro ao atualizar email",
-        description: mensagemDeErroAuth(error, "Não foi possível atualizar o email. Tente novamente."),
+        title: t("Erro ao atualizar o email"),
+        description: mensagemDeErroAuth(error, t("Não foi possível atualizar o email. Tente novamente.")),
         variant: "destructive",
       })
     } finally {
@@ -65,16 +66,16 @@ export default function ConfiguracoesPage() {
     e.preventDefault()
     if (!user || !currentPassword || !newPassword || !confirmNewPassword) {
       toast({
-        title: "Campos obrigatórios",
-        description: "Por favor, preencha todos os campos de password.",
+        title: t("Campos obrigatórios"),
+        description: t("Preencha todos os campos da palavra-passe."),
         variant: "destructive",
       })
       return
     }
     if (newPassword !== confirmNewPassword) {
       toast({
-        title: "Passwords não coincidem",
-        description: "A nova password e a confirmação não coincidem.",
+        title: t("As palavras-passe não coincidem"),
+        description: t("A nova palavra-passe e a confirmação não coincidem."),
         variant: "destructive",
       })
       return
@@ -84,8 +85,8 @@ export default function ConfiguracoesPage() {
     try {
       await updateUserPassword(currentPassword, newPassword)
       toast({
-        title: "Password atualizada",
-        description: "A sua password foi atualizada com sucesso.",
+        title: t("Palavra-passe atualizada"),
+        description: t("A sua palavra-passe foi atualizada com sucesso."),
       })
       setCurrentPassword("")
       setNewPassword("")
@@ -93,8 +94,8 @@ export default function ConfiguracoesPage() {
     } catch (error: any) {
       console.error("Erro ao atualizar password:", error)
       toast({
-        title: "Erro ao atualizar password",
-        description: mensagemDeErroAuth(error, "Não foi possível atualizar a palavra-passe. Tente novamente."),
+        title: t("Erro ao atualizar a palavra-passe"),
+        description: mensagemDeErroAuth(error, t("Não foi possível atualizar a palavra-passe. Tente novamente.")),
         variant: "destructive",
       })
     } finally {
@@ -104,17 +105,17 @@ export default function ConfiguracoesPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold">Configurações</h1>
-      <p className="text-muted-foreground">Identidade da empresa, padrões das propostas e dados da sua conta.</p>
+      <h1 className="text-3xl font-bold">{t("Configurações")}</h1>
+      <p className="text-muted-foreground">{t("Identidade da empresa, padrões das propostas e dados da sua conta.")}</p>
 
       {/* Controlado: com defaultValue a aba vinda da URL chegava tarde e era ignorada */}
       <Tabs value={abaInicial} onValueChange={setAbaInicial} className="w-full">
         <TabsList className="grid w-full max-w-4xl grid-cols-2 sm:grid-cols-5 h-auto">
-          <TabsTrigger value="identidade">Identidade e propostas</TabsTrigger>
-          <TabsTrigger value="precos">Precos</TabsTrigger>
-          <TabsTrigger value="impostos">Impostos</TabsTrigger>
-          <TabsTrigger value="termos">Termos e condições</TabsTrigger>
-          <TabsTrigger value="conta">Minha conta</TabsTrigger>
+          <TabsTrigger value="identidade">{t("Identidade e propostas")}</TabsTrigger>
+          <TabsTrigger value="precos">{t("Preços")}</TabsTrigger>
+          <TabsTrigger value="impostos">{t("Impostos")}</TabsTrigger>
+          <TabsTrigger value="termos">{t("Termos e condições")}</TabsTrigger>
+          <TabsTrigger value="conta">{t("A minha conta")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="identidade" className="mt-6">
@@ -136,15 +137,15 @@ export default function ConfiguracoesPage() {
         <TabsContent value="conta" className="mt-6 space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Informações da Conta</CardTitle>
+          <CardTitle>{t("Informações da conta")}</CardTitle>
           <CardDescription>
-            Enviamos um pedido de confirmação para o endereço novo. A troca só fica feita depois de o confirmar.
+            {t("Enviamos um pedido de confirmação para o endereço novo. A troca só fica feita depois de o confirmar.")}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleUpdateEmail} className="space-y-4">
             <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t("Email")}</Label>
               <Input
                 id="email"
                 type="email"
@@ -155,12 +156,12 @@ export default function ConfiguracoesPage() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="password-email">Palavra-passe atual</Label>
+              <Label htmlFor="password-email">{t("Palavra-passe atual")}</Label>
               <Input
                 id="password-email"
                 type="password"
                 autoComplete="current-password"
-                placeholder="Para confirmar que é você"
+                placeholder={t("Para confirmar que é você")}
                 value={passwordParaEmail}
                 onChange={(e) => setPasswordParaEmail(e.target.value)}
                 required
@@ -168,7 +169,7 @@ export default function ConfiguracoesPage() {
               />
             </div>
             <Button type="submit" disabled={loadingEmail} className="rounded-full">
-              {loadingEmail ? <LoadingSpinner size="sm" className="text-white" /> : "Atualizar Email"}
+              {loadingEmail ? <LoadingSpinner size="sm" className="text-white" /> : t("Atualizar email")}
             </Button>
           </form>
         </CardContent>
@@ -176,13 +177,13 @@ export default function ConfiguracoesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Alterar Password</CardTitle>
-          <CardDescription>Atualize a sua password para manter a sua conta segura.</CardDescription>
+          <CardTitle>{t("Alterar palavra-passe")}</CardTitle>
+          <CardDescription>{t("Atualize a sua palavra-passe para manter a sua conta segura.")}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleUpdatePassword} className="space-y-4">
             <div className="grid gap-2">
-              <Label htmlFor="current-password">Password Atual</Label>
+              <Label htmlFor="current-password">{t("Palavra-passe atual")}</Label>
               <Input
                 id="current-password"
                 type="password"
@@ -193,7 +194,7 @@ export default function ConfiguracoesPage() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="new-password">Nova Password</Label>
+              <Label htmlFor="new-password">{t("Nova palavra-passe")}</Label>
               <Input
                 id="new-password"
                 type="password"
@@ -204,7 +205,7 @@ export default function ConfiguracoesPage() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="confirm-new-password">Confirmar Nova Password</Label>
+              <Label htmlFor="confirm-new-password">{t("Confirmar nova palavra-passe")}</Label>
               <Input
                 id="confirm-new-password"
                 type="password"
@@ -215,7 +216,7 @@ export default function ConfiguracoesPage() {
               />
             </div>
             <Button type="submit" disabled={loadingPassword} className="rounded-full">
-              {loadingPassword ? <LoadingSpinner size="sm" className="text-white" /> : "Atualizar Password"}
+              {loadingPassword ? <LoadingSpinner size="sm" className="text-white" /> : t("Atualizar palavra-passe")}
             </Button>
           </form>
         </CardContent>

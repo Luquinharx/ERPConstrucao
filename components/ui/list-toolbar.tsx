@@ -7,6 +7,7 @@ import { ArrowLeft, Search, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
+import { t } from "@/lib/i18n"
 
 interface ListToolbarProps {
   searchTerm: string
@@ -32,7 +33,7 @@ export function ListToolbar({
   searchTerm,
   onSearchChange,
   onClear,
-  placeholder = "Pesquisar...",
+  placeholder = t("Pesquisar..."),
   resultCount,
   totalCount,
   backHref,
@@ -58,6 +59,27 @@ export function ListToolbar({
     onSearchChange("")
   }
 
+  // Frases inteiras para cada caso (singular/plural, com total, com pesquisa), para traduzir bem
+  const resumo = (() => {
+    const termo = searchTerm
+    if (typeof resultCount !== "number") return t("Resultados para \"{termo}\"", { termo })
+    const n = resultCount
+    const um = n === 1
+    const total = totalCount
+    if (typeof total === "number") {
+      if (hasSearch) {
+        return um
+          ? t("{n} resultado de {total} para \"{termo}\"", { n, total, termo })
+          : t("{n} resultados de {total} para \"{termo}\"", { n, total, termo })
+      }
+      return um ? t("{n} resultado de {total}", { n, total }) : t("{n} resultados de {total}", { n, total })
+    }
+    if (hasSearch) {
+      return um ? t("{n} resultado para \"{termo}\"", { n, termo }) : t("{n} resultados para \"{termo}\"", { n, termo })
+    }
+    return um ? t("{n} resultado", { n }) : t("{n} resultados", { n })
+  })()
+
   return (
     <Card>
       <CardContent className="pt-6">
@@ -65,7 +87,7 @@ export function ListToolbar({
           {showBack && (
             <Button type="button" variant="outline" onClick={handleBack} className="rounded-full bg-transparent sm:w-auto">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Voltar
+              {t("Voltar")}
             </Button>
           )}
 
@@ -82,7 +104,7 @@ export function ListToolbar({
               <button
                 type="button"
                 onClick={handleClear}
-                aria-label="Limpar pesquisa"
+                aria-label={t("Limpar pesquisa")}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
                 <X className="h-4 w-4" />
@@ -95,13 +117,7 @@ export function ListToolbar({
 
         {(hasSearch || typeof resultCount === "number") && (
           <p className="mt-3 text-xs text-muted-foreground">
-            {typeof resultCount === "number" && (
-              <>
-                {resultCount} resultado{resultCount === 1 ? "" : "s"}
-                {typeof totalCount === "number" ? ` de ${totalCount}` : ""}
-              </>
-            )}
-            {hasSearch && <> para &quot;{searchTerm}&quot;</>}
+            {resumo}
           </p>
         )}
       </CardContent>

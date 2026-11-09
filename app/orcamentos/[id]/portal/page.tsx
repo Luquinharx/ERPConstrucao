@@ -20,6 +20,7 @@ import { percentMedido, resumoContas } from "@/lib/obra"
 import { resumoDeValores } from "@/lib/orcamento-calculos"
 import type { AutoMedicao, Conta, PortalCliente, RelatorioDiario } from "@/lib/types"
 import { formatDate } from "@/lib/utils"
+import { localeIntl, t } from "@/lib/i18n"
 
 function novoToken(): string {
   const bytes = new Uint8Array(18)
@@ -51,8 +52,8 @@ export default function PortalObraPage() {
   }, [carregar])
 
   if (carregando || aCarregar) return <LoadingSpinner size="lg" />
-  if (!pode("orcamentos.ver")) return <SemAcesso area="Portal do cliente" />
-  if (!orcamento) return <p>Proposta nao encontrada.</p>
+  if (!pode("orcamentos.ver")) return <SemAcesso area={t("Portal do cliente")} />
+  if (!orcamento) return <p>{t("Proposta não encontrada.")}</p>
 
   const link = portal && typeof window !== "undefined" ? `${window.location.origin}/portal/${portal.id}` : ""
 
@@ -91,11 +92,11 @@ export default function PortalObraPage() {
         atualizadoEm: new Date().toISOString(),
         ativo,
       })
-      toast({ title: ativo ? "Portal atualizado" : "Portal desativado" })
+      toast({ title: ativo ? t("Portal atualizado") : t("Portal desativado") })
       await carregar()
     } catch (erro) {
       console.error(erro)
-      toast({ title: "Nao foi possivel publicar", variant: "destructive" })
+      toast({ title: t("Não foi possível publicar"), variant: "destructive" })
     } finally {
       setAPublicar(false)
     }
@@ -103,25 +104,26 @@ export default function PortalObraPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <CabecalhoObra orcamento={orcamento} subtitulo="portal do cliente" />
+      <CabecalhoObra orcamento={orcamento} subtitulo={t("portal do cliente")} />
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Link para o cliente</CardTitle>
+          <CardTitle className="text-lg">{t("Link para o cliente")}</CardTitle>
           <CardDescription>
-            O cliente ve o valor adjudicado, o que pagou e falta pagar, os autos aprovados e o diario de obra. Custos e
-            margens nunca saem daqui. O que ele ve e a ultima publicacao: atualize quando houver novidades.
+            {t(
+              "O cliente vê o valor adjudicado, o que pagou e o que falta pagar, os autos aprovados e o diário de obra. Custos e margens nunca saem daqui. O que ele vê é a última publicação: atualize quando houver novidades.",
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           {portal ? (
             <>
               <div className="flex gap-2">
-                <Input readOnly value={link} aria-label="Link do portal" data-testid="link-portal" />
+                <Input readOnly value={link} aria-label={t("Link do portal")} data-testid="link-portal" />
                 <Button
                   variant="outline"
                   onClick={async () => {
                     await navigator.clipboard.writeText(link).catch(() => {})
-                    toast({ title: "Link copiado" })
+                    toast({ title: t("Link copiado") })
                   }}
                 >
                   <Copy className="h-4 w-4" />
@@ -133,22 +135,25 @@ export default function PortalObraPage() {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                {portal.ativo ? "Ativo" : "Desativado"} · ultima atualizacao{" "}
-                {formatDate(portal.atualizadoEm)} {new Date(portal.atualizadoEm).toLocaleTimeString("pt-PT")}
+                {portal.ativo ? t("Ativo") : t("Desativado")} ·{" "}
+                {t("última atualização {data} {hora}", {
+                  data: formatDate(portal.atualizadoEm),
+                  hora: new Date(portal.atualizadoEm).toLocaleTimeString(localeIntl()),
+                })}
               </p>
             </>
           ) : (
-            <p className="text-sm text-muted-foreground">Ainda nao publicado.</p>
+            <p className="text-sm text-muted-foreground">{t("Ainda não publicado.")}</p>
           )}
           {podePublicar && (
             <div className="flex flex-wrap gap-2">
               <Button onClick={() => publicar(true)} disabled={aPublicar} className="rounded-full">
                 {aPublicar && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {portal ? "Atualizar portal" : "Publicar portal"}
+                {portal ? t("Atualizar portal") : t("Publicar portal")}
               </Button>
               {portal?.ativo && (
                 <Button variant="outline" onClick={() => publicar(false)} disabled={aPublicar} className="rounded-full">
-                  Desativar link
+                  {t("Desativar link")}
                 </Button>
               )}
             </div>

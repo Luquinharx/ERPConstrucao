@@ -24,6 +24,7 @@ import { numeroCompleto } from "@/lib/numeracao"
 import { somarDias } from "@/lib/obra"
 import type { FaturaFornecedor, Orcamento, TipoLancamentoObra } from "@/lib/types"
 import { formatCurrency, formatDate, hojeLocal, round2 } from "@/lib/utils"
+import { t } from "@/lib/i18n"
 
 type Rascunho = Omit<FaturaFornecedor, "id" | "createdAt" | "userId" | "estado" | "orcamentoNumero">
 
@@ -82,15 +83,15 @@ export default function FaturasPage() {
     if (!f.id) return
     const aviso =
       f.estado === "aprovada"
-        ? "Apagar esta fatura? A conta a pagar ligada tambem e apagada e o custo sai da obra."
-        : "Apagar esta fatura?"
+        ? t("Eliminar esta fatura? A conta a pagar ligada também é eliminada e o custo sai da obra.")
+        : t("Eliminar esta fatura?")
     if (!confirm(aviso)) return
     try {
       if (f.contaId) await apagar("contas", f.contaId)
       await apagar("faturasFornecedor", f.id)
-      toast({ title: "Fatura apagada" })
+      toast({ title: t("Fatura eliminada") })
     } catch (e) {
-      toast({ title: "Nao foi possivel apagar", description: e instanceof Error ? e.message : String(e), variant: "destructive" })
+      toast({ title: t("Não foi possível eliminar"), description: e instanceof Error ? e.message : String(e), variant: "destructive" })
     }
     await carregar()
   }
@@ -112,7 +113,7 @@ export default function FaturasPage() {
   const gravar = async () => {
     if (!user || !nova) return
     if (!nova.fornecedor.trim() || !nova.numero.trim() || nova.valorSemIVA <= 0)
-      return toast({ title: "Indique fornecedor, numero e valor", variant: "destructive" })
+      return toast({ title: t("Indique o fornecedor, o número e o valor"), variant: "destructive" })
     const obra = obras.find((o) => o.id === nova.orcamentoId)
     const dados = {
       ...nova,
@@ -129,7 +130,7 @@ export default function FaturasPage() {
         // Aprovada: a conta a pagar acompanha a fatura (o estado pago mantem-se)
         if (emEdicao.estado === "aprovada" && emEdicao.contaId) {
           await atualizar("contas", emEdicao.contaId, {
-            descricao: `Fatura ${dados.numero}${dados.descricao ? ` - ${dados.descricao}` : ""}`,
+            descricao: t("Fatura {numero}", { numero: dados.numero }) + (dados.descricao ? ` - ${dados.descricao}` : ""),
             valor: round2(dados.valorSemIVA * (1 + dados.taxaIVA / 100)),
             vencimento: dados.vencimento,
             entidade: dados.fornecedor,
@@ -137,13 +138,13 @@ export default function FaturasPage() {
             orcamentoNumero: dados.orcamentoNumero,
           })
         }
-        toast({ title: "Fatura atualizada" })
+        toast({ title: t("Fatura atualizada") })
       } else {
         await criar("faturasFornecedor", { ...dados, estado: "pendente", userId: user.uid })
-        toast({ title: "Fatura registada", description: "Fica pendente ate ser aprovada." })
+        toast({ title: t("Fatura registada"), description: t("Fica pendente até ser aprovada.") })
       }
     } catch (e) {
-      return toast({ title: "Nao foi possivel gravar", description: e instanceof Error ? e.message : String(e), variant: "destructive" })
+      return toast({ title: t("Não foi possível guardar"), description: e instanceof Error ? e.message : String(e), variant: "destructive" })
     }
     fechar()
     await carregar()
@@ -158,7 +159,7 @@ export default function FaturasPage() {
       { estado: "aprovada", aprovadoPor: user.email || "" },
       {
         tipo: "pagar",
-        descricao: `Fatura ${f.numero}${f.descricao ? ` - ${f.descricao}` : ""}`,
+        descricao: t("Fatura {numero}", { numero: f.numero }) + (f.descricao ? ` - ${f.descricao}` : ""),
         valor: comIVA,
         vencimento: f.vencimento,
         estado: "pendente",
@@ -169,7 +170,7 @@ export default function FaturasPage() {
         userId: user.uid,
       },
     )
-    toast({ title: "Fatura aprovada", description: `Conta a pagar de ${formatCurrency(comIVA)} criada.` })
+    toast({ title: t("Fatura aprovada"), description: t("Conta a pagar de {valor} criada.", { valor: formatCurrency(comIVA) }) })
     await carregar()
   }
 
@@ -180,40 +181,42 @@ export default function FaturasPage() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold">Faturas de fornecedor</h1>
+          <h1 className="text-3xl font-bold">{t("Faturas de fornecedor")}</h1>
           <p className="mt-2 text-muted-foreground">
-            Subempreitadas, aluguer, transporte e outros custos. Aprovadas, entram no custo da obra e nas contas a pagar.
+            {t("Subempreitadas, aluguer, transporte e outros custos. Aprovadas, entram no custo da obra e nas contas a pagar.")}
           </p>
         </div>
         {podeLancar && (
           <Button onClick={() => setNova(vazia())} className="rounded-full">
             <Plus className="mr-2 h-4 w-4" />
-            Registar fatura
+            {t("Registar fatura")}
           </Button>
         )}
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Faturas</CardTitle>
-          <CardDescription>{pendentes} por aprovar. O material compra-se pelo estoque (entrada ou compra para a obra).</CardDescription>
+          <CardTitle className="text-lg">{t("Faturas")}</CardTitle>
+          <CardDescription>
+            {t("{n} por aprovar. O material compra-se pelo stock (entrada ou compra para a obra).", { n: pendentes })}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Table data-testid="tabela-faturas">
             <TableHeader>
               <TableRow>
-                <TableHead>Data</TableHead>
-                <TableHead>Fornecedor / fatura</TableHead>
-                <TableHead>Obra</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead className="text-right">Sem IVA</TableHead>
-                <TableHead>Estado</TableHead>
+                <TableHead>{t("Data")}</TableHead>
+                <TableHead>{t("Fornecedor / fatura")}</TableHead>
+                <TableHead>{t("Obra")}</TableHead>
+                <TableHead>{t("Tipo")}</TableHead>
+                <TableHead className="text-right">{t("Sem IVA")}</TableHead>
+                <TableHead>{t("Estado")}</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
             <TableBody>
               {faturas.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Sem faturas.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">{t("Sem faturas.")}</TableCell></TableRow>
               ) : (
                 faturas.map((f) => (
                   <TableRow key={f.id} data-testid="linha-fatura">
@@ -223,14 +226,14 @@ export default function FaturasPage() {
                       <div className="text-xs text-muted-foreground">{f.numero}{f.descricao ? ` · ${f.descricao}` : ""}</div>
                     </TableCell>
                     <TableCell className="whitespace-nowrap">{f.orcamentoNumero || "-"}</TableCell>
-                    <TableCell className="text-sm">{TIPOS_LANCAMENTO[f.tipo].nome}</TableCell>
+                    <TableCell className="text-sm">{t(TIPOS_LANCAMENTO[f.tipo].nome)}</TableCell>
                     <TableCell className="text-right tabular-nums">{formatCurrency(f.valorSemIVA)}</TableCell>
                     <TableCell>
                       <Badge
                         variant="outline"
                         className={f.estado === "aprovada" ? "border-emerald-500/40 text-emerald-700" : f.estado === "rejeitada" ? "border-rose-500/40 text-rose-700" : ""}
                       >
-                        {f.estado === "aprovada" ? "Aprovada" : f.estado === "rejeitada" ? "Rejeitada" : "Pendente"}
+                        {f.estado === "aprovada" ? t("Aprovada") : f.estado === "rejeitada" ? t("Rejeitada") : t("Pendente")}
                       </Badge>
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-right">
@@ -238,12 +241,12 @@ export default function FaturasPage() {
                         <>
                           <Button size="sm" variant="outline" className="rounded-full" onClick={() => aprovar(f)}>
                             <Check className="mr-1 h-3 w-3" />
-                            Aprovar
+                            {t("Aprovar")}
                           </Button>
                           <Button
                             size="icon"
                             variant="ghost"
-                            title="Rejeitar"
+                            title={t("Rejeitar")}
                             onClick={async () => {
                               await atualizar("faturasFornecedor", f.id!, { estado: "rejeitada" })
                               await carregar()
@@ -255,10 +258,10 @@ export default function FaturasPage() {
                       )}
                       {podeMexer(f) && (
                         <>
-                          <Button size="icon" variant="ghost" title="Editar" aria-label="Editar fatura" onClick={() => editar(f)}>
+                          <Button size="icon" variant="ghost" title={t("Editar")} aria-label={t("Editar fatura")} onClick={() => editar(f)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button size="icon" variant="ghost" title="Apagar" aria-label="Apagar fatura" onClick={() => excluir(f)}>
+                          <Button size="icon" variant="ghost" title={t("Eliminar")} aria-label={t("Eliminar fatura")} onClick={() => excluir(f)}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </>
@@ -275,73 +278,75 @@ export default function FaturasPage() {
       <Dialog open={!!nova} onOpenChange={(a) => !a && fechar()}>
         <DialogContent className="sm:max-w-[560px]">
           <DialogHeader>
-            <DialogTitle>{emEdicao ? "Editar fatura de fornecedor" : "Registar fatura de fornecedor"}</DialogTitle>
+            <DialogTitle>{emEdicao ? t("Editar fatura de fornecedor") : t("Registar fatura de fornecedor")}</DialogTitle>
             <DialogDescription>
-              Valores sem IVA. A taxa de IVA serve para a conta a pagar.
-              {emEdicao?.estado === "aprovada" ? " Esta fatura ja esta aprovada: a conta a pagar e atualizada junto." : ""}
+              {t("Valores sem IVA. A taxa de IVA serve para a conta a pagar.")}
+              {emEdicao?.estado === "aprovada"
+                ? " " + t("Esta fatura já está aprovada: a conta a pagar é atualizada em conjunto.")
+                : ""}
             </DialogDescription>
           </DialogHeader>
           {nova && (
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label>Fornecedor</Label>
-                  <Input aria-label="Fornecedor" value={nova.fornecedor} onChange={(e) => setNova({ ...nova, fornecedor: e.target.value })} />
+                  <Label>{t("Fornecedor")}</Label>
+                  <Input aria-label={t("Fornecedor")} value={nova.fornecedor} onChange={(e) => setNova({ ...nova, fornecedor: e.target.value })} />
                 </div>
                 <div className="space-y-1">
-                  <Label>N.o da fatura</Label>
-                  <Input aria-label="Numero da fatura" value={nova.numero} onChange={(e) => setNova({ ...nova, numero: e.target.value })} />
+                  <Label>{t("N.º da fatura")}</Label>
+                  <Input aria-label={t("Número da fatura")} value={nova.numero} onChange={(e) => setNova({ ...nova, numero: e.target.value })} />
                 </div>
               </div>
               <div className="space-y-1">
-                <Label>Obra</Label>
+                <Label>{t("Obra")}</Label>
                 <SeletorComBusca
                   valor={nova.orcamentoId || ""}
                   onChange={(orcamentoId) => setNova({ ...nova, orcamentoId })}
-                  placeholder="Escolha a obra"
-                  placeholderBusca="Procurar obra..."
-                  vazio="Nenhuma obra."
+                  placeholder={t("Escolha a obra")}
+                  placeholderBusca={t("Procurar obra...")}
+                  vazio={t("Nenhuma obra.")}
                   opcoes={obras.map((o) => ({ valor: o.id!, rotulo: numeroCompleto(o, configuracao), detalhe: o.cliente.nome }))}
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label>Tipo de custo</Label>
+                  <Label>{t("Tipo de custo")}</Label>
                   <Select value={nova.tipo} onValueChange={(tipo) => setNova({ ...nova, tipo: tipo as TipoLancamentoObra })}>
-                    <SelectTrigger aria-label="Tipo de custo"><SelectValue /></SelectTrigger>
+                    <SelectTrigger aria-label={t("Tipo de custo")}><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {(Object.keys(TIPOS_LANCAMENTO) as TipoLancamentoObra[]).map((t) => (
-                        <SelectItem key={t} value={t}>{TIPOS_LANCAMENTO[t].nome}</SelectItem>
+                      {(Object.keys(TIPOS_LANCAMENTO) as TipoLancamentoObra[]).map((tipo) => (
+                        <SelectItem key={tipo} value={tipo}>{t(TIPOS_LANCAMENTO[tipo].nome)}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label>Descricao</Label>
-                  <Input aria-label="Descricao" value={nova.descricao} onChange={(e) => setNova({ ...nova, descricao: e.target.value })} />
+                  <Label>{t("Descrição")}</Label>
+                  <Input aria-label={t("Descrição")} value={nova.descricao} onChange={(e) => setNova({ ...nova, descricao: e.target.value })} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <div className="space-y-1">
-                  <Label>Valor s/ IVA</Label>
-                  <CampoNumerico min={0} aria-label="Valor sem IVA" value={nova.valorSemIVA} onChange={(valorSemIVA) => setNova({ ...nova, valorSemIVA })} />
+                  <Label>{t("Valor s/ IVA")}</Label>
+                  <CampoNumerico min={0} aria-label={t("Valor sem IVA")} value={nova.valorSemIVA} onChange={(valorSemIVA) => setNova({ ...nova, valorSemIVA })} />
                 </div>
                 <div className="space-y-1">
-                  <Label>IVA</Label>
-                  <CampoNumerico min={0} max={100} sufixo="%" aria-label="IVA" value={nova.taxaIVA} onChange={(taxaIVA) => setNova({ ...nova, taxaIVA })} />
+                  <Label>{t("IVA")}</Label>
+                  <CampoNumerico min={0} max={100} sufixo="%" aria-label={t("IVA")} value={nova.taxaIVA} onChange={(taxaIVA) => setNova({ ...nova, taxaIVA })} />
                 </div>
                 <div className="space-y-1">
-                  <Label>Data</Label>
+                  <Label>{t("Data")}</Label>
                   <Input type="date" value={nova.data} onChange={(e) => setNova({ ...nova, data: e.target.value })} />
                 </div>
                 <div className="space-y-1">
-                  <Label>Vencimento</Label>
+                  <Label>{t("Vencimento")}</Label>
                   <Input type="date" value={nova.vencimento} onChange={(e) => setNova({ ...nova, vencimento: e.target.value })} />
                 </div>
               </div>
               <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={fechar}>Cancelar</Button>
-                <Button onClick={gravar} className="rounded-full">{emEdicao ? "Gravar" : "Registar"}</Button>
+                <Button variant="outline" onClick={fechar}>{t("Cancelar")}</Button>
+                <Button onClick={gravar} className="rounded-full">{emEdicao ? t("Guardar") : t("Registar")}</Button>
               </div>
             </div>
           )}

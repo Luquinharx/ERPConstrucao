@@ -12,6 +12,7 @@ import { listar } from "@/lib/firebase-service"
 import { contasEmAlerta, diasAte, resumoContas } from "@/lib/obra"
 import type { Conta } from "@/lib/types"
 import { formatCurrency, formatDate } from "@/lib/utils"
+import { m, t } from "@/lib/i18n"
 
 /**
  * Financeiro: contas a receber (adjudicacoes, autos) e a pagar (faturas de
@@ -49,39 +50,39 @@ export default function FinanceiroPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-3xl font-bold">Financeiro</h1>
-        <p className="mt-2 text-muted-foreground">Contas a receber e a pagar de todas as obras, com os vencimentos.</p>
+        <h1 className="text-3xl font-bold">{t("Financeiro")}</h1>
+        <p className="mt-2 text-muted-foreground">{t("Contas a receber e a pagar de todas as obras, com os vencimentos.")}</p>
       </div>
 
       {(
         [
           [
-            "Realizado",
+            m("Realizado"),
             "resumo-realizado",
             [
-              ["Recebido", r.recebido, "text-emerald-700"],
-              ["Pago", r.pago, "text-rose-700"],
-              ["Saldo realizado", r.saldoRealizado, r.saldoRealizado < 0 ? "text-rose-700" : ""],
+              [m("Recebido"), r.recebido, "text-emerald-700"],
+              [m("Pago"), r.pago, "text-rose-700"],
+              [m("Saldo realizado"), r.saldoRealizado, r.saldoRealizado < 0 ? "text-rose-700" : ""],
             ],
           ],
           [
-            "Em aberto",
+            m("Em aberto"),
             "resumo-financeiro",
             [
-              ["A receber", r.aReceber, ""],
-              ["A pagar", r.aPagar, "text-rose-700"],
-              ["Vencido", r.vencido, r.vencido > 0 ? "text-rose-700" : ""],
-              ["Saldo em aberto", r.saldo, r.saldo < 0 ? "text-rose-700" : ""],
+              [m("A receber"), r.aReceber, ""],
+              [m("A pagar"), r.aPagar, "text-rose-700"],
+              [m("Vencido"), r.vencido, r.vencido > 0 ? "text-rose-700" : ""],
+              [m("Saldo em aberto"), r.saldo, r.saldo < 0 ? "text-rose-700" : ""],
             ],
           ],
         ] as const
       ).map(([grupo, testid, cartoes]) => (
         <div key={grupo} className="space-y-2">
-          <h2 className="text-sm font-medium text-muted-foreground">{grupo}</h2>
+          <h2 className="text-sm font-medium text-muted-foreground">{t(grupo)}</h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" data-testid={testid}>
             {cartoes.map(([nome, valor, cor]) => (
               <Card key={nome}>
-                <CardHeader className="pb-1"><CardDescription>{nome}</CardDescription></CardHeader>
+                <CardHeader className="pb-1"><CardDescription>{t(nome)}</CardDescription></CardHeader>
                 <CardContent className={`text-2xl font-bold tabular-nums ${cor}`}>{formatCurrency(valor)}</CardContent>
               </Card>
             ))}
@@ -94,7 +95,7 @@ export default function FinanceiroPage() {
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
               <AlertTriangle className="h-4 w-4 text-amber-600" />
-              Vencem nos proximos 5 dias ou ja venceram
+              {t("Vencem nos próximos 5 dias ou já venceram")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-1 text-sm">
@@ -103,9 +104,9 @@ export default function FinanceiroPage() {
               return (
                 <div key={c.id} className="flex flex-wrap justify-between gap-2">
                   <span>
-                    {c.tipo === "receber" ? "Receber" : "Pagar"} · {c.descricao}
+                    {c.tipo === "receber" ? t("Receber") : t("Pagar")} · {c.descricao}
                     {c.orcamentoNumero ? ` · ${c.orcamentoNumero}` : ""} · {formatDate(c.vencimento)} (
-                    {d < 0 ? `vencida ha ${-d} d` : d === 0 ? "hoje" : `em ${d} d`})
+                    {d < 0 ? t("vencida há {n} d", { n: -d }) : d === 0 ? t("hoje") : t("em {n} d", { n: d })})
                   </span>
                   <span className="tabular-nums font-medium">{formatCurrency(c.valor)}</span>
                 </div>
@@ -117,14 +118,14 @@ export default function FinanceiroPage() {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
-          <CardTitle className="text-lg">Contas</CardTitle>
+          <CardTitle className="text-lg">{t("Contas")}</CardTitle>
           <Select value={filtro} onValueChange={(v) => setFiltro(v as typeof filtro)}>
-            <SelectTrigger className="w-48 rounded-full" aria-label="Filtro"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-48 rounded-full" aria-label={t("Filtro")}><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="pendentes">Pendentes</SelectItem>
-              <SelectItem value="receber">A receber</SelectItem>
-              <SelectItem value="pagar">A pagar</SelectItem>
-              <SelectItem value="todas">Todas</SelectItem>
+              <SelectItem value="pendentes">{t("Pendentes")}</SelectItem>
+              <SelectItem value="receber">{t("A receber")}</SelectItem>
+              <SelectItem value="pagar">{t("A pagar")}</SelectItem>
+              <SelectItem value="todas">{t("Todas")}</SelectItem>
             </SelectContent>
           </Select>
         </CardHeader>

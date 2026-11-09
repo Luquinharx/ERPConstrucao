@@ -1,4 +1,5 @@
 import type { ConfiguracaoEmpresa } from "./types"
+import { m } from "@/lib/i18n"
 
 /**
  * Identidade visual da empresa.
@@ -46,21 +47,21 @@ export const CONFIGURACAO_PADRAO: ConfiguracaoEmpresa = {
 
 /** Fontes disponiveis, todas carregadas do Google Fonts. */
 export const FONTES_DISPONIVEIS = [
-  { id: "Montserrat", nome: "Montserrat", amostra: "Moderna e geometrica" },
-  { id: "Inter", nome: "Inter", amostra: "Neutra, otima para ecra" },
-  { id: "Roboto", nome: "Roboto", amostra: "Classica e legivel" },
-  { id: "Open Sans", nome: "Open Sans", amostra: "Humanista e suave" },
-  { id: "Poppins", nome: "Poppins", amostra: "Arredondada e amigavel" },
-  { id: "Lato", nome: "Lato", amostra: "Serena e profissional" },
+  { id: "Montserrat", nome: "Montserrat", amostra: m("Moderna e geométrica") },
+  { id: "Inter", nome: "Inter", amostra: m("Neutra, ótima para ecrã") },
+  { id: "Roboto", nome: "Roboto", amostra: m("Clássica e legível") },
+  { id: "Open Sans", nome: "Open Sans", amostra: m("Humanista e suave") },
+  { id: "Poppins", nome: "Poppins", amostra: m("Arredondada e amigável") },
+  { id: "Lato", nome: "Lato", amostra: m("Serena e profissional") },
 ]
 
 /** Paletas prontas, para quem nao quiser escolher cor a cor. */
 export const PALETAS = [
-  { nome: "TEC KNOW HOW", primaria: "#F97316", secundaria: "#0F1073", escura: "#262626" },
-  { nome: "Azul corporativo", primaria: "#2563EB", secundaria: "#1E293B", escura: "#0F172A" },
-  { nome: "Verde obra", primaria: "#16A34A", secundaria: "#14532D", escura: "#1C1917" },
-  { nome: "Vermelho industrial", primaria: "#DC2626", secundaria: "#450A0A", escura: "#1C1917" },
-  { nome: "Grafite", primaria: "#475569", secundaria: "#0F172A", escura: "#020617" },
+  { nome: m("TEC KNOW HOW"), primaria: "#F97316", secundaria: "#0F1073", escura: "#262626" },
+  { nome: m("Azul corporativo"), primaria: "#2563EB", secundaria: "#1E293B", escura: "#0F172A" },
+  { nome: m("Verde obra"), primaria: "#16A34A", secundaria: "#14532D", escura: "#1C1917" },
+  { nome: m("Vermelho industrial"), primaria: "#DC2626", secundaria: "#450A0A", escura: "#1C1917" },
+  { nome: m("Grafite"), primaria: "#475569", secundaria: "#0F172A", escura: "#020617" },
 ]
 
 /** Converte #RRGGBB para a tripla "H S% L%" usada pelas variaveis do Tailwind. */

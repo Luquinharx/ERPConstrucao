@@ -7,6 +7,7 @@ import {
 } from "@/lib/firebase-service"
 import { useAuth } from "@/hooks/use-auth"
 import type { Cliente } from "@/lib/types"
+import { t } from "@/lib/i18n"
 
 export function useClientes() {
   const { user } = useAuth()
@@ -23,7 +24,7 @@ export function useClientes() {
   } = useInfiniteQuery({
     queryKey: ["clientes", user?.uid],
     queryFn: ({ pageParam }) => {
-      if (!user?.uid) throw new Error("Usuário não autenticado")
+      if (!user?.uid) throw new Error(t("Sessão não iniciada."))
       return getClientesPaginated(user.uid, 20, pageParam)
     },
     initialPageParam: null as any,

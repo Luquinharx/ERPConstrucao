@@ -1,4 +1,5 @@
 import type { ConfigPonto, EstadoPedidoPonto, PedidoPonto, Picagem, TipoPicagem } from "@/lib/types"
+import { m, t } from "@/lib/i18n"
 import { round2 } from "@/lib/utils"
 
 /**
@@ -15,29 +16,30 @@ export const CONFIG_PONTO_PADRAO: ConfigPonto = {
 }
 
 export const NOMES_PICAGEM: Record<TipoPicagem, string> = {
-  entrada: "Entrada",
-  pausa: "Inicio de pausa",
-  retoma: "Fim de pausa",
-  saida: "Saida",
+  entrada: m("Entrada ao serviço"),
+  pausa: m("Início de pausa"),
+  retoma: m("Fim de pausa"),
+  saida: m("Saída do serviço"),
 }
 
 /** Motivos de falta mais comuns (art. 249.o do Codigo do Trabalho). */
 export const MOTIVOS_FALTA: Array<{ id: string; nome: string; justificada: boolean }> = [
-  { id: "doenca", nome: "Doenca (baixa medica)", justificada: true },
-  { id: "consulta", nome: "Consulta / exame medico", justificada: true },
-  { id: "parental", nome: "Licenca parental", justificada: true },
-  { id: "assistencia_familia", nome: "Assistencia a familia", justificada: true },
-  { id: "falecimento", nome: "Falecimento de familiar", justificada: true },
-  { id: "casamento", nome: "Casamento", justificada: true },
-  { id: "escolar", nome: "Trabalhador-estudante / escola dos filhos", justificada: true },
-  { id: "tribunal", nome: "Obrigacao legal (tribunal, etc.)", justificada: true },
-  { id: "acidente", nome: "Acidente de trabalho", justificada: true },
-  { id: "autorizada", nome: "Autorizada pela empresa", justificada: true },
-  { id: "injustificada", nome: "Injustificada", justificada: false },
+  { id: "doenca", nome: m("Doença (baixa médica)"), justificada: true },
+  { id: "consulta", nome: m("Consulta / exame médico"), justificada: true },
+  { id: "parental", nome: m("Licença parental"), justificada: true },
+  { id: "assistencia_familia", nome: m("Assistência à família"), justificada: true },
+  { id: "falecimento", nome: m("Falecimento de familiar"), justificada: true },
+  { id: "casamento", nome: m("Casamento"), justificada: true },
+  { id: "escolar", nome: m("Trabalhador-estudante / escola dos filhos"), justificada: true },
+  { id: "tribunal", nome: m("Obrigação legal (tribunal, etc.)"), justificada: true },
+  { id: "acidente", nome: m("Acidente de trabalho"), justificada: true },
+  { id: "autorizada", nome: m("Autorizada pela empresa"), justificada: true },
+  { id: "injustificada", nome: m("Injustificada"), justificada: false },
 ]
 
 export function nomeMotivoFalta(id?: string): string {
-  return MOTIVOS_FALTA.find((m) => m.id === id)?.nome || id || "Falta"
+  const nome = MOTIVOS_FALTA.find((x) => x.id === id)?.nome
+  return nome ? t(nome) : id || t("Falta")
 }
 
 // ------------------------------------------------------------ Acesso por numero + PIN
@@ -245,10 +247,10 @@ export function feriadosFacultativos(ano: number, opcoes?: OpcoesFeriados): Map<
   const mapa = new Map<string, string>()
   if (opcoes?.carnaval) {
     const p = pascoa(ano)
-    mapa.set(diaLocal(new Date(p.getFullYear(), p.getMonth(), p.getDate() - 47)), "Carnaval")
+    mapa.set(diaLocal(new Date(p.getFullYear(), p.getMonth(), p.getDate() - 47)), t("Carnaval"))
   }
   if (opcoes?.feriadoMunicipal && /^\d{2}-\d{2}$/.test(opcoes.feriadoMunicipal)) {
-    mapa.set(`${ano}-${opcoes.feriadoMunicipal}`, opcoes.nomeFeriadoMunicipal?.trim() || "Feriado municipal")
+    mapa.set(`${ano}-${opcoes.feriadoMunicipal}`, opcoes.nomeFeriadoMunicipal?.trim() || t("Feriado municipal"))
   }
   return mapa
 }
@@ -280,21 +282,21 @@ export function feriadosNacionais(ano: number): Map<string, string> {
   const p = pascoa(ano)
   const mais = (dias: number) => diaLocal(new Date(p.getFullYear(), p.getMonth(), p.getDate() + dias))
   const fixos: Array<[string, string]> = [
-    ["01-01", "Ano Novo"],
-    ["04-25", "Dia da Liberdade"],
-    ["05-01", "Dia do Trabalhador"],
-    ["06-10", "Dia de Portugal"],
-    ["08-15", "Assuncao de Nossa Senhora"],
-    ["10-05", "Implantacao da Republica"],
-    ["11-01", "Todos os Santos"],
-    ["12-01", "Restauracao da Independencia"],
-    ["12-08", "Imaculada Conceicao"],
-    ["12-25", "Natal"],
+    ["01-01", t("Ano Novo")],
+    ["04-25", t("Dia da Liberdade")],
+    ["05-01", t("Dia do Trabalhador")],
+    ["06-10", t("Dia de Portugal")],
+    ["08-15", t("Assunção de Nossa Senhora")],
+    ["10-05", t("Implantação da República")],
+    ["11-01", t("Todos os Santos")],
+    ["12-01", t("Restauração da Independência")],
+    ["12-08", t("Imaculada Conceição")],
+    ["12-25", t("Natal")],
   ]
   const mapa = new Map<string, string>(fixos.map(([md, nome]) => [`${ano}-${md}`, nome]))
-  mapa.set(mais(-2), "Sexta-feira Santa")
-  mapa.set(diaLocal(p), "Pascoa")
-  mapa.set(mais(60), "Corpo de Deus")
+  mapa.set(mais(-2), t("Sexta-feira Santa"))
+  mapa.set(diaLocal(p), t("Páscoa"))
+  mapa.set(mais(60), t("Corpo de Deus"))
   return mapa
 }
 
@@ -399,9 +401,9 @@ export const CORES_ESTADO: Record<EstadoPedidoPonto, string> = {
   cancelado: "border-slate-300 bg-slate-50 text-slate-500",
 }
 export const NOMES_ESTADO: Record<EstadoPedidoPonto, string> = {
-  pendente: "Pendente",
-  aprovado: "Aprovado",
-  recusado: "Recusado",
-  cancelado: "Cancelado",
+  pendente: m("Pendente"),
+  aprovado: m("Aprovado"),
+  recusado: m("Recusado"),
+  cancelado: m("Cancelado"),
 }
 

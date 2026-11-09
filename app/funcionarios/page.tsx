@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { Fragment, useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { CampoNumerico } from "@/components/ui/campo-numerico"
@@ -42,6 +42,7 @@ import type { Funcionario, ModoTaxa } from "@/lib/types"
 import { FirebaseService, getFuncoes } from "@/lib/firebase-service"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { formatCurrency, matchesSearch, round2, toFixed2 } from "@/lib/utils"
+import { localeIntl, m, t } from "@/lib/i18n"
 import { ListToolbar } from "@/components/ui/list-toolbar"
 import { useSearchQuery } from "@/hooks/use-search-query"
 import { TABELAS_IRS, getTabelaIRS } from "@/lib/irs-tables"
@@ -167,6 +168,21 @@ function getDefaultFormData(): FuncionarioFormState {
   }
 }
 
+/** Texto com dias, no singular ou no plural. */
+function textoDias(n: number | string): string {
+  return Number(n) === 1 ? t("{n} dia", { n }) : t("{n} dias", { n })
+}
+
+/**
+ * Troca os {marcadores} que t() deixou por preencher por elementos React
+ * (ex.: um valor em negrito no meio da frase traduzida).
+ */
+function comDestaques(texto: string, destaques: Record<string, React.ReactNode>): React.ReactNode {
+  return texto
+    .split(/\{(\w+)\}/g)
+    .map((parte, i) => (i % 2 === 1 ? <Fragment key={i}>{destaques[parte] ?? `{${parte}}`}</Fragment> : parte))
+}
+
 function calculateAge(birthDate: string): number {
   if (!birthDate) return 0
   const today = new Date()
@@ -244,7 +260,7 @@ function CampoTaxa({ id, label, base, modo, percentual, valorManual, resolvido, 
         <span className="font-medium text-foreground">
           {toFixed2(resolvido.percentual)}% = {formatCurrency(resolvido.valor)}
         </span>
-        {base > 0 && <> sobre {formatCurrency(base)}</>}
+        {base > 0 && <> {t("sobre {valor}", { valor: formatCurrency(base) })}</>}
         {ajuda && <> · {ajuda}</>}
       </p>
     </div>
@@ -253,16 +269,16 @@ function CampoTaxa({ id, label, base, modo, percentual, valorManual, resolvido, 
 
 /** Funcoes de sempre, para quem ainda nao cadastrou as suas em Funcoes. */
 const FUNCOES_BASE = [
-  "Pintor",
-  "Pintor Senior",
-  "Auxiliar de Pintor",
-  "Preparador de Superficie",
-  "Supervisor",
-  "Encarregado",
-  "Gerente de Projetos",
-  "Gerencia",
-  "Diretor",
-  "Administrativo",
+  m("Pintor"),
+  m("Pintor Sénior"),
+  m("Auxiliar de Pintor"),
+  m("Preparador de Superfícies"),
+  m("Supervisor"),
+  m("Encarregado"),
+  m("Gestor de Projetos"),
+  m("Gerência"),
+  m("Diretor"),
+  m("Administrativo"),
 ]
 
 export default function FuncionariosPage() {
@@ -355,12 +371,13 @@ export default function FuncionariosPage() {
   const opcoesFuncao = Array.from(
     new Set([
       ...funcoesCadastradas,
-      ...FUNCOES_BASE,
+      // Sugestões no idioma de quem usa: o nome escolhido é o que fica gravado
+      ...FUNCOES_BASE.map((nome) => t(nome)),
       // Cargos criados a mao noutros funcionarios ficam disponiveis para todos
       ...funcionarios.map((f) => (f.funcao || "").trim()).filter(Boolean),
       ...(formData.funcao ? [formData.funcao] : []),
     ]),
-  ).sort((a, b) => a.localeCompare(b, "pt"))
+  ).sort((a, b) => a.localeCompare(b, localeIntl()))
   const [novaFuncao, setNovaFuncao] = useState("")
 
   const loadFuncionarios = async () => {
@@ -373,8 +390,8 @@ export default function FuncionariosPage() {
     } catch (error) {
       console.error("Erro ao carregar funcionarios:", error)
       toast({
-        title: "Erro ao carregar funcionarios",
-        description: "Nao foi possivel carregar a lista de funcionarios.",
+        title: t("Erro ao carregar funcionários"),
+        description: t("Não foi possível carregar a lista de funcionários."),
         variant: "destructive",
       })
     } finally {
@@ -457,14 +474,14 @@ export default function FuncionariosPage() {
       if (editingFuncionario) {
         await FirebaseService.updateFuncionario(editingFuncionario.id!, funcionarioToSave)
         toast({
-          title: "Funcionario atualizado",
-          description: "Os dados do funcionario foram atualizados com sucesso.",
+          title: t("Funcionário atualizado"),
+          description: t("Os dados do funcionário foram atualizados com sucesso."),
         })
       } else {
         await FirebaseService.addFuncionario(funcionarioToSave, user.uid)
         toast({
-          title: "Funcionario cadastrado",
-          description: "O funcionario foi cadastrado com sucesso.",
+          title: t("Funcionário registado"),
+          description: t("O funcionário foi registado com sucesso."),
         })
       }
 
@@ -474,8 +491,8 @@ export default function FuncionariosPage() {
     } catch (error) {
       console.error("Erro ao salvar funcionario:", error)
       toast({
-        title: "Erro ao salvar funcionario",
-        description: "Nao foi possivel salvar os dados do funcionario.",
+        title: t("Erro ao guardar funcionário"),
+        description: t("Não foi possível guardar os dados do funcionário."),
         variant: "destructive",
       })
     } finally {
@@ -542,20 +559,20 @@ export default function FuncionariosPage() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Tem certeza que deseja excluir este funcionario?")) return
+    if (!confirm(t("Tem a certeza de que pretende eliminar este funcionário?"))) return
 
     try {
       await FirebaseService.deleteFuncionario(id)
       toast({
-        title: "Funcionario excluido",
-        description: "O funcionario foi excluido com sucesso.",
+        title: t("Funcionário eliminado"),
+        description: t("O funcionário foi eliminado com sucesso."),
       })
       await loadFuncionarios()
     } catch (error) {
       console.error("Erro ao excluir funcionario:", error)
       toast({
-        title: "Erro ao excluir funcionario",
-        description: "Nao foi possivel excluir o funcionario.",
+        title: t("Erro ao eliminar funcionário"),
+        description: t("Não foi possível eliminar o funcionário."),
         variant: "destructive",
       })
     }
@@ -579,56 +596,56 @@ export default function FuncionariosPage() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Funcionarios</h1>
-          <p className="text-muted-foreground mt-2">Gerir equipe, encargos e custo real de mao de obra</p>
+          <h1 className="text-3xl font-bold">{t("Funcionários")}</h1>
+          <p className="text-muted-foreground mt-2">{t("Gerir a equipa, os encargos e o custo real da mão de obra")}</p>
         </div>
         <div className="flex space-x-2">
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button disabled={!pode("funcionarios.gerir")} onClick={resetForm} className="rounded-full">
                 <Plus className="h-4 w-4 mr-2" />
-                Novo Funcionario
+                {t("Novo funcionário")}
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[760px] max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>{editingFuncionario ? "Editar Funcionario" : "Novo Funcionario"}</DialogTitle>
+                <DialogTitle>{editingFuncionario ? t("Editar funcionário") : t("Novo funcionário")}</DialogTitle>
                 <DialogDescription>
-                  {editingFuncionario ? "Atualize os dados do funcionario." : "Adicione um novo funcionario a equipe."}
+                  {editingFuncionario ? t("Atualize os dados do funcionário.") : t("Adicione um novo funcionário à equipa.")}
                 </DialogDescription>
               </DialogHeader>
 
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <TabsList className="grid w-full grid-cols-5">
-                  <TabsTrigger value="pessoais">Dados Pessoais</TabsTrigger>
-                  <TabsTrigger value="empresa">Empresa</TabsTrigger>
-                  <TabsTrigger value="valores">Horario e Valores</TabsTrigger>
-                  <TabsTrigger value="encargos">Encargos</TabsTrigger>
-                  <TabsTrigger value="encargosLiquidos">Encargo Liquido</TabsTrigger>
+                  <TabsTrigger value="pessoais">{t("Dados pessoais")}</TabsTrigger>
+                  <TabsTrigger value="empresa">{t("Empresa")}</TabsTrigger>
+                  <TabsTrigger value="valores">{t("Horário e valores")}</TabsTrigger>
+                  <TabsTrigger value="encargos">{t("Encargos")}</TabsTrigger>
+                  <TabsTrigger value="encargosLiquidos">{t("Encargo líquido")}</TabsTrigger>
                 </TabsList>
 
                 <form onSubmit={handleSubmit}>
                   <TabsContent value="pessoais" className="space-y-4 mt-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="nome">Nome Completo *</Label>
+                        <Label htmlFor="nome">{t("Nome completo *")}</Label>
                         <Input
                           id="nome"
                           value={formData.nome}
                           onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-                          placeholder="Nome completo do funcionario"
+                          placeholder={t("Nome completo do funcionário")}
                           required
                           className="rounded-full"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="email">Email *</Label>
+                        <Label htmlFor="email">{t("Email *")}</Label>
                         <Input
                           id="email"
                           type="email"
                           value={formData.email}
                           onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                          placeholder="email@exemplo.com"
+                          placeholder={t("email@exemplo.com")}
                           required
                           className="rounded-full"
                         />
@@ -637,18 +654,18 @@ export default function FuncionariosPage() {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="telefone">Telefone *</Label>
+                        <Label htmlFor="telefone">{t("Telefone *")}</Label>
                         <Input
                           id="telefone"
                           value={formData.telefone}
                           onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
-                          placeholder="+351 xxx xxx xxx"
+                          placeholder={t("+351 xxx xxx xxx")}
                           required
                           className="rounded-full"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="dataNascimento">Data de Nascimento *</Label>
+                        <Label htmlFor="dataNascimento">{t("Data de nascimento *")}</Label>
                         <Input
                           id="dataNascimento"
                           type="date"
@@ -661,67 +678,67 @@ export default function FuncionariosPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="morada">Morada</Label>
+                      <Label htmlFor="morada">{t("Morada")}</Label>
                       <Input
                         id="morada"
                         value={formData.morada}
                         onChange={(e) => setFormData({ ...formData, morada: e.target.value })}
-                        placeholder="Rua, numero, andar"
+                        placeholder={t("Rua, número, andar")}
                         className="rounded-full"
                       />
                     </div>
 
                     <div className="grid grid-cols-3 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="cidade">Cidade</Label>
+                        <Label htmlFor="cidade">{t("Cidade")}</Label>
                         <Input
                           id="cidade"
                           value={formData.cidade}
                           onChange={(e) => setFormData({ ...formData, cidade: e.target.value })}
-                          placeholder="Cidade"
+                          placeholder={t("Cidade")}
                           className="rounded-full"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="codigoPostal">Codigo Postal</Label>
+                        <Label htmlFor="codigoPostal">{t("Código postal")}</Label>
                         <Input
                           id="codigoPostal"
                           value={formData.codigoPostal}
                           onChange={(e) => setFormData({ ...formData, codigoPostal: e.target.value })}
-                          placeholder="XXXX-XXX"
+                          placeholder={t("XXXX-XXX")}
                           className="rounded-full"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="nif">NIF</Label>
+                        <Label htmlFor="nif">{t("NIF")}</Label>
                         <Input
                           id="nif"
                           value={formData.nif}
                           onChange={(e) => setFormData({ ...formData, nif: e.target.value })}
-                          placeholder="NIF"
+                          placeholder={t("NIF")}
                           className="rounded-full"
                         />
                       </div>
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="foto">URL da Foto (Opcional)</Label>
+                      <Label htmlFor="foto">{t("URL da foto (opcional)")}</Label>
                       <Input
                         id="foto"
                         value={formData.foto}
                         onChange={(e) => setFormData({ ...formData, foto: e.target.value })}
-                        placeholder="https://exemplo.com/foto.jpg"
+                        placeholder={t("https://exemplo.com/foto.jpg")}
                         className="rounded-full"
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="observacoes">Observacoes Pessoais</Label>
+                      <Label htmlFor="observacoes">{t("Observações pessoais")}</Label>
                       <Textarea
                         id="observacoes"
                         value={formData.observacoes}
                         onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
-                        placeholder="Observacoes sobre o funcionario..."
+                        placeholder={t("Observações sobre o funcionário...")}
                         rows={3}
                       />
                     </div>
@@ -730,7 +747,7 @@ export default function FuncionariosPage() {
                   <TabsContent value="empresa" className="space-y-4 mt-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="funcao">Funcao *</Label>
+                        <Label htmlFor="funcao">{t("Função *")}</Label>
                         <Select
                           // Remonta com a lista nova: um cargo acabado de criar aparece logo escolhido
                           key={opcoesFuncao.join("|")}
@@ -739,7 +756,7 @@ export default function FuncionariosPage() {
                           onValueChange={(value) => value && setFormData((atual) => ({ ...atual, funcao: value }))}
                         >
                           <SelectTrigger className="rounded-full">
-                            <SelectValue placeholder="Selecione a funcao" />
+                            <SelectValue placeholder={t("Selecione a função")} />
                           </SelectTrigger>
                           <SelectContent>
                             {opcoesFuncao.map((nome) => (
@@ -751,7 +768,7 @@ export default function FuncionariosPage() {
                         </Select>
                         <div className="flex gap-2">
                           <Input
-                            placeholder="Novo cargo (ex.: Diretor)"
+                            placeholder={t("Novo cargo (ex.: Diretor)")}
                             value={novaFuncao}
                             onChange={(e) => setNovaFuncao(e.target.value)}
                             onKeyDown={(e) => {
@@ -774,12 +791,12 @@ export default function FuncionariosPage() {
                               setNovaFuncao("")
                             }}
                           >
-                            Criar
+                            {t("Criar")}
                           </Button>
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="dataAdmissao">Data de Admissao</Label>
+                        <Label htmlFor="dataAdmissao">{t("Data de admissão")}</Label>
                         <Input
                           id="dataAdmissao"
                           type="date"
@@ -792,37 +809,37 @@ export default function FuncionariosPage() {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="numeroFuncionario">Numero do Funcionario</Label>
+                        <Label htmlFor="numeroFuncionario">{t("Número do funcionário")}</Label>
                         <Input
                           id="numeroFuncionario"
                           value={formData.numeroFuncionario}
                           onChange={(e) => setFormData({ ...formData, numeroFuncionario: e.target.value })}
-                          placeholder="Ex: FUNC001"
+                          placeholder={t("Ex.: FUNC001")}
                           className="rounded-full"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="departamento">Departamento</Label>
+                        <Label htmlFor="departamento">{t("Departamento")}</Label>
                         <Select
                           value={formData.departamento}
                           onValueChange={(value) => setFormData({ ...formData, departamento: value })}
                         >
                           <SelectTrigger className="rounded-full">
-                            <SelectValue placeholder="Selecione o departamento" />
+                            <SelectValue placeholder={t("Selecione o departamento")} />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="Operacional">Operacional</SelectItem>
-                            <SelectItem value="Administrativo">Administrativo</SelectItem>
-                            <SelectItem value="Comercial">Comercial</SelectItem>
-                            <SelectItem value="Financeiro">Financeiro</SelectItem>
-                            <SelectItem value="Recursos Humanos">Recursos Humanos</SelectItem>
+                            <SelectItem value="Operacional">{t("Operacional")}</SelectItem>
+                            <SelectItem value="Administrativo">{t("Administrativo")}</SelectItem>
+                            <SelectItem value="Comercial">{t("Comercial")}</SelectItem>
+                            <SelectItem value="Financeiro">{t("Financeiro")}</SelectItem>
+                            <SelectItem value="Recursos Humanos">{t("Recursos Humanos")}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="ativo">Status</Label>
+                      <Label htmlFor="ativo">{t("Estado")}</Label>
                       <Select
                         value={formData.ativo.toString()}
                         onValueChange={(value) => setFormData({ ...formData, ativo: value === "true" })}
@@ -831,8 +848,8 @@ export default function FuncionariosPage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="true">Ativo</SelectItem>
-                          <SelectItem value="false">Inativo</SelectItem>
+                          <SelectItem value="true">{t("Ativo")}</SelectItem>
+                          <SelectItem value="false">{t("Inativo")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -841,7 +858,7 @@ export default function FuncionariosPage() {
                   <TabsContent value="valores" className="space-y-4 mt-4">
                     <div className="grid grid-cols-3 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="horasPorDia">Horas por Dia *</Label>
+                        <Label htmlFor="horasPorDia">{t("Horas por dia *")}</Label>
                         <CampoNumerico
                           id="horasPorDia"
                           min={1}
@@ -853,7 +870,7 @@ export default function FuncionariosPage() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="diasPorSemana">Dias por Semana *</Label>
+                        <Label htmlFor="diasPorSemana">{t("Dias por semana *")}</Label>
                         <CampoNumerico
                           id="diasPorSemana"
                           decimais={0}
@@ -865,7 +882,7 @@ export default function FuncionariosPage() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="mesReferencia">Mes para calculo</Label>
+                        <Label htmlFor="mesReferencia">{t("Mês para o cálculo")}</Label>
                         <Input
                           id="mesReferencia"
                           type="month"
@@ -878,26 +895,26 @@ export default function FuncionariosPage() {
 
                     <div className="grid grid-cols-3 gap-4">
                       <div className="space-y-2">
-                        <Label>Horas por Semana (calculado)</Label>
+                        <Label>{t("Horas por semana (calculado)")}</Label>
                         <div className="p-3 bg-muted rounded-lg">
-                          <span className="text-lg font-semibold">{toFixed2(horasPorSemana)} h/semana</span>
+                          <span className="text-lg font-semibold">{t("{n} h/semana", { n: toFixed2(horasPorSemana) })}</span>
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label>Dias uteis no mes (calculado)</Label>
+                        <Label>{t("Dias úteis no mês (calculado)")}</Label>
                         <div className="p-3 bg-muted rounded-lg">
-                          <span className="text-lg font-semibold">{diasUteisMes} dias</span>
+                          <span className="text-lg font-semibold">{textoDias(diasUteisMes)}</span>
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label>Horas por Mes (calculado)</Label>
+                        <Label>{t("Horas por mês (calculado)")}</Label>
                         <div className="p-3 bg-muted rounded-lg">
-                          <span className="text-lg font-semibold">{toFixed2(horasPorMes)} h/mes</span>
+                          <span className="text-lg font-semibold">{t("{n} h/mês", { n: toFixed2(horasPorMes) })}</span>
                         </div>
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="baseHoras">Base de horas para o custo/hora</Label>
+                      <Label htmlFor="baseHoras">{t("Base de horas para o custo/hora")}</Label>
                       <Select
                         value={formData.baseHoras}
                         onValueChange={(value) => setFormData({ ...formData, baseHoras: value as BaseHoras })}
@@ -906,27 +923,38 @@ export default function FuncionariosPage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="media">Media anual - equilibrada</SelectItem>
-                          <SelectItem value="maior">Maior mes do ano - menor custo/hora</SelectItem>
-                          <SelectItem value="menor">Menor mes do ano - maior custo/hora</SelectItem>
-                          <SelectItem value="mes">Mes de referencia escolhido</SelectItem>
+                          <SelectItem value="media">{t("Média anual - equilibrada")}</SelectItem>
+                          <SelectItem value="maior">{t("Maior mês do ano - menor custo/hora")}</SelectItem>
+                          <SelectItem value="menor">{t("Menor mês do ano - maior custo/hora")}</SelectItem>
+                          <SelectItem value="mes">{t("Mês de referência escolhido")}</SelectItem>
                         </SelectContent>
                       </Select>
                       <p className="text-xs text-muted-foreground">
-                        Base atual: <span className="font-medium text-foreground">{toFixed2(diasUteisMes)} dias</span>{" "}
-                        ({baseDias.detalhe}) x {toFixed2(formData.horasPorDia)}h ={" "}
-                        <span className="font-medium text-foreground">{toFixed2(horasPorMes)}h/mes</span>. O mes
-                        escolhido acima tem {diasDoMesEscolhido} dias uteis.
+                        {comDestaques(
+                          t(
+                            "Base atual: {dias} ({detalhe}) x {horas}h = {total}. O mês escolhido acima tem {diasMes} dias úteis.",
+                            { detalhe: baseDias.detalhe, horas: toFixed2(formData.horasPorDia), diasMes: diasDoMesEscolhido },
+                          ),
+                          {
+                            dias: <span className="font-medium text-foreground">{textoDias(toFixed2(diasUteisMes))}</span>,
+                            total: (
+                              <span className="font-medium text-foreground">
+                                {t("{n} h/mês", { n: toFixed2(horasPorMes) })}
+                              </span>
+                            ),
+                          },
+                        )}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        Quanto mais horas no divisor, menor o custo/hora. A media anual nao subavalia nem sobreavalia
-                        nenhum mes; o maior mes da o valor mais agressivo e o menor mes o mais seguro.
+                        {t(
+                          "Quanto mais horas no divisor, menor o custo/hora. A média anual não subavalia nem sobreavalia nenhum mês; o maior mês dá o valor mais agressivo e o menor mês o mais seguro.",
+                        )}
                       </p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="margemLucro">Margem de Lucro (%)</Label>
+                        <Label htmlFor="margemLucro">{t("Margem de lucro (%)")}</Label>
                         <CampoNumerico
                           id="margemLucro"
                           sufixo="%"
@@ -936,7 +964,7 @@ export default function FuncionariosPage() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="custoHora">Valor de Venda por Hora (EUR) *</Label>
+                        <Label htmlFor="custoHora">{t("Valor de venda por hora (EUR) *")}</Label>
                         <div className="p-3 bg-muted rounded-lg w-full flex items-center h-10 border mt-1">
                           <span className="text-sm">{toFixed2(valorDeVendaCalculado)}</span>
                         </div>
@@ -945,7 +973,7 @@ export default function FuncionariosPage() {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="salarioBase">Salario Base (EUR) *</Label>
+                        <Label htmlFor="salarioBase">{t("Salário base (EUR) *")}</Label>
                         <CampoNumerico
                           id="salarioBase"
                           min={0}
@@ -959,7 +987,7 @@ export default function FuncionariosPage() {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="subsidioDiario">Subsidio de alimentacao por dia (EUR)</Label>
+                        <Label htmlFor="subsidioDiario">{t("Subsídio de alimentação por dia (EUR)")}</Label>
                         <div className="flex gap-2">
                           <CampoNumerico
                             id="subsidioDiario"
@@ -975,12 +1003,12 @@ export default function FuncionariosPage() {
                             value={formData.diasSubsidio}
                             onChange={(diasSubsidio) => setFormData({ ...formData, diasSubsidio })}
                             decimais={0}
-                            title="Dias considerados"
+                            title={t("Dias considerados")}
                             className="w-24 shrink-0 rounded-full"
                           />
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          {toFixed2(formData.subsidioDiario)} EUR x {formData.diasSubsidio} dias ={" "}
+                          {toFixed2(formData.subsidioDiario)} EUR x {textoDias(formData.diasSubsidio)} ={" "}
                           <span className="font-medium text-foreground">
                             {formatCurrency(valorBeneficiosCalculado)}
                           </span>
@@ -993,14 +1021,14 @@ export default function FuncionariosPage() {
                                 onClick={() => setFormData({ ...formData, diasSubsidio: diasUteisMes })}
                                 className="underline hover:text-foreground"
                               >
-                                usar {diasUteisMes} dias (base)
+                                {t("usar {n} dias (base)", { n: diasUteisMes })}
                               </button>
                             </>
                           )}
                         </p>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="valorTransporte">Valores isentos de IRS (EUR)</Label>
+                        <Label htmlFor="valorTransporte">{t("Valores isentos de IRS (EUR)")}</Label>
                         <CampoNumerico
                           id="valorTransporte"
                           min={0}
@@ -1015,20 +1043,24 @@ export default function FuncionariosPage() {
 
                   <TabsContent value="encargos" className="space-y-4 mt-4">
                     <p className="text-sm text-muted-foreground">
-                      Custo real da empresa. O IRS <strong>nao entra aqui</strong>: e retido ao trabalhador e nao e
-                      custo da entidade patronal (aparece na aba Encargo Liquido).
+                      {comDestaques(
+                        t(
+                          "Custo real da empresa. O IRS {naoEntra}: é retido ao trabalhador e não é custo da entidade patronal (aparece no separador Encargo líquido).",
+                        ),
+                        { naoEntra: <strong>{t("não entra aqui")}</strong> },
+                      )}
                     </p>
 
                     <div className="grid grid-cols-2 gap-4">
                       <CampoTaxa
                         id="percentualSeguranca"
-                        label="Seguranca Social patronal"
+                        label={t("Segurança Social patronal")}
                         base={baseEncargos}
                         modo={formData.modoSeguranca}
                         percentual={formData.percentualSeguranca}
                         valorManual={formData.valorSegurancaManual}
                         resolvido={seguranca}
-                        ajuda={<>taxa legal 2026: {toFixed2(TSU_PATRONAL)}%</>}
+                        ajuda={t("taxa legal 2026: {taxa}%", { taxa: toFixed2(TSU_PATRONAL) })}
                         onChange={(campos) =>
                           setFormData({
                             ...formData,
@@ -1041,13 +1073,13 @@ export default function FuncionariosPage() {
 
                       <CampoTaxa
                         id="percentualSeguroAcidentes"
-                        label="Seguro de acidentes de trabalho"
+                        label={t("Seguro de acidentes de trabalho")}
                         base={baseEncargos}
                         modo={formData.modoSeguroAcidentes}
                         percentual={formData.percentualSeguroAcidentes}
                         valorManual={formData.valorSeguroAcidentesManual}
                         resolvido={seguroAcidentes}
-                        ajuda={<>obrigatorio; construcao ronda 1% a 5%</>}
+                        ajuda={t("obrigatório; na construção ronda 1% a 5%")}
                         onChange={(campos) =>
                           setFormData({
                             ...formData,
@@ -1069,12 +1101,12 @@ export default function FuncionariosPage() {
                         className="mt-0.5"
                       />
                       <span className="text-sm">
-                        Diluir subsidios de ferias e Natal no custo mensal
+                        {t("Diluir subsídios de férias e de Natal no custo mensal")}
                         <span className="block text-xs text-muted-foreground">
-                          Em Portugal paga-se 14 meses de salario por ano. Diluir os 2 meses extra ({formatCurrency(
-                            valorSubsidiosMensal,
+                          {t(
+                            "Em Portugal pagam-se 14 meses de salário por ano. Diluir os 2 meses extra ({valor}/mês) evita subavaliar o custo/hora.",
+                            { valor: formatCurrency(valorSubsidiosMensal) },
                           )}
-                          /mes) evita subavaliar o custo/hora.
                         </span>
                       </span>
                     </label>
@@ -1082,7 +1114,7 @@ export default function FuncionariosPage() {
                     {formData.incluiSubsidios && (
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="mesesSubsidioAlimentacao">Meses de subsidio de alimentacao por ano</Label>
+                          <Label htmlFor="mesesSubsidioAlimentacao">{t("Meses de subsídio de alimentação por ano")}</Label>
                           <CampoNumerico
                             id="mesesSubsidioAlimentacao"
                             decimais={0}
@@ -1095,8 +1127,10 @@ export default function FuncionariosPage() {
                             className="rounded-full"
                           />
                           <p className="text-xs text-muted-foreground">
-                            Paga-se por dia trabalhado, entao no mes de ferias nao ha refeicao: por norma{" "}
-                            {MESES_SUBSIDIO_ALIMENTACAO} meses. Media mensal: {formatCurrency(beneficiosMensalMedio)}
+                            {t(
+                              "Paga-se por dia trabalhado, por isso no mês de férias não há refeição: por norma {meses} meses. Média mensal: {valor}",
+                              { meses: MESES_SUBSIDIO_ALIMENTACAO, valor: formatCurrency(beneficiosMensalMedio) },
+                            )}
                           </p>
                         </div>
                       </div>
@@ -1104,69 +1138,80 @@ export default function FuncionariosPage() {
 
                     {beneficiosAcimaDoLimite > 0 && (
                       <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-xs">
-                        O subsidio de alimentacao esta {formatCurrency(beneficiosAcimaDoLimite)} acima do limite isento
-                        ({formatCurrency(SUBSIDIO_ALIMENTACAO_ISENTO_CARTAO)}/dia em cartao x {diasUteisMes} dias ={" "}
-                        {formatCurrency(limiteSubsidioMes)}). O excedente paga IRS e Seguranca Social dos dois lados.
+                        {t(
+                          "O subsídio de alimentação está {excesso} acima do limite isento ({limite}/dia em cartão x {dias} = {total}). O excedente paga IRS e Segurança Social dos dois lados.",
+                          {
+                            excesso: formatCurrency(beneficiosAcimaDoLimite),
+                            limite: formatCurrency(SUBSIDIO_ALIMENTACAO_ISENTO_CARTAO),
+                            dias: textoDias(diasUteisMes),
+                            total: formatCurrency(limiteSubsidioMes),
+                          },
+                        )}
                       </div>
                     )}
 
                     <div className="rounded-lg border p-4 space-y-2">
-                      <div className="text-xs font-medium text-muted-foreground uppercase">Memoria de calculo</div>
+                      <div className="text-xs font-medium text-muted-foreground uppercase">{t("Memória de cálculo")}</div>
                       <div className="flex justify-between text-sm">
-                        <span>Salario base</span>
+                        <span>{t("Salário base")}</span>
                         <span className="font-medium">{formatCurrency(formData.salarioBase)}</span>
                       </div>
                       {formData.incluiSubsidios && (
                         <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground pl-4">Subsidios ferias + Natal (2/12)</span>
+                          <span className="text-muted-foreground pl-4">{t("Subsídios de férias + Natal (2/12)")}</span>
                           <span>+ {formatCurrency(valorSubsidiosMensal)}</span>
                         </div>
                       )}
                       <div className="flex justify-between text-sm border-t pt-2">
-                        <span>Base de incidencia</span>
+                        <span>{t("Base de incidência")}</span>
                         <span className="font-medium">{formatCurrency(baseEncargos)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground pl-4">
-                          Seguranca Social patronal ({toFixed2(seguranca.percentual)}%)
+                          {t("Segurança Social patronal ({taxa}%)", { taxa: toFixed2(seguranca.percentual) })}
                         </span>
                         <span>+ {formatCurrency(valorSeguranca)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground pl-4">
-                          Seguro de acidentes ({toFixed2(seguroAcidentes.percentual)}%)
+                          {t("Seguro de acidentes ({taxa}%)", { taxa: toFixed2(seguroAcidentes.percentual) })}
                         </span>
                         <span>+ {formatCurrency(valorSeguroAcidentes)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground pl-4">
-                          Subsidio alimentacao{" "}
                           {formData.incluiSubsidios
-                            ? `(${formData.mesesSubsidioAlimentacao} meses/ano diluidos)`
-                            : "(isento ate ao limite)"}
+                            ? t("Subsídio de alimentação ({meses} meses/ano diluídos)", {
+                                meses: formData.mesesSubsidioAlimentacao,
+                              })
+                            : t("Subsídio de alimentação (isento até ao limite)")}
                         </span>
                         <span>+ {formatCurrency(beneficiosMensalMedio)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground pl-4">Valores isentos de IRS</span>
+                        <span className="text-muted-foreground pl-4">{t("Valores isentos de IRS")}</span>
                         <span>+ {formatCurrency(formData.valorTransporte)}</span>
                       </div>
                       <div className="flex justify-between text-sm border-t pt-2">
-                        <span className="text-muted-foreground">Total de encargos da empresa</span>
+                        <span className="text-muted-foreground">{t("Total de encargos da empresa")}</span>
                         <span className="font-semibold">{formatCurrency(totalEncargos)}</span>
                       </div>
                     </div>
 
                     <div className="rounded-lg bg-primary/10 p-4">
-                      <div className="text-sm text-muted-foreground">Custo total mensal da empresa</div>
+                      <div className="text-sm text-muted-foreground">{t("Custo total mensal da empresa")}</div>
                       <div className="text-2xl font-bold text-primary">{formatCurrency(salarioTotal)}</div>
                       <div className="text-xs text-muted-foreground mt-1">
                         {percentualSobreSalario > 0 && (
                           <>
-                            {toFixed2(percentualSobreSalario)}% da remuneracao bruta
                             {percentualSobreSalario >= 128 && percentualSobreSalario <= 148
-                              ? " - dentro da referencia de mercado em PT (130% a 145%)"
-                              : " - fora da referencia habitual em PT (130% a 145%), vale rever os campos"}
+                              ? t("{pct}% da remuneração bruta - dentro da referência de mercado em PT (130% a 145%)", {
+                                  pct: toFixed2(percentualSobreSalario),
+                                })
+                              : t(
+                                  "{pct}% da remuneração bruta - fora da referência habitual em PT (130% a 145%), convém rever os campos",
+                                  { pct: toFixed2(percentualSobreSalario) },
+                                )}
                           </>
                         )}
                       </div>
@@ -1174,11 +1219,11 @@ export default function FuncionariosPage() {
 
                     <div className="rounded-lg border p-4 space-y-2">
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Custo/hora automatico (real)</span>
+                        <span className="text-muted-foreground">{t("Custo/hora automático (real)")}</span>
                         <span className="font-semibold">{formatCurrency(custoHoraCalculado)}</span>
                       </div>
                       <div className="flex justify-between text-sm border-t pt-2">
-                        <span className="text-muted-foreground">Valor de venda/hora</span>
+                        <span className="text-muted-foreground">{t("Valor de venda/hora")}</span>
                         <span className="font-semibold">{formatCurrency(valorDeVendaCalculado)}</span>
                       </div>
                     </div>
@@ -1186,21 +1231,21 @@ export default function FuncionariosPage() {
 
                   <TabsContent value="encargosLiquidos" className="space-y-4 mt-4">
                     <p className="text-sm text-muted-foreground">
-                      Simulacao do recibo de vencimento: o que o trabalhador recebe e quanto lhe e descontado. Os
-                      descontos incidem apenas sobre o salario base. Cada taxa pode ser lancada em percentagem ou
-                      diretamente em euros.
+                      {t(
+                        "Simulação do recibo de vencimento: o que o trabalhador recebe e quanto lhe é descontado. Os descontos incidem apenas sobre o salário base. Cada taxa pode ser lançada em percentagem ou diretamente em euros.",
+                      )}
                     </p>
 
                     <div className="grid grid-cols-2 gap-4">
                       <CampoTaxa
                         id="percentualSegurancaLiquido"
-                        label="Seguranca Social do trabalhador"
+                        label={t("Segurança Social do trabalhador")}
                         base={formData.salarioBase}
                         modo={formData.modoSegurancaLiquido}
                         percentual={formData.percentualSegurancaLiquido}
                         valorManual={formData.valorSegurancaLiquidoManual}
                         resolvido={segurancaLiquido}
-                        ajuda={<>taxa legal 2026: {toFixed2(TSU_TRABALHADOR)}%</>}
+                        ajuda={t("taxa legal 2026: {taxa}%", { taxa: toFixed2(TSU_TRABALHADOR) })}
                         onChange={(campos) =>
                           setFormData({
                             ...formData,
@@ -1215,7 +1260,7 @@ export default function FuncionariosPage() {
 
                       <div className="space-y-2">
                         <div className="flex items-center justify-between gap-2">
-                          <Label>IRS retido na fonte</Label>
+                          <Label>{t("IRS retido na fonte")}</Label>
                           <div className="flex rounded-full border p-0.5">
                             <button
                               type="button"
@@ -1224,7 +1269,7 @@ export default function FuncionariosPage() {
                                 formData.irsAutomatico ? "bg-primary text-primary-foreground" : "text-muted-foreground"
                               }`}
                             >
-                              Automatico
+                              {t("Automático")}
                             </button>
                             <button
                               type="button"
@@ -1233,7 +1278,7 @@ export default function FuncionariosPage() {
                                 !formData.irsAutomatico ? "bg-primary text-primary-foreground" : "text-muted-foreground"
                               }`}
                             >
-                              Manual
+                              {t("Manual")}
                             </button>
                           </div>
                         </div>
@@ -1250,7 +1295,7 @@ export default function FuncionariosPage() {
                               <SelectContent>
                                 {TABELAS_IRS.map((tabela) => (
                                   <SelectItem key={tabela.id} value={tabela.id}>
-                                    {tabela.nome} - {tabela.descricao}
+                                    {t(tabela.nome)} - {t(tabela.descricao)}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
@@ -1259,7 +1304,7 @@ export default function FuncionariosPage() {
                             {getTabelaIRS(formData.tabelaIRS).aceitaDependentes && (
                               <div className="flex items-center gap-2">
                                 <Label htmlFor="dependentes" className="text-xs text-muted-foreground">
-                                  Dependentes
+                                  {t("Dependentes")}
                                 </Label>
                                 <CampoNumerico
                                   id="dependentes"
@@ -1271,7 +1316,9 @@ export default function FuncionariosPage() {
                                   className="w-24 shrink-0 rounded-full"
                                 />
                                 <span className="text-xs text-muted-foreground">
-                                  - {formatCurrency(getTabelaIRS(formData.tabelaIRS).parcelaDependente)} cada
+                                  {t("- {valor} cada", {
+                                    valor: formatCurrency(getTabelaIRS(formData.tabelaIRS).parcelaDependente),
+                                  })}
                                 </span>
                               </div>
                             )}
@@ -1297,16 +1344,18 @@ export default function FuncionariosPage() {
                               {" "}
                               &middot;{" "}
                               {irsCalculado.isento
-                                ? "isento (ate 920 EUR/mes)"
-                                : `escalao ate ${irsCalculado.escalaoAte ?? "-"} EUR, taxa marginal ${toFixed2(
-                                    irsCalculado.taxaMarginal,
-                                  )}%`}
+                                ? t("isento (até 920 EUR/mês)")
+                                : t("escalão até {ate} EUR, taxa marginal {taxa}%", {
+                                    ate: irsCalculado.escalaoAte ?? "-",
+                                    taxa: toFixed2(irsCalculado.taxaMarginal),
+                                  })}
                             </>
                           )}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Tabelas oficiais de 2026 (Despacho 233-A/2026). Formula: remuneracao x taxa - parcela a
-                          abater - parcela por dependente.
+                          {t(
+                            "Tabelas oficiais de 2026 (Despacho 233-A/2026). Fórmula: remuneração x taxa - parcela a abater - parcela por dependente.",
+                          )}
                         </p>
                       </div>
                     </div>
@@ -1314,51 +1363,51 @@ export default function FuncionariosPage() {
                     {/* Recibo de vencimento */}
                     <div className="rounded-lg border overflow-hidden">
                       <div className="bg-muted px-4 py-2 text-xs font-semibold uppercase text-muted-foreground">
-                        Recibo de vencimento (simulacao)
+                        {t("Recibo de vencimento (simulação)")}
                       </div>
 
                       <div className="p-4 space-y-2">
-                        <div className="text-xs font-medium text-muted-foreground uppercase">Vencimentos</div>
+                        <div className="text-xs font-medium text-muted-foreground uppercase">{t("Vencimentos")}</div>
                         <div className="flex justify-between text-sm">
-                          <span>Vencimento base</span>
+                          <span>{t("Vencimento base")}</span>
                           <span className="font-medium">{formatCurrency(formData.salarioBase)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Subsidio de alimentacao (isento)</span>
+                          <span className="text-muted-foreground">{t("Subsídio de alimentação (isento)")}</span>
                           <span>+ {formatCurrency(valorBeneficiosCalculado)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Valores isentos de IRS</span>
+                          <span className="text-muted-foreground">{t("Valores isentos de IRS")}</span>
                           <span>+ {formatCurrency(formData.valorTransporte)}</span>
                         </div>
                         <div className="flex justify-between text-sm border-t pt-2 font-medium">
-                          <span>Total iliquido</span>
+                          <span>{t("Total ilíquido")}</span>
                           <span>{formatCurrency(totalIliquido)}</span>
                         </div>
                       </div>
 
                       <div className="border-t p-4 space-y-2 bg-destructive/5">
                         <div className="text-xs font-medium text-muted-foreground uppercase">
-                          Descontos do trabalhador
+                          {t("Descontos do trabalhador")}
                         </div>
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">
-                            Seguranca Social ({toFixed2(segurancaLiquido.percentual)}% do salario base)
+                            {t("Segurança Social ({taxa}% do salário base)", { taxa: toFixed2(segurancaLiquido.percentual) })}
                           </span>
                           <span className="text-destructive">- {formatCurrency(valorSegurancaLiquido)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">
-                            IRS ({toFixed2(irsLiquido.percentual)}% do salario base)
+                            {t("IRS ({taxa}% do salário base)", { taxa: toFixed2(irsLiquido.percentual) })}
                           </span>
                           <span className="text-destructive">- {formatCurrency(valorIRSLiquido)}</span>
                         </div>
                         <div className="flex justify-between text-sm border-t pt-2 font-medium">
-                          <span>Total descontado</span>
+                          <span>{t("Total descontado")}</span>
                           <span className="text-destructive">- {formatCurrency(totalEncargosLiquido)}</span>
                         </div>
                         <div className="flex justify-between text-xs text-muted-foreground">
-                          <span>Peso dos descontos sobre o salario base</span>
+                          <span>{t("Peso dos descontos sobre o salário base")}</span>
                           <span>{toFixed2(taxaEfetivaDesconto)}%</span>
                         </div>
                       </div>
@@ -1366,10 +1415,13 @@ export default function FuncionariosPage() {
                       <div className="border-t bg-secondary p-4">
                         <div className="flex items-end justify-between">
                           <div>
-                            <div className="text-sm text-muted-foreground">Liquido a receber</div>
+                            <div className="text-sm text-muted-foreground">{t("Líquido a receber")}</div>
                             <div className="text-xs text-muted-foreground mt-1">
-                              {formatCurrency(formData.salarioBase)} - {formatCurrency(totalEncargosLiquido)} +{" "}
-                              {formatCurrency(valoresIsentos)} isentos
+                              {t("{salario} - {descontos} + {isentos} isentos", {
+                                salario: formatCurrency(formData.salarioBase),
+                                descontos: formatCurrency(totalEncargosLiquido),
+                                isentos: formatCurrency(valoresIsentos),
+                              })}
                             </div>
                           </div>
                           <div className="text-2xl font-bold">{formatCurrency(salarioTotalLiquido)}</div>
@@ -1379,25 +1431,25 @@ export default function FuncionariosPage() {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="rounded-lg border p-4 space-y-1">
-                        <div className="text-xs font-medium text-muted-foreground uppercase">Salario base</div>
+                        <div className="text-xs font-medium text-muted-foreground uppercase">{t("Salário base")}</div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Bruto</span>
+                          <span className="text-muted-foreground">{t("Bruto")}</span>
                           <span>{formatCurrency(formData.salarioBase)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Liquido (apos descontos)</span>
+                          <span className="text-muted-foreground">{t("Líquido (após descontos)")}</span>
                           <span className="font-semibold">{formatCurrency(salarioBaseLiquido)}</span>
                         </div>
                       </div>
 
                       <div className="rounded-lg border p-4 space-y-1">
-                        <div className="text-xs font-medium text-muted-foreground uppercase">Por hora</div>
+                        <div className="text-xs font-medium text-muted-foreground uppercase">{t("Por hora")}</div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Liquido/hora</span>
+                          <span className="text-muted-foreground">{t("Líquido/hora")}</span>
                           <span>{formatCurrency(custoHoraLiquido)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Custo/hora para a empresa</span>
+                          <span className="text-muted-foreground">{t("Custo/hora para a empresa")}</span>
                           <span className="font-semibold">{formatCurrency(custoHoraCalculado)}</span>
                         </div>
                       </div>
@@ -1406,10 +1458,10 @@ export default function FuncionariosPage() {
 
                   <div className="flex justify-end space-x-2 pt-6 border-t">
                     <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                      Cancelar
+                      {t("Cancelar")}
                     </Button>
                     <Button type="submit" disabled={loading} className="rounded-full">
-                      {loading ? "A guardar..." : editingFuncionario ? "Atualizar" : "Cadastrar"}
+                      {loading ? t("A guardar...") : editingFuncionario ? t("Atualizar") : t("Registar")}
                     </Button>
                   </div>
                 </form>
@@ -1423,7 +1475,7 @@ export default function FuncionariosPage() {
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
         onClear={clearSearch}
-        placeholder="Pesquisar por nome, email, funcao, departamento..."
+        placeholder={t("Pesquisar por nome, email, função, departamento...")}
         resultCount={filteredFuncionarios.length}
         totalCount={funcionarios.length}
       />
@@ -1455,7 +1507,7 @@ export default function FuncionariosPage() {
                         {funcionario.funcao}
                       </CardDescription>
                     </div>
-                    <Badge variant={funcionario.ativo ? "default" : "secondary"}>{funcionario.ativo ? "Ativo" : "Inativo"}</Badge>
+                    <Badge variant={funcionario.ativo ? "default" : "secondary"}>{funcionario.ativo ? t("Ativo") : t("Inativo")}</Badge>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -1476,24 +1528,28 @@ export default function FuncionariosPage() {
                     )}
                     <div className="flex items-center gap-2 text-sm">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span>{funcionario.idade} anos</span>
+                      <span>
+                        {funcionario.idade === 1
+                          ? t("{n} ano", { n: funcionario.idade })
+                          : t("{n} anos", { n: funcionario.idade })}
+                      </span>
                     </div>
                     <div className="pt-2 border-t space-y-1">
                       <div className="flex justify-between items-center text-sm">
                         <span className="text-muted-foreground flex items-center gap-1">
                           <Clock className="h-3 w-3" />
-                          Horario:
+                          {t("Horário:")}
                         </span>
                         <span className="font-medium">
-                          {funcionario.horasPorDia}h/dia, {funcionario.diasPorSemana}d/sem
+                          {t("{horas}h/dia, {dias}d/sem", { horas: funcionario.horasPorDia, dias: funcionario.diasPorSemana })}
                         </span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
-                        <span className="text-muted-foreground">Horas semanais:</span>
+                        <span className="text-muted-foreground">{t("Horas semanais:")}</span>
                         <span className="font-medium">{toFixed2(horasSemana)}h</span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
-                        <span className="text-muted-foreground">Horas mensais:</span>
+                        <span className="text-muted-foreground">{t("Horas mensais:")}</span>
                         <span className="font-medium">
                           {toFixed2(
                             funcionario.horasPorMes ??
@@ -1509,19 +1565,19 @@ export default function FuncionariosPage() {
                       <div className="flex justify-between items-center text-sm">
                         <span className="text-muted-foreground flex items-center gap-1">
                           <Euro className="h-3 w-3" />
-                          Venda/hora:
+                          {t("Venda/hora:")}
                         </span>
                         <span className="font-medium">{formatCurrency(funcionario.custoHora)}</span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
                         <span className="text-muted-foreground flex items-center gap-1">
                           <Shield className="h-3 w-3" />
-                          Custo real/hora:
+                          {t("Custo real/hora:")}
                         </span>
                         <span className="font-medium">{formatCurrency(custoRealHora)}</span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
-                        <span className="text-muted-foreground">Salario Total:</span>
+                        <span className="text-muted-foreground">{t("Salário total:")}</span>
                         <span className="font-medium text-primary">{formatCurrency(funcionario.salarioTotal)}</span>
                       </div>
                     </div>
@@ -1553,12 +1609,12 @@ export default function FuncionariosPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <User className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium mb-2">Nenhum funcionario encontrado</h3>
+            <h3 className="text-lg font-medium mb-2">{t("Nenhum funcionário encontrado")}</h3>
             <p className="text-muted-foreground text-center mb-4">
-              Nenhum resultado para &quot;{searchTerm}&quot;. Ajuste a pesquisa para ver a lista completa.
+              {t('Nenhum resultado para "{termo}". Ajuste a pesquisa para ver a lista completa.', { termo: searchTerm })}
             </p>
             <Button onClick={clearSearch} variant="outline" className="rounded-full">
-              Limpar pesquisa
+              {t("Limpar pesquisa")}
             </Button>
           </CardContent>
         </Card>
@@ -1566,11 +1622,11 @@ export default function FuncionariosPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <User className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium mb-2">Nenhum funcionario cadastrado</h3>
-            <p className="text-muted-foreground text-center mb-4">Comece por adicionar funcionarios a sua equipe.</p>
+            <h3 className="text-lg font-medium mb-2">{t("Nenhum funcionário registado")}</h3>
+            <p className="text-muted-foreground text-center mb-4">{t("Comece por adicionar funcionários à sua equipa.")}</p>
             <Button onClick={() => setIsDialogOpen(true)} className="rounded-full">
               <Plus className="h-4 w-4 mr-2" />
-              Adicionar Primeiro Funcionario
+              {t("Adicionar o primeiro funcionário")}
             </Button>
           </CardContent>
         </Card>

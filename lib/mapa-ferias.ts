@@ -1,4 +1,5 @@
 import { diasDoPeriodo, diasUteis, diaLocal, feriadosFacultativos, feriadosNacionais, nomeMotivoFalta, type OpcoesFeriados } from "@/lib/ponto"
+import { idiomaAtual, localeIntl, t } from "@/lib/i18n"
 import type { PedidoPonto } from "@/lib/types"
 
 /**
@@ -7,9 +8,20 @@ import type { PedidoPonto } from "@/lib/types"
  * impressao e o mapa que a lei manda afixar (art. 241.º, n.º 9, CT).
  */
 
-export const NOMES_MESES = ["Janeiro", "Fevereiro", "Marco", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
-/** Segunda a domingo. */
-export const LETRAS_SEMANA = ["S", "T", "Q", "Q", "S", "S", "D"]
+/** Nomes dos meses no idioma atual ("Janeiro"... / "January"...). */
+export function nomesMeses(): string[] {
+  const f = new Intl.DateTimeFormat(localeIntl(), { month: "long" })
+  return Array.from({ length: 12 }, (_, i) => {
+    const nome = f.format(new Date(2024, i, 1))
+    return nome.charAt(0).toUpperCase() + nome.slice(1)
+  })
+}
+/** Iniciais dos dias, de segunda a domingo, no idioma atual ("S T Q Q S S D" / "M T W T F S S"). */
+export function letrasSemana(): string[] {
+  const f = new Intl.DateTimeFormat(localeIntl(), { weekday: "narrow" })
+  // 2024-01-01 foi uma segunda-feira
+  return Array.from({ length: 7 }, (_, i) => f.format(new Date(2024, 0, 1 + i)).toUpperCase())
+}
 /** Colunas do calendario: ate 6 dias de desvio + 31 dias. */
 export const COLUNAS_ANO = 37
 
@@ -117,7 +129,7 @@ export function mapaAnual(ano: number, pessoas: PessoaMapa[], pedidos: PedidoPon
     }
   }
 
-  const meses: MesMapa[] = NOMES_MESES.map((nome, indice) => {
+  const meses: MesMapa[] = nomesMeses().map((nome, indice) => {
     const primeiro = new Date(ano, indice, 1)
     const total = new Date(ano, indice + 1, 0).getDate()
     const dias: DiaMapa[] = []
@@ -188,7 +200,7 @@ export function mapaAnual(ano: number, pessoas: PessoaMapa[], pedidos: PedidoPon
 /** "04/01" ou "04/01 a 06/01". */
 export function textoPeriodo(p: { inicio: string; fim: string }): string {
   const f = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`
-  return p.inicio === p.fim ? f(p.inicio) : `${f(p.inicio)} a ${f(p.fim)}`
+  return p.inicio === p.fim ? f(p.inicio) : t("{inicio} a {fim}", { inicio: f(p.inicio), fim: f(p.fim) })
 }
 
 /** Iniciais para caber numa celula: "Ana Maria Costa" -> "AC". */
@@ -229,7 +241,8 @@ export function htmlMapaFerias(mapa: MapaAnual, empresa: EmpresaMapa, opcoes: { 
     const titulo = [d.feriado?.nome, ...d.marcas.map((m) => m.nome)].filter(Boolean).join(", ")
     return `<td class="${cls.join(" ")}" title="${esc(titulo)}"><b>${d.numero}</b>${quem ? `<span class="q">${quem}</span>` : ""}</td>`
   }
-  const cabecalhoSemana = Array.from({ length: COLUNAS_ANO }, (_, i) => `<th class="${i % 7 >= 5 ? "fds" : ""}">${LETRAS_SEMANA[i % 7]}</th>`).join("")
+  const letras = letrasSemana()
+  const cabecalhoSemana = Array.from({ length: COLUNAS_ANO }, (_, i) => `<th class="${i % 7 >= 5 ? "fds" : ""}">${letras[i % 7]}</th>`).join("")
   const linhasMeses = mapa.meses
     .map((m) => {
       const vazias = Array.from({ length: m.desvio }, () => `<td class="v"></td>`).join("")
@@ -255,8 +268,8 @@ export function htmlMapaFerias(mapa: MapaAnual, empresa: EmpresaMapa, opcoes: { 
   const linhasPessoas = mapa.linhas
     .map(
       (l) => `<tr>
-  <td class="nome">${esc(l.pessoa.nome)}${l.pessoa.numero ? `<small>n.º ${esc(l.pessoa.numero)}</small>` : ""}</td>
-  <td class="per">${l.periodos.length ? l.periodos.map((p) => `<span class="${p.estado === "aprovado" ? "pa" : "pp"}">${textoPeriodo(p)} <small>(${p.dias} d)</small></span>`).join(" ") : `<span class="sem">Sem ferias marcadas</span>`}</td>
+  <td class="nome">${esc(l.pessoa.nome)}${l.pessoa.numero ? `<small>${esc(t("n.º {numero}", { numero: l.pessoa.numero }))}</small>` : ""}</td>
+  <td class="per">${l.periodos.length ? l.periodos.map((p) => `<span class="${p.estado === "aprovado" ? "pa" : "pp"}">${textoPeriodo(p)} <small>(${esc(t("{n} d", { n: p.dias }))})</small></span>`).join(" ") : `<span class="sem">${esc(t("Sem férias marcadas"))}</span>`}</td>
   <td class="num">${l.aprovados}</td>
   <td class="num">${l.saldo}</td>
   <td>${faixa(l)}</td>
@@ -265,14 +278,14 @@ export function htmlMapaFerias(mapa: MapaAnual, empresa: EmpresaMapa, opcoes: { 
     .join("")
 
   const feriados = mapa.feriados
-    .map((f) => `<li><b>${f.dia.slice(8, 10)}/${f.dia.slice(5, 7)}</b> ${esc(f.nome)}${f.facultativo ? " <small>(empresa)</small>" : ""}</li>`)
+    .map((f) => `<li><b>${f.dia.slice(8, 10)}/${f.dia.slice(5, 7)}</b> ${esc(f.nome)}${f.facultativo ? ` <small>(${esc(t("empresa"))})</small>` : ""}</li>`)
     .join("")
-  const elaborado = opcoes.elaboradoEm.toLocaleDateString("pt-PT")
-  const titulo = opcoes.titulo || `Mapa de ferias ${mapa.ano}`
-  const dadosEmpresa = [empresa.morada, empresa.nif ? `NIF ${empresa.nif}` : ""].filter((x): x is string => !!x).map(esc).join(" · ")
+  const elaborado = opcoes.elaboradoEm.toLocaleDateString(localeIntl())
+  const titulo = opcoes.titulo || t("Mapa de férias {ano}", { ano: mapa.ano })
+  const dadosEmpresa = [empresa.morada, empresa.nif ? t("NIF {nif}", { nif: empresa.nif }) : ""].filter((x): x is string => !!x).map(esc).join(" · ")
 
   return `<!doctype html>
-<html lang="pt"><head><meta charset="utf-8"><title>${esc(titulo)}</title>
+<html lang="${idiomaAtual()}"><head><meta charset="utf-8"><title>${esc(titulo)}</title>
 <style>
 @page { size: A4 landscape; margin: 9mm; }
 * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -343,27 +356,27 @@ table { border-collapse: collapse; width: 100%; }
 <header>
   ${empresa.logoUrl ? `<img src="${esc(empresa.logoUrl)}" alt="">` : ""}
   <div class="t"><h1>${esc(titulo)}</h1><p>${esc(empresa.nome)}${dadosEmpresa ? ` · ${dadosEmpresa}` : ""}</p></div>
-  <div class="el">Elaborado em ${elaborado}${opcoes.incluirPendentes ? "<br>Inclui pedidos por aprovar" : ""}</div>
+  <div class="el">${esc(t("Elaborado em {data}", { data: elaborado }))}${opcoes.incluirPendentes ? `<br>${esc(t("Inclui pedidos por aprovar"))}` : ""}</div>
 </header>
 <table class="cal"><thead><tr><th class="mes"></th>${cabecalhoSemana}</tr></thead><tbody>${linhasMeses}</tbody></table>
 <div class="leg">
-  <span style="--c:#d1fae5">Ferias aprovadas</span>
-  ${opcoes.incluirPendentes ? `<span style="--c:#fef3c7">Por aprovar</span>` : ""}
-  ${opcoes.incluirFaltas ? `<span style="--c:#ffedd5">Falta</span>` : ""}
-  <span style="--c:#fee2e2">Feriado nacional</span>
-  ${mapa.feriados.some((f) => f.facultativo) ? `<span style="--c:#ede9fe">Feriado dado pela empresa</span>` : ""}
-  <span style="--c:#f5f5f4">Fim de semana</span>
-  ${so ? "" : `<span style="--c:#059669">Iniciais de quem esta ausente</span>`}
+  <span style="--c:#d1fae5">${esc(t("Férias aprovadas"))}</span>
+  ${opcoes.incluirPendentes ? `<span style="--c:#fef3c7">${esc(t("Por aprovar"))}</span>` : ""}
+  ${opcoes.incluirFaltas ? `<span style="--c:#ffedd5">${esc(t("Falta"))}</span>` : ""}
+  <span style="--c:#fee2e2">${esc(t("Feriado nacional"))}</span>
+  ${mapa.feriados.some((f) => f.facultativo) ? `<span style="--c:#ede9fe">${esc(t("Feriado dado pela empresa"))}</span>` : ""}
+  <span style="--c:#f5f5f4">${esc(t("Fim de semana"))}</span>
+  ${so ? "" : `<span style="--c:#059669">${esc(t("Iniciais de quem está ausente"))}</span>`}
 </div>
 </div>
 <div class="folha quebra">
-<header><div class="t"><h1>${esc(titulo)}: por trabalhador</h1><p>Inicio e termo dos periodos de ferias de cada trabalhador (dias uteis).</p></div><div class="el">Elaborado em ${elaborado}</div></header>
-<table class="pessoas"><thead><tr><th>Trabalhador</th><th>Periodos de ferias</th><th>Dias</th><th>Saldo</th><th>${meses3}</th></tr></thead><tbody>${linhasPessoas}</tbody></table>
+<header><div class="t"><h1>${esc(t("{titulo}: por trabalhador", { titulo }))}</h1><p>${esc(t("Início e termo dos períodos de férias de cada trabalhador (dias úteis)."))}</p></div><div class="el">${esc(t("Elaborado em {data}", { data: elaborado }))}</div></header>
+<table class="pessoas"><thead><tr><th>${esc(t("Trabalhador"))}</th><th>${esc(t("Períodos de férias"))}</th><th>${esc(t("Dias"))}</th><th>${esc(t("Saldo"))}</th><th>${meses3}</th></tr></thead><tbody>${linhasPessoas}</tbody></table>
 <div class="rodape">
-  <div><h2>Feriados ${mapa.ano}</h2><ul>${feriados}</ul></div>
-  <div class="legal"><h2>Nota</h2>
-    Mapa de ferias elaborado nos termos do art. 241.º, n.º 9, do Codigo do Trabalho: elaborado ate 15 de abril e afixado nos locais de trabalho entre essa data e 31 de outubro. Alteracoes posteriores sao registadas no sistema.
-    <div class="assina"><div>A gerencia</div><div>Data</div></div>
+  <div><h2>${esc(t("Feriados {ano}", { ano: mapa.ano }))}</h2><ul>${feriados}</ul></div>
+  <div class="legal"><h2>${esc(t("Nota"))}</h2>
+    ${esc(t("Mapa de férias elaborado nos termos do art. 241.º, n.º 9, do Código do Trabalho: elaborado até 15 de abril e afixado nos locais de trabalho entre essa data e 31 de outubro. Alterações posteriores são registadas no sistema."))}
+    <div class="assina"><div>${esc(t("A gerência"))}</div><div>${esc(t("Data"))}</div></div>
   </div>
 </div>
 </div>

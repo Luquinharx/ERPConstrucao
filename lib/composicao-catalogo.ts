@@ -10,6 +10,7 @@ import type {
   Servico,
   ServicoComposicaoItem,
 } from "@/lib/types"
+import { t } from "@/lib/i18n"
 import { round2 } from "@/lib/utils"
 
 /**
@@ -102,5 +103,5 @@ function calcular(composicao: ServicoComposicaoItem[], referencia: number, catal
 export function embalagens(quantidade: number, produto?: Pick<Material, "qtdPorEmbalagem" | "unidadeCompra">) {
   const porEmb = Number(produto?.qtdPorEmbalagem) || 0
   if (porEmb <= 0) return null
-  return { quantidade: Math.ceil(round2(quantidade) / porEmb), unidade: produto?.unidadeCompra || "emb." }
+  return { quantidade: Math.ceil(round2(quantidade) / porEmb), unidade: produto?.unidadeCompra || t("emb.") }
 }

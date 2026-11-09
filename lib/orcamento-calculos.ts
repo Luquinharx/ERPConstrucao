@@ -1,4 +1,5 @@
 import type { ItemOrcamento, Orcamento, Servico } from "@/lib/types"
+import { m, t } from "@/lib/i18n"
 import { round2 } from "@/lib/utils"
 
 /**
@@ -12,16 +13,19 @@ import { round2 } from "@/lib/utils"
 /** Documento gerado: venda (cliente) ou custo (interno). */
 export type TipoDocumento = "venda" | "custo"
 
-/** Taxas de IVA em Portugal (continente). */
+/** Taxas de IVA em Portugal (continente). Rótulos marcados com m(): mostrar com t(taxa.label). */
 export const TAXAS_IVA = [
-  { valor: 23, label: "23% - Taxa normal" },
-  { valor: 13, label: "13% - Taxa intermedia" },
-  { valor: 6, label: "6% - Taxa reduzida (ex.: obras em habitacao)" },
-  { valor: 0, label: "0% - Isento / autoliquidacao" },
+  { valor: 23, label: m("23% - Taxa normal") },
+  { valor: 13, label: m("13% - Taxa intermédia") },
+  { valor: 6, label: m("6% - Taxa reduzida (ex.: obras em habitação)") },
+  { valor: 0, label: m("0% - Isento / autoliquidação") },
 ]
 
-/** Item sem comodo definido cai neste grupo. */
-export const SEM_AMBIENTE = "Sem comodo"
+/**
+ * Item sem comodo definido cai neste grupo. E a chave do grupo (comparar com
+ * ===); para mostrar, usar t(SEM_AMBIENTE).
+ */
+export const SEM_AMBIENTE = m("Sem divisão")
 
 export function toDateInput(date: Date): string {
   return date.toISOString().split("T")[0]
@@ -153,19 +157,19 @@ export function getItemEstilo(tipo: ItemOrcamento["tipo"]) {
       return {
         card: "border-l-4 border-l-blue-500 bg-blue-500/10",
         badge: "bg-blue-500/20 text-blue-600 dark:text-blue-300 border-blue-500/40",
-        label: "Mao de obra",
+        label: t("Mão de obra"),
       }
     case "material":
       return {
         card: "border-l-4 border-l-amber-500 bg-amber-500/10",
         badge: "bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/40",
-        label: "Material",
+        label: t("Material"),
       }
     default:
       return {
         card: "border-l-4 border-l-emerald-500 bg-emerald-500/10",
         badge: "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/40",
-        label: "Servico",
+        label: t("Serviço"),
       }
   }
 }
@@ -173,7 +177,7 @@ export function getItemEstilo(tipo: ItemOrcamento["tipo"]) {
 /** Descricao impressa no PDF: no de venda o nome do funcionario nunca aparece. */
 export function getItemDescricaoDocumento(item: ItemOrcamento, tipo: TipoDocumento): string {
   if (tipo === "custo") return item.nome || item.descricao
-  if (item.tipo === "mao_obra") return item.descricaoCliente || "Mao de obra"
+  if (item.tipo === "mao_obra") return item.descricaoCliente || t("Mão de obra")
   return item.nome || item.descricao
 }
 

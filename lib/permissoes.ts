@@ -7,6 +7,8 @@
  * ter de saber o que cada cargo significa.
  */
 
+import { m } from "@/lib/i18n"
+
 export type Permissao =
   // Clientes
   | "clientes.ver"
@@ -46,71 +48,71 @@ interface GrupoPermissoes {
 /** Catalogo usado no ecra de gestao, agrupado por assunto. */
 export const CATALOGO_PERMISSOES: GrupoPermissoes[] = [
   {
-    grupo: "Orcamentos",
+    grupo: m("Orçamentos"),
     itens: [
-      { id: "orcamentos.ver", nome: "Ver orcamentos" },
-      { id: "orcamentos.criar", nome: "Criar orcamentos" },
-      { id: "orcamentos.editar", nome: "Editar orcamentos em rascunho" },
-      { id: "orcamentos.apagar", nome: "Apagar orcamentos" },
-      { id: "orcamentos.submeter", nome: "Enviar para revisao" },
+      { id: "orcamentos.ver", nome: m("Ver orçamentos") },
+      { id: "orcamentos.criar", nome: m("Criar orçamentos") },
+      { id: "orcamentos.editar", nome: m("Editar orçamentos em rascunho") },
+      { id: "orcamentos.apagar", nome: m("Eliminar orçamentos") },
+      { id: "orcamentos.submeter", nome: m("Enviar para revisão") },
       {
         id: "orcamentos.aprovar",
-        nome: "Aprovar e emitir",
-        ajuda: "Valida margens e entrega a proposta ao cliente",
+        nome: m("Aprovar e emitir"),
+        ajuda: m("Valida margens e entrega a proposta ao cliente"),
       },
-      { id: "orcamentos.cancelar", nome: "Cancelar propostas" },
+      { id: "orcamentos.cancelar", nome: m("Cancelar propostas") },
       {
         id: "orcamentos.verCusto",
-        nome: "Ver custos e margem",
-        ajuda: "Documento de custo interno e o lucro previsto",
+        nome: m("Ver custos e margem"),
+        ajuda: m("Documento de custo interno e o lucro previsto"),
       },
       {
         id: "orcamentos.custosObra",
-        nome: "Lancar custos reais da obra",
-        ajuda: "Faturas e horas gastas na obra, e a comparacao com a margem prevista",
+        nome: m("Lançar custos reais da obra"),
+        ajuda: m("Faturas e horas gastas na obra, e a comparação com a margem prevista"),
       },
     ],
   },
   {
-    grupo: "Cadastros",
+    grupo: m("Registos"),
     itens: [
-      { id: "clientes.ver", nome: "Ver clientes" },
-      { id: "clientes.gerir", nome: "Criar e editar clientes" },
-      { id: "materiais.ver", nome: "Ver materiais" },
-      { id: "materiais.gerir", nome: "Criar e editar materiais e precos" },
-      { id: "servicos.ver", nome: "Ver servicos" },
-      { id: "servicos.gerir", nome: "Criar e editar servicos e composicoes" },
+      { id: "clientes.ver", nome: m("Ver clientes") },
+      { id: "clientes.gerir", nome: m("Criar e editar clientes") },
+      { id: "materiais.ver", nome: m("Ver materiais") },
+      { id: "materiais.gerir", nome: m("Criar e editar materiais e preços") },
+      { id: "servicos.ver", nome: m("Ver serviços") },
+      { id: "servicos.gerir", nome: m("Criar e editar serviços e composições") },
     ],
   },
   {
-    grupo: "Pessoal",
+    grupo: m("Pessoal"),
     itens: [
-      { id: "funcionarios.ver", nome: "Ver funcionarios" },
+      { id: "funcionarios.ver", nome: m("Ver funcionários") },
       {
         id: "funcionarios.gerir",
-        nome: "Criar e editar funcionarios",
-        ajuda: "Inclui salarios, encargos e custo/hora",
+        nome: m("Criar e editar funcionários"),
+        ajuda: m("Inclui salários, encargos e custo/hora"),
       },
     ],
   },
   {
-    grupo: "Picagem de ponto",
+    grupo: m("Picagem de ponto"),
     itens: [
-      { id: "ponto.picar", nome: "Picar ponto", ajuda: "So para as contas de trabalhador (n.o + PIN)" },
+      { id: "ponto.picar", nome: m("Picar ponto"), ajuda: m("Só para as contas de trabalhador (n.º + PIN)") },
       {
         id: "ponto.gerir",
-        nome: "Gerir o ponto da equipa",
-        ajuda: "Ver picagens, aprovar ferias, faltas e correcoes, criar acessos. Quem gere funcionarios ja o tem.",
+        nome: m("Gerir o ponto da equipa"),
+        ajuda: m("Ver picagens, aprovar férias, faltas e correções, criar acessos. Quem gere funcionários já o tem."),
       },
     ],
   },
   {
-    grupo: "Sistema",
+    grupo: m("Sistema"),
     itens: [
-      { id: "relatorios.ver", nome: "Ver relatorios" },
-      { id: "configuracoes.ver", nome: "Ver configuracoes" },
-      { id: "configuracoes.gerir", nome: "Alterar identidade, termos e padroes" },
-      { id: "utilizadores.gerir", nome: "Gerir utilizadores e cargos" },
+      { id: "relatorios.ver", nome: m("Ver relatórios") },
+      { id: "configuracoes.ver", nome: m("Ver configurações") },
+      { id: "configuracoes.gerir", nome: m("Alterar identidade, termos e predefinições") },
+      { id: "utilizadores.gerir", nome: m("Gerir utilizadores e cargos") },
     ],
   },
 ]
@@ -150,14 +152,14 @@ const SO_VER: Permissao[] = [
 export const CARGOS: DefinicaoCargo[] = [
   {
     id: "administrador",
-    nome: "Administrador",
-    descricao: "Acesso total, incluindo utilizadores e configuracoes.",
+    nome: m("Administrador"),
+    descricao: m("Acesso total, incluindo utilizadores e configurações."),
     permissoes: TODAS_PERMISSOES,
   },
   {
     id: "direcao",
-    nome: "Direcao tecnica / comercial",
-    descricao: "Aprova propostas, ve custos e margens. Nao gere utilizadores.",
+    nome: m("Direção técnica / comercial"),
+    descricao: m("Aprova propostas, vê custos e margens. Não gere utilizadores."),
     permissoes: [
       ...SO_VER,
       "clientes.gerir",
@@ -178,8 +180,8 @@ export const CARGOS: DefinicaoCargo[] = [
   },
   {
     id: "orcamentista",
-    nome: "Orcamentista",
-    descricao: "Monta propostas e envia para revisao. Nao aprova nem emite.",
+    nome: m("Orçamentista"),
+    descricao: m("Monta propostas e envia para revisão. Não aprova nem emite."),
     permissoes: [
       ...SO_VER,
       "clientes.gerir",
@@ -196,26 +198,26 @@ export const CARGOS: DefinicaoCargo[] = [
   },
   {
     id: "tecnico",
-    nome: "Tecnico de obra",
-    descricao: "Consulta propostas e mantem materiais. Sem acesso a custos nem a salarios.",
+    nome: m("Técnico de obra"),
+    descricao: m("Consulta propostas e mantém materiais. Sem acesso a custos nem a salários."),
     permissoes: [...SO_VER, "materiais.gerir"],
   },
   {
     id: "consulta",
-    nome: "Consulta",
-    descricao: "So visualiza. E o cargo dado a quem se regista, ate ser alterado.",
+    nome: m("Consulta"),
+    descricao: m("Só visualiza. É o cargo dado a quem se regista, até ser alterado."),
     permissoes: SO_VER,
   },
   {
     id: "trabalhador",
-    nome: "Trabalhador (picagem)",
-    descricao: "So pica o ponto e pede ferias e faltas. Entra com o n.o de funcionario e PIN.",
+    nome: m("Trabalhador (picagem)"),
+    descricao: m("Só pica o ponto e pede férias e faltas. Entra com o n.º de funcionário e PIN."),
     permissoes: PERMISSOES_TRABALHADOR,
   },
   {
     id: "personalizado",
-    nome: "Personalizado",
-    descricao: "Permissoes escolhidas uma a uma.",
+    nome: m("Personalizado"),
+    descricao: m("Permissões escolhidas uma a uma."),
     permissoes: [],
   },
 ]

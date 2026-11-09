@@ -13,6 +13,7 @@ import type { Conta } from "@/lib/types"
 import { formatCurrency, round2 } from "@/lib/utils"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { toast } from "@/hooks/use-toast"
+import { localeIntl, t } from "@/lib/i18n"
 
 export default function RelatoriosPage() {
   const [loading, setLoading] = useState(true)
@@ -126,8 +127,8 @@ export default function RelatoriosPage() {
         .forEach((o) => {
           atividadesRecentes.push({
             tipo: "orcamento_aprovado",
-            titulo: `Orçamento #${o.numero} aprovado`,
-            descricao: `Cliente: ${o.cliente.nome}`,
+            titulo: t("Orçamento n.º {numero} adjudicado", { numero: o.numero }),
+            descricao: t("Cliente: {nome}", { nome: o.cliente.nome }),
             valor: o.valorTotal,
             data: o.dataOrcamento,
             icon: "FileText",
@@ -142,7 +143,7 @@ export default function RelatoriosPage() {
         .forEach((c) => {
           atividadesRecentes.push({
             tipo: "novo_cliente",
-            titulo: "Novo cliente cadastrado",
+            titulo: t("Novo cliente registado"),
             descricao: c.nome,
             data: c.createdAt,
             icon: "Users",
@@ -180,8 +181,8 @@ export default function RelatoriosPage() {
     } catch (error) {
       console.error("Erro ao carregar relatórios:", error)
       toast({
-        title: "Erro ao carregar relatórios",
-        description: "Não foi possível carregar os dados dos relatórios.",
+        title: t("Erro ao carregar relatórios"),
+        description: t("Não foi possível carregar os dados dos relatórios."),
         variant: "destructive",
       })
     } finally {
@@ -192,15 +193,15 @@ export default function RelatoriosPage() {
   const getPeriodoLabel = () => {
     switch (periodo) {
       case "semana":
-        return "Esta Semana"
+        return t("Esta semana")
       case "mes":
-        return "Este Mês"
+        return t("Este mês")
       case "trimestre":
-        return "Este Trimestre"
+        return t("Este trimestre")
       case "ano":
-        return "Este Ano"
+        return t("Este ano")
       default:
-        return "Este Mês"
+        return t("Este mês")
     }
   }
 
@@ -230,24 +231,24 @@ export default function RelatoriosPage() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Relatórios</h1>
-          <p className="text-muted-foreground mt-2">Análises e estatísticas do negócio - {getPeriodoLabel()}</p>
+          <h1 className="text-3xl font-bold">{t("Relatórios")}</h1>
+          <p className="text-muted-foreground mt-2">{t("Análises e estatísticas do negócio - {periodo}", { periodo: getPeriodoLabel() })}</p>
         </div>
         <div className="flex space-x-2">
           <Select value={periodo} onValueChange={setPeriodo}>
             <SelectTrigger className="w-[180px] rounded-full">
-              <SelectValue placeholder="Período" />
+              <SelectValue placeholder={t("Período")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="semana">Esta Semana</SelectItem>
-              <SelectItem value="mes">Este Mês</SelectItem>
-              <SelectItem value="trimestre">Este Trimestre</SelectItem>
-              <SelectItem value="ano">Este Ano</SelectItem>
+              <SelectItem value="semana">{t("Esta semana")}</SelectItem>
+              <SelectItem value="mes">{t("Este mês")}</SelectItem>
+              <SelectItem value="trimestre">{t("Este trimestre")}</SelectItem>
+              <SelectItem value="ano">{t("Este ano")}</SelectItem>
             </SelectContent>
           </Select>
           <Button variant="outline" className="rounded-full bg-transparent">
             <Download className="h-4 w-4 mr-2" />
-            Exportar
+            {t("Exportar")}
           </Button>
         </div>
       </div>
@@ -256,60 +257,70 @@ export default function RelatoriosPage() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Recebido</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("Recebido")}</CardTitle>
             <TrendingUp className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-emerald-700">{formatCurrency(stats.recebido)}</div>
             <p className="text-xs text-muted-foreground">
-              Pago {formatCurrency(stats.pago)} · saldo {formatCurrency(round2(stats.recebido - stats.pago))}
+              {t("Pago {pago} · saldo {saldo}", {
+                pago: formatCurrency(stats.pago),
+                saldo: formatCurrency(round2(stats.recebido - stats.pago)),
+              })}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Receita Total</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("Receita Total")}</CardTitle>
             <TrendingUp className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">€{stats.receitaTotal.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">{stats.orcamentosAprovados} orçamentos adjudicados</p>
+            <div className="text-2xl font-bold">{formatCurrency(stats.receitaTotal)}</div>
+            <p className="text-xs text-muted-foreground">
+              {stats.orcamentosAprovados === 1
+                ? t("{n} orçamento adjudicado", { n: stats.orcamentosAprovados })
+                : t("{n} orçamentos adjudicados", { n: stats.orcamentosAprovados })}
+            </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Orçamentos</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("Orçamentos")}</CardTitle>
             <FileText className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalOrcamentos}</div>
             <p className="text-xs text-muted-foreground">
-              {stats.orcamentosAprovados} aprovados, {stats.orcamentosPendentes} pendentes
+              {t("{aprovados} aprovados, {pendentes} pendentes", {
+                aprovados: stats.orcamentosAprovados,
+                pendentes: stats.orcamentosPendentes,
+              })}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Novos Clientes</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("Novos Clientes")}</CardTitle>
             <Users className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.novosClientes}</div>
-            <p className="text-xs text-muted-foreground">{stats.clientesAtivos} clientes ativos no total</p>
+            <p className="text-xs text-muted-foreground">{t("{n} clientes ativos no total", { n: stats.clientesAtivos })}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Taxa de Conversão</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("Taxa de Conversão")}</CardTitle>
             <BarChart3 className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.taxaConversao}%</div>
-            <p className="text-xs text-muted-foreground">Receita média: €{stats.receitaMedia.toFixed(2)}</p>
+            <p className="text-xs text-muted-foreground">{t("Receita média: {valor}", { valor: formatCurrency(stats.receitaMedia) })}</p>
           </CardContent>
         </Card>
       </div>
@@ -318,25 +329,25 @@ export default function RelatoriosPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Resumo do Sistema</CardTitle>
-            <CardDescription>Dados gerais cadastrados no sistema</CardDescription>
+            <CardTitle>{t("Resumo do Sistema")}</CardTitle>
+            <CardDescription>{t("Dados gerais registados no sistema")}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm">Funcionários Ativos</span>
+                <span className="text-sm">{t("Funcionários Ativos")}</span>
                 <span className="font-medium">{stats.funcionariosAtivos}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm">Materiais Cadastrados</span>
+                <span className="text-sm">{t("Materiais Registados")}</span>
                 <span className="font-medium">{stats.materiaisCadastrados}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm">Serviços Cadastrados</span>
+                <span className="text-sm">{t("Serviços Registados")}</span>
                 <span className="font-medium">{stats.servicosCadastrados}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm">Total de Clientes</span>
+                <span className="text-sm">{t("Total de Clientes")}</span>
                 <span className="font-medium">{stats.clientesAtivos}</span>
               </div>
             </div>
@@ -345,8 +356,8 @@ export default function RelatoriosPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Tipos de Serviço Populares</CardTitle>
-            <CardDescription>Serviços mais solicitados no período</CardDescription>
+            <CardTitle>{t("Tipos de Serviço Populares")}</CardTitle>
+            <CardDescription>{t("Serviços mais pedidos no período")}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -364,7 +375,7 @@ export default function RelatoriosPage() {
                 ))
               ) : (
                 <p className="text-sm text-muted-foreground text-center py-4">
-                  Nenhum serviço encontrado no período selecionado
+                  {t("Nenhum serviço encontrado no período selecionado")}
                 </p>
               )}
             </div>
@@ -375,8 +386,8 @@ export default function RelatoriosPage() {
       {/* Recent Activity */}
       <Card>
         <CardHeader>
-          <CardTitle>Atividade Recente</CardTitle>
-          <CardDescription>Últimas transações e atividades do período</CardDescription>
+          <CardTitle>{t("Atividade Recente")}</CardTitle>
+          <CardDescription>{t("Últimas transações e atividades do período")}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -399,9 +410,9 @@ export default function RelatoriosPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      {atividade.valor && <p className="font-medium">€{atividade.valor.toFixed(2)}</p>}
+                      {atividade.valor && <p className="font-medium">{formatCurrency(atividade.valor)}</p>}
                       <p className="text-sm text-muted-foreground">
-                        {new Date(atividade.data).toLocaleDateString("pt-PT")}
+                        {new Date(atividade.data).toLocaleDateString(localeIntl())}
                       </p>
                     </div>
                   </div>
@@ -410,7 +421,7 @@ export default function RelatoriosPage() {
             ) : (
               <div className="text-center py-8">
                 <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">Nenhuma atividade encontrada no período selecionado</p>
+                <p className="text-muted-foreground">{t("Nenhuma atividade encontrada no período selecionado")}</p>
               </div>
             )}
           </div>

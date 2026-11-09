@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils"
+import { t } from "@/lib/i18n"
 
 interface LoadingSpinnerProps {
   size?: "sm" | "md" | "lg"
@@ -20,7 +21,7 @@ export function LoadingSpinner({ size = "md", className }: LoadingSpinnerProps) 
         className,
       )}
     >
-      <span className="sr-only">Loading...</span>
+      <span className="sr-only">{t("A carregar...")}</span>
     </div>
   )
 }

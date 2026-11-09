@@ -63,6 +63,7 @@ import {
   funcaoDoFuncionario,
   funcionariosDaFuncao,
   margemPorPreco,
+  nomeUnidade,
   vendaDoProduto,
 } from "@/lib/produto-calculos"
 import { custoServicoAtual } from "@/lib/composicao-catalogo"
@@ -100,6 +101,7 @@ import type {
   TipoDocumentoProposta,
 } from "@/lib/types"
 import { formatCurrency, formatNumber2, round2, toFixed2 } from "@/lib/utils"
+import { m, t } from "@/lib/i18n"
 
 interface OrcamentoFormState {
   /** Numero da proposta, editavel para corrigir sequencias. */
@@ -181,11 +183,19 @@ function getDefaultProdutoForm(): ProdutoFormState {
 
 /** Campos das dimensoes de um comodo: campo, rotulo, unidade. */
 const CAMPOS_DIMENSAO = [
-  ["comprimento", "Comprimento", "m"],
-  ["largura", "Largura", "m"],
-  ["altura", "Pe-direito", "m"],
-  ["aberturas", "Portas/janelas", "m2"],
+  ["comprimento", m("Comprimento"), "m"],
+  ["largura", m("Largura"), "m"],
+  ["altura", m("Pé-direito"), "m"],
+  ["aberturas", m("Portas/janelas"), "m2"],
 ] as const
+
+/**
+ * Texto com marcadores {nome} em que cada marcador e substituido por um
+ * elemento (ex.: um valor a negrito), sem partir a frase traduzida.
+ */
+function comElementos(texto: string, partes: Record<string, React.ReactNode>): React.ReactNode[] {
+  return texto.split(/\{(\w+)\}/).map((pedaco, i) => (i % 2 ? <span key={i}>{partes[pedaco]}</span> : pedaco))
+}
 
 /** Valor do seletor de funcionario que significa "custo medio da funcao". */
 const CUSTO_MEDIO = "__medio"
@@ -430,8 +440,8 @@ export function OrcamentoEditor({
   const handleServicoFormSubmit = () => {
     if (!servicoForm.servicoId || servicoForm.quantidade <= 0) {
       toast({
-        title: "Dados incompletos",
-        description: "Selecione um servico e informe a quantidade.",
+        title: t("Dados incompletos"),
+        description: t("Selecione um serviço e indique a quantidade."),
         variant: "destructive",
       })
       return
@@ -447,10 +457,10 @@ export function OrcamentoEditor({
     )
     if (repetidoNoMesmoAmbiente) {
       toast({
-        title: "Servico ja consta neste comodo",
+        title: t("Serviço já consta nesta divisão"),
         description: ambienteAtual
-          ? `Este servico ja esta em "${ambienteAtual}". Escolha outro comodo ou ajuste a quantidade do item existente.`
-          : "Este servico ja foi adicionado. Escolha um comodo ou ajuste a quantidade do item existente.",
+          ? t('Este serviço já está em "{comodo}". Escolha outra divisão ou ajuste a quantidade do item existente.', { comodo: ambienteAtual })
+          : t("Este serviço já foi adicionado. Escolha uma divisão ou ajuste a quantidade do item existente."),
         variant: "destructive",
       })
       return
@@ -495,8 +505,8 @@ export function OrcamentoEditor({
     if (servicoForm.precoFixo > 0) {
       novosItens.push({
         id: `servico-fixo-${servicoForm.servicoId}-${timestamp}`,
-        nome: `${servico.nome} - valor fixo`,
-        descricao: "Itens e equipamentos que nao acompanham a area (cobrados uma unica vez)",
+        nome: t("{nome} - valor fixo", { nome: servico.nome }),
+        descricao: t("Itens e equipamentos que não acompanham a área (cobrados uma única vez)"),
         quantidade: 1,
         unidade: servicoForm.unidade,
         precoUnitario: precoDoItem(servicoForm.precoFixo, servicoForm.precoFixo, especialidadeId),
@@ -534,13 +544,19 @@ export function OrcamentoEditor({
     const { precoTabela, custo } = valoresMaoObra(funcao, funcionario)
     const precoUnitario = precoDoItem(precoTabela, custo, "civil")
     const nomeFuncao = funcao?.nome || funcionario?.funcao || ""
-    const quem = funcionario ? funcionario.nome : "custo medio da funcao"
+    const quem = funcionario ? funcionario.nome : t("custo médio da função")
 
     return {
       id: `maoobra-${Date.now()}-${Math.round(Math.random() * 1000)}`,
-      nome: `Mao de obra - ${funcionario?.nome || nomeFuncao}`,
-      descricao: `Mao de obra - ${nomeFuncao ? `${nomeFuncao} (${quem})` : quem}`,
-      descricaoCliente: funcao ? descricaoClienteFuncao(funcao) : nomeFuncao ? `Mao de obra - ${nomeFuncao}` : "Mao de obra",
+      nome: t("Mão de obra - {nome}", { nome: funcionario?.nome || nomeFuncao }),
+      descricao: nomeFuncao
+        ? t("Mão de obra - {funcao} ({quem})", { funcao: nomeFuncao, quem })
+        : t("Mão de obra - {nome}", { nome: quem }),
+      descricaoCliente: funcao
+        ? descricaoClienteFuncao(funcao)
+        : nomeFuncao
+          ? t("Mão de obra - {nome}", { nome: nomeFuncao })
+          : t("Mão de obra"),
       quantidade: round2(quantidade),
       unidade,
       precoUnitario,
@@ -562,16 +578,16 @@ export function OrcamentoEditor({
   const handleMaoObraFormSubmit = () => {
     if ((!funcaoSelecionada && !funcionarioSelecionado) || maoObraForm.quantidade <= 0) {
       toast({
-        title: "Dados incompletos",
-        description: "Escolha a funcao (ou um funcionario) e informe a quantidade.",
+        title: t("Dados incompletos"),
+        description: t("Escolha a função (ou um funcionário) e indique a quantidade."),
         variant: "destructive",
       })
       return
     }
     if (previaMaoObra.custo <= 0) {
       toast({
-        title: "Mao de obra sem custo",
-        description: "Nenhum funcionario ativo tem esta funcao: o item entra com custo 0. Escolha um funcionario para ter o custo real.",
+        title: t("Mão de obra sem custo"),
+        description: t("Nenhum funcionário ativo tem esta função: o item entra com custo 0. Escolha um funcionário para ter o custo real."),
       })
     }
 
@@ -594,8 +610,8 @@ export function OrcamentoEditor({
   const handleProdutoSubmit = () => {
     if (!produtoSelecionado || produtoForm.quantidade <= 0) {
       toast({
-        title: "Dados incompletos",
-        description: "Escolha o produto e informe a quantidade.",
+        title: t("Dados incompletos"),
+        description: t("Escolha o produto e indique a quantidade."),
         variant: "destructive",
       })
       return
@@ -716,8 +732,11 @@ export function OrcamentoEditor({
     if (!avisouMargens.current && orcamento) {
       avisouMargens.current = true
       toast({
-        title: "Precos atualizados",
-        description: `${itensDesatualizados} item(ns) passaram para as margens atuais de Configuracoes > Precos. Grave para guardar.`,
+        title: t("Preços atualizados"),
+        description:
+          itensDesatualizados === 1
+            ? t("{n} item passou para as margens atuais de Configurações > Preços. Guarde a proposta para manter a alteração.", { n: itensDesatualizados })
+            : t("{n} itens passaram para as margens atuais de Configurações > Preços. Guarde a proposta para manter a alteração.", { n: itensDesatualizados }),
       })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -755,8 +774,8 @@ export function OrcamentoEditor({
       const funcionario = funcionarios.find((item) => item.id === duplicarFuncionarioId)
       if (!funcionario && !funcao) {
         toast({
-          title: "Selecione um funcionario",
-          description: "Escolha o funcionario que vai receber a copia da mao de obra.",
+          title: t("Selecione um funcionário"),
+          description: t("Escolha o funcionário que vai receber a cópia da mão de obra."),
           variant: "destructive",
         })
         return
@@ -782,8 +801,8 @@ export function OrcamentoEditor({
     })
 
     toast({
-      title: "Item duplicado",
-      description: destino ? `Copia criada em "${destino}".` : "Copia criada sem comodo.",
+      title: t("Item duplicado"),
+      description: destino ? t('Cópia criada em "{destino}".', { destino }) : t("Cópia criada sem divisão."),
     })
 
     setDuplicandoItem(null)
@@ -815,10 +834,10 @@ export function OrcamentoEditor({
     if (itensOrigem.length === 0) return
 
     // Encontra um nome livre: "Quarto 01" -> "Quarto 01 (copia)" -> "... (copia 2)"
-    let destino = `${nome} (copia)`
+    let destino = t("{nome} (cópia)", { nome })
     let sufixo = 2
     while (formData.ambientes.includes(destino)) {
-      destino = `${nome} (copia ${sufixo})`
+      destino = t("{nome} (cópia {n})", { nome, n: sufixo })
       sufixo++
     }
 
@@ -839,14 +858,20 @@ export function OrcamentoEditor({
     })
     setAmbienteAtual(destino)
 
-    toast({ title: "Comodo duplicado", description: `${copias.length} item(s) copiados para "${destino}".` })
+    toast({
+      title: t("Divisão duplicada"),
+      description:
+        copias.length === 1
+          ? t('{n} item copiado para "{destino}".', { n: copias.length, destino })
+          : t('{n} itens copiados para "{destino}".', { n: copias.length, destino }),
+    })
   }
 
   const adicionarAmbiente = () => {
     const nome = novoAmbiente.trim()
     if (!nome) return
     if (formData.ambientes.some((item) => item.toLowerCase() === nome.toLowerCase())) {
-      toast({ title: "Comodo ja existe", description: `"${nome}" ja esta na lista.`, variant: "destructive" })
+      toast({ title: t("A divisão já existe"), description: t('"{nome}" já está na lista.', { nome }), variant: "destructive" })
       return
     }
     setFormData({ ...formData, ambientes: [...formData.ambientes, nome] })
@@ -957,7 +982,7 @@ export function OrcamentoEditor({
   // --- Gravar
 
   const resolveCliente = async (): Promise<string> => {
-    if (!user) throw new Error("Usuario nao autenticado")
+    if (!user) throw new Error(t("Utilizador não autenticado"))
     if (formData.clienteId) return formData.clienteId
 
     const nome = formData.cliente.nome.trim().toLowerCase()
@@ -996,33 +1021,33 @@ export function OrcamentoEditor({
    */
   const validar = (): boolean => {
     const obrigatoriosCliente: Array<[keyof Orcamento["cliente"], string]> = [
-      ["nome", "o nome do cliente"],
-      ["email", "o email"],
-      ["telefone", "o telefone"],
-      ["morada", "a morada"],
-      ["cidade", "a cidade"],
-      ["codigoPostal", "o codigo postal"],
+      ["nome", t("Indique o nome do cliente.")],
+      ["email", t("Indique o email.")],
+      ["telefone", t("Indique o telefone.")],
+      ["morada", t("Indique a morada.")],
+      ["cidade", t("Indique a cidade.")],
+      ["codigoPostal", t("Indique o código postal.")],
     ]
 
-    for (const [campo, rotulo] of obrigatoriosCliente) {
+    for (const [campo, mensagem] of obrigatoriosCliente) {
       if (!(formData.cliente[campo] || "").toString().trim()) {
         setAba("dados")
-        toast({ title: "Falta preencher", description: `Indique ${rotulo}.`, variant: "destructive" })
+        toast({ title: t("Falta preencher"), description: mensagem, variant: "destructive" })
         return false
       }
     }
 
     if (!formData.dataOrcamento || !formData.dataValidade) {
       setAba("dados")
-      toast({ title: "Falta preencher", description: "Indique as datas da proposta.", variant: "destructive" })
+      toast({ title: t("Falta preencher"), description: t("Indique as datas da proposta."), variant: "destructive" })
       return false
     }
 
     if (formData.itens.length === 0) {
       setAba("itens")
       toast({
-        title: "Adicione itens",
-        description: "Inclua pelo menos um servico, produto ou mao de obra no orcamento.",
+        title: t("Adicione itens"),
+        description: t("Inclua pelo menos um serviço, produto ou mão de obra no orçamento."),
         variant: "destructive",
       })
       return false
@@ -1038,8 +1063,8 @@ export function OrcamentoEditor({
     if (!validar()) return
     if (!user) {
       toast({
-        title: "Sessao terminada",
-        description: "Volte a entrar para guardar as alteracoes.",
+        title: t("Sessão terminada"),
+        description: t("Volte a iniciar sessão para guardar as alterações."),
         variant: "destructive",
       })
       return
@@ -1097,18 +1122,18 @@ export function OrcamentoEditor({
 
       if (orcamento?.id) {
         await FirebaseService.updateOrcamento(orcamento.id, orcamentoData)
-        toast({ title: "Orcamento atualizado", description: "O orcamento foi atualizado com sucesso." })
+        toast({ title: t("Orçamento atualizado"), description: t("O orçamento foi atualizado com sucesso.") })
       } else {
         await FirebaseService.addOrcamento(orcamentoData, user.uid)
-        toast({ title: "Orcamento criado", description: "O orcamento foi criado com sucesso." })
+        toast({ title: t("Orçamento criado"), description: t("O orçamento foi criado com sucesso.") })
       }
 
       onGuardado()
     } catch (error) {
       console.error("Erro ao salvar orcamento:", error)
       toast({
-        title: "Erro ao salvar orcamento",
-        description: "Nao foi possivel salvar o orcamento.",
+        title: t("Erro ao guardar o orçamento"),
+        description: t("Não foi possível guardar o orçamento."),
         variant: "destructive",
       })
     } finally {
@@ -1120,32 +1145,32 @@ export function OrcamentoEditor({
     <form onSubmit={handleSubmit} className="space-y-4">
       <Tabs value={aba} onValueChange={(valor) => setAba(valor as Aba)}>
         <TabsList className="flex w-full flex-wrap justify-start h-auto">
-          <TabsTrigger value="dados">Dados</TabsTrigger>
+          <TabsTrigger value="dados">{t("Dados")}</TabsTrigger>
           <TabsTrigger value="itens">
-            Itens
+            {t("Itens")}
             {formData.itens.length > 0 && (
               <Badge variant="secondary" className="ml-2 px-1.5 py-0 text-[10px]">
                 {formData.itens.length}
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="preco">Preco</TabsTrigger>
-          <TabsTrigger value="resumo">Resumo</TabsTrigger>
-          {verCusto && CUSTOS_OBRA_ATIVO && <TabsTrigger value="custos">Custos reais</TabsTrigger>}
+          <TabsTrigger value="preco">{t("Preço")}</TabsTrigger>
+          <TabsTrigger value="resumo">{t("Resumo")}</TabsTrigger>
+          {verCusto && CUSTOS_OBRA_ATIVO && <TabsTrigger value="custos">{t("Custos reais")}</TabsTrigger>}
         </TabsList>
 
         {/* ---------------------------------------------------------- Dados */}
         <TabsContent value="dados" className="space-y-6 pt-4">
           <div className="space-y-4">
-            <h3 className="text-lg font-medium">Cliente</h3>
+            <h3 className="text-lg font-medium">{t("Cliente")}</h3>
             <div className="space-y-2">
-              <Label>Selecionar cliente existente</Label>
+              <Label>{t("Selecionar cliente existente")}</Label>
               <Select value={selectedClientValue} onValueChange={handleClientSelect}>
                 <SelectTrigger className="rounded-full">
-                  <SelectValue placeholder="Selecione um cliente ou use novo cadastro" />
+                  <SelectValue placeholder={t("Selecione um cliente ou use um novo registo")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__novo">Novo cliente</SelectItem>
+                  <SelectItem value="__novo">{t("Novo cliente")}</SelectItem>
                   {clientes.map((cliente) => (
                     <SelectItem key={cliente.id} value={cliente.id || ""}>
                       {cliente.nome} - {cliente.numeroUnico}
@@ -1157,28 +1182,28 @@ export function OrcamentoEditor({
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="clienteNome">Nome Completo</Label>
+                <Label htmlFor="clienteNome">{t("Nome completo")}</Label>
                 <Input
                   id="clienteNome"
                   value={formData.cliente.nome}
                   onChange={(e) => alterarCliente("nome", e.target.value)}
-                  placeholder="Nome do cliente"
+                  placeholder={t("Nome do cliente")}
                   className="rounded-full"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="clienteEmail">Email</Label>
+                <Label htmlFor="clienteEmail">{t("Email")}</Label>
                 <Input
                   id="clienteEmail"
                   type="email"
                   value={formData.cliente.email}
                   onChange={(e) => alterarCliente("email", e.target.value)}
-                  placeholder="email@exemplo.com"
+                  placeholder={t("email@exemplo.com")}
                   className="rounded-full"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="clienteTelefone">Telefone</Label>
+                <Label htmlFor="clienteTelefone">{t("Telefone")}</Label>
                 <Input
                   id="clienteTelefone"
                   value={formData.cliente.telefone}
@@ -1188,7 +1213,7 @@ export function OrcamentoEditor({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="clienteNif">NIF (Opcional)</Label>
+                <Label htmlFor="clienteNif">{t("NIF (opcional)")}</Label>
                 <Input
                   id="clienteNif"
                   value={formData.cliente.nif || ""}
@@ -1200,29 +1225,29 @@ export function OrcamentoEditor({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="clienteMorada">Morada</Label>
+              <Label htmlFor="clienteMorada">{t("Morada")}</Label>
               <Input
                 id="clienteMorada"
                 value={formData.cliente.morada}
                 onChange={(e) => alterarCliente("morada", e.target.value)}
-                placeholder="Rua, numero, andar"
+                placeholder={t("Rua, número, andar")}
                 className="rounded-full"
               />
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="clienteCidade">Cidade</Label>
+                <Label htmlFor="clienteCidade">{t("Cidade")}</Label>
                 <Input
                   id="clienteCidade"
                   value={formData.cliente.cidade}
                   onChange={(e) => alterarCliente("cidade", e.target.value)}
-                  placeholder="Cidade"
+                  placeholder={t("Cidade")}
                   className="rounded-full"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="clienteCodigoPostal">Codigo Postal</Label>
+                <Label htmlFor="clienteCodigoPostal">{t("Código postal")}</Label>
                 <Input
                   id="clienteCodigoPostal"
                   value={formData.cliente.codigoPostal}
@@ -1235,10 +1260,10 @@ export function OrcamentoEditor({
           </div>
 
           <div className="space-y-4">
-            <h3 className="text-lg font-medium">Documento</h3>
+            <h3 className="text-lg font-medium">{t("Documento")}</h3>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-2">
-                <Label htmlFor="tipoDocumento">Tipo</Label>
+                <Label htmlFor="tipoDocumento">{t("Tipo")}</Label>
                 <Select
                   value={formData.tipoDocumento}
                   onValueChange={(valor) =>
@@ -1251,15 +1276,15 @@ export function OrcamentoEditor({
                   <SelectContent>
                     {TIPOS_DOCUMENTO.map((tipo) => (
                       <SelectItem key={tipo.id} value={tipo.id}>
-                        {tipo.nome}
+                        {t(tipo.nome)}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">{getTipoDocumento(formData.tipoDocumento).descricao}</p>
+                <p className="text-xs text-muted-foreground">{t(getTipoDocumento(formData.tipoDocumento).descricao)}</p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="numero">Numero da proposta</Label>
+                <Label htmlFor="numero">{t("Número da proposta")}</Label>
                 <Input
                   id="numero"
                   value={formData.numero}
@@ -1268,16 +1293,16 @@ export function OrcamentoEditor({
                   className="rounded-full"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Sai como{" "}
-                  {numeroCompleto(
-                    { numero: formData.numero || numeroSugerido(), tipoDocumento: formData.tipoDocumento },
-                    configuracao,
-                  )}
-                  . Deixe vazio para numerar automaticamente.
+                  {t("Sai como {numero}. Deixe vazio para numerar automaticamente.", {
+                    numero: numeroCompleto(
+                      { numero: formData.numero || numeroSugerido(), tipoDocumento: formData.tipoDocumento },
+                      configuracao,
+                    ),
+                  })}
                 </p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="dataOrcamento">Data do Orcamento</Label>
+                <Label htmlFor="dataOrcamento">{t("Data do orçamento")}</Label>
                 <Input
                   id="dataOrcamento"
                   type="date"
@@ -1287,7 +1312,7 @@ export function OrcamentoEditor({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="dataValidade">Data de Validade</Label>
+                <Label htmlFor="dataValidade">{t("Data de validade")}</Label>
                 <Input
                   id="dataValidade"
                   type="date"
@@ -1304,10 +1329,11 @@ export function OrcamentoEditor({
         <TabsContent value="itens" className="space-y-6 pt-4">
           <div className="space-y-4">
             <div>
-              <h3 className="text-lg font-medium">Comodos</h3>
+              <h3 className="text-lg font-medium">{t("Divisões")}</h3>
               <p className="text-sm text-muted-foreground">
-                Organize o orcamento por divisao da casa. No documento cada comodo sai como uma seccao com o seu
-                subtotal, e os itens ficam numerados 1.1, 1.2, 2.1...
+                {t(
+                  "Organize o orçamento por divisões da casa. No documento, cada divisão sai como uma secção com o seu subtotal, e os itens ficam numerados 1.1, 1.2, 2.1...",
+                )}
               </p>
             </div>
 
@@ -1322,12 +1348,12 @@ export function OrcamentoEditor({
                       adicionarAmbiente()
                     }
                   }}
-                  placeholder="Ex.: Sala, Hall, Cozinha, Quarto 01, Marquise"
+                  placeholder={t("Ex.: Sala, Hall, Cozinha, Quarto 01, Marquise")}
                   className="rounded-full"
                 />
                 <Button type="button" onClick={adicionarAmbiente} className="rounded-full">
                   <Plus className="h-4 w-4 mr-1" />
-                  Adicionar
+                  {t("Adicionar")}
                 </Button>
               </div>
 
@@ -1347,7 +1373,7 @@ export function OrcamentoEditor({
                           e.stopPropagation()
                           removerAmbiente(nome)
                         }}
-                        aria-label={`Remover ${nome}`}
+                        aria-label={t("Remover {nome}", { nome })}
                         className="ml-1 opacity-70 hover:opacity-100"
                       >
                         <X className="h-3 w-3" />
@@ -1359,23 +1385,23 @@ export function OrcamentoEditor({
 
               <p className="text-xs text-muted-foreground">
                 {ambienteAtual
-                  ? `Os proximos itens vao para: ${ambienteAtual}. Clique no comodo para trocar.`
-                  : "Nenhum comodo selecionado: os proximos itens ficam sem comodo. Clique num comodo para o escolher."}
+                  ? t("Os próximos itens vão para: {comodo}. Clique na divisão para trocar.", { comodo: ambienteAtual })
+                  : t("Nenhuma divisão selecionada: os próximos itens ficam sem divisão. Clique numa divisão para a escolher.")}
               </p>
 
               {/* Quadro de areas: dimensoes do comodo -> quantidades automaticas */}
               {ambienteAtual && (
                 <div className="rounded-lg border bg-background p-3 space-y-2" data-testid="dimensoes-comodo">
-                  <p className="text-sm font-medium">Dimensoes de {ambienteAtual}</p>
+                  <p className="text-sm font-medium">{t("Dimensões de {comodo}", { comodo: ambienteAtual })}</p>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {CAMPOS_DIMENSAO.map(([campo, rotulo, un]) => (
                       <div key={campo} className="space-y-1">
-                        <Label className="text-xs">{rotulo}</Label>
+                        <Label className="text-xs">{t(rotulo)}</Label>
                         <CampoNumerico
                           tamanho="sm"
                           min={0}
                           sufixo={un}
-                          aria-label={rotulo}
+                          aria-label={t(rotulo)}
                           value={formData.dimensoesAmbientes[ambienteAtual]?.[campo] ?? 0}
                           onChange={(valor) => alterarDimensoes(ambienteAtual, { [campo]: valor })}
                         />
@@ -1384,9 +1410,14 @@ export function OrcamentoEditor({
                   </div>
                   {ambienteComDimensoes && (
                     <p className="text-xs text-muted-foreground" data-testid="medidas-comodo">
-                      Pavimento/teto {formatNumber2(medidasAtuais.pavimento)} m2 · Paredes{" "}
-                      {formatNumber2(medidasAtuais.paredes)} m2 · Perimetro {formatNumber2(medidasAtuais.perimetro)} ml.
-                      Os itens ligados a uma medicao acompanham estas dimensoes.
+                      {t(
+                        "Pavimento/teto {pavimento} m2 · Paredes {paredes} m2 · Perímetro {perimetro} ml. Os itens ligados a uma medição acompanham estas dimensões.",
+                        {
+                          pavimento: formatNumber2(medidasAtuais.pavimento),
+                          paredes: formatNumber2(medidasAtuais.paredes),
+                          perimetro: formatNumber2(medidasAtuais.perimetro),
+                        },
+                      )}
                     </p>
                   )}
                 </div>
@@ -1395,24 +1426,24 @@ export function OrcamentoEditor({
           </div>
 
           <div className="space-y-4">
-            <h3 className="text-lg font-medium">Servico no orcamento</h3>
+            <h3 className="text-lg font-medium">{t("Serviço no orçamento")}</h3>
             <Card className="p-4 border-2 border-dashed">
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Selecionar servico</Label>
+                  <Label>{t("Selecionar serviço")}</Label>
                   <SeletorComBusca
                     valor={servicoForm.servicoId}
                     onChange={handleServicoSelect}
-                    placeholder="Escolha um servico"
-                    placeholderBusca="Procurar servico..."
-                    vazio="Nenhum servico encontrado."
+                    placeholder={t("Escolha um serviço")}
+                    placeholderBusca={t("Procurar serviço...")}
+                    vazio={t("Nenhum serviço encontrado.")}
                     className="rounded-full"
                     opcoes={servicos.map((servico) => ({
                       valor: servico.id!,
                       rotulo: servico.nome,
                       detalhe: `${getServiceCategoryName(servico.categoriaId, servico.categoriaNome)} - ${formatCurrency(
                         servico.preco || 0,
-                      )} / ${servico.unidade}`,
+                      )} / ${nomeUnidade(servico.unidade)}`,
                     }))}
                   />
                 </div>
@@ -1421,13 +1452,17 @@ export function OrcamentoEditor({
                   <>
                     <div className="grid gap-4 sm:grid-cols-3">
                       <div className="space-y-2">
-                        <Label>Unidade (automatico)</Label>
-                        <Input value={servicoForm.unidade} readOnly className="rounded-full bg-muted" />
+                        <Label>{t("Unidade (automático)")}</Label>
+                        <Input value={nomeUnidade(servicoForm.unidade)} readOnly className="rounded-full bg-muted" />
                       </div>
                       <div className="space-y-2">
                         <Label>
-                          Quantidade
-                          {servicoForm.medicao && ` (${MEDICOES[servicoForm.medicao].nome.toLowerCase()} de ${ambienteAtual})`}
+                          {t("Quantidade")}
+                          {servicoForm.medicao &&
+                            ` (${t("{medicao} de {comodo}", {
+                              medicao: t(MEDICOES[servicoForm.medicao].nome).toLowerCase(),
+                              comodo: ambienteAtual,
+                            })})`}
                         </Label>
                         <CampoNumerico
                           min={0.01}
@@ -1437,7 +1472,7 @@ export function OrcamentoEditor({
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>Venda por {servicoForm.unidade || "unidade"} (automatico)</Label>
+                        <Label>{t("Venda por {unidade} (automático)", { unidade: nomeUnidade(servicoForm.unidade) || t("unidade") })}</Label>
                         <Input
                           value={toFixed2(vendaServico(servicoForm.precoUnitario))}
                           readOnly
@@ -1448,20 +1483,29 @@ export function OrcamentoEditor({
                     </div>
                     {verCusto && (
                       <p className="text-xs text-muted-foreground" data-testid="servico-custo-info">
-                        Custo da composicao: {formatCurrency(servicoForm.precoUnitario)}/{servicoForm.unidade}
+                        {t("Custo da composição: {custo}/{unidade}", {
+                          custo: formatCurrency(servicoForm.precoUnitario),
+                          unidade: nomeUnidade(servicoForm.unidade),
+                        })}
                         {servicoForm.decomposicao &&
-                          ` (mao de obra ${formatCurrency(servicoForm.decomposicao.mao_obra)} · materiais ${formatCurrency(
-                            servicoForm.decomposicao.materiais,
-                          )} · outros ${formatCurrency(servicoForm.decomposicao.outros)})`}
+                          ` (${t("mão de obra {maoObra} · materiais {materiais} · outros {outros}", {
+                            maoObra: formatCurrency(servicoForm.decomposicao.mao_obra),
+                            materiais: formatCurrency(servicoForm.decomposicao.materiais),
+                            outros: formatCurrency(servicoForm.decomposicao.outros),
+                          })})`}
                         {servicoForm.linhasAtualizadas > 0 &&
-                          ` · ${servicoForm.linhasAtualizadas} linha(s) com preco atualizado pelo catalogo`}
+                          ` · ${
+                            servicoForm.linhasAtualizadas === 1
+                              ? t("{n} linha com preço atualizado pelo catálogo", { n: servicoForm.linhasAtualizadas })
+                              : t("{n} linhas com preço atualizado pelo catálogo", { n: servicoForm.linhasAtualizadas })
+                          }`}
                       </p>
                     )}
 
                     <div className="p-3 bg-muted rounded-lg space-y-1 text-sm">
                       <div className="flex items-center justify-between">
                         <span>
-                          {toFixed2(servicoForm.quantidade)} {servicoForm.unidade} x{" "}
+                          {toFixed2(servicoForm.quantidade)} {nomeUnidade(servicoForm.unidade)} x{" "}
                           {formatCurrency(vendaServico(servicoForm.precoUnitario))}
                         </span>
                         <span>
@@ -1470,18 +1514,18 @@ export function OrcamentoEditor({
                       </div>
                       {servicoForm.precoFixo > 0 && (
                         <div className="flex items-center justify-between">
-                          <span>Valor fixo (nao multiplica pela area)</span>
+                          <span>{t("Valor fixo (não multiplica pela área)")}</span>
                           <span>{formatCurrency(servicoForm.precoFixo)}</span>
                         </div>
                       )}
                       {servicoForm.transporte > 0 && (
                         <div className="flex items-center justify-between text-muted-foreground">
-                          <span>Transporte (vai para a linha final)</span>
+                          <span>{t("Transporte (vai para a linha final)")}</span>
                           <span>{formatCurrency(servicoForm.transporte)}</span>
                         </div>
                       )}
                       <div className="flex items-center justify-between border-t pt-1 font-medium">
-                        <span>Total do item</span>
+                        <span>{t("Total do item")}</span>
                         <span className="text-lg font-bold">
                           {formatCurrency(
                             round2(
@@ -1495,7 +1539,7 @@ export function OrcamentoEditor({
 
                     <div className="flex justify-end">
                       <Button type="button" onClick={handleServicoFormSubmit} className="rounded-full">
-                        Adicionar ao Orcamento
+                        {t("Adicionar ao orçamento")}
                       </Button>
                     </div>
                   </>
@@ -1506,27 +1550,27 @@ export function OrcamentoEditor({
 
           <div className="space-y-4">
             <div>
-              <h3 className="text-lg font-medium">Produto no orcamento</h3>
+              <h3 className="text-lg font-medium">{t("Produto no orçamento")}</h3>
               <p className="text-sm text-muted-foreground">
-                Custo real e preco de venda vem do cadastro de Produtos.
+                {t("O custo real e o preço de venda vêm do registo de Produtos.")}
               </p>
             </div>
             <Card className="p-4 border-2 border-dashed">
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Selecionar produto</Label>
+                  <Label>{t("Selecionar produto")}</Label>
                   <SeletorComBusca
                     valor={produtoForm.materialId}
                     onChange={(materialId) => setProdutoForm({ ...produtoForm, materialId })}
-                    placeholder="Escolha um produto"
-                    placeholderBusca="Procurar produto..."
-                    vazio="Nenhum produto encontrado."
+                    placeholder={t("Escolha um produto")}
+                    placeholderBusca={t("Procurar produto...")}
+                    vazio={t("Nenhum produto encontrado.")}
                     className="rounded-full"
                     opcoes={materiais.map((produto) => ({
                       valor: produto.id!,
                       rotulo: produto.codigo ? `${produto.codigo} - ${produto.nome}` : produto.nome,
-                      detalhe: `${formatCurrency(vendaDoProduto(produto, gruposImpostos))} / ${produto.unidade}${
-                        produto.controlaEstoque ? ` - estoque ${formatNumber2(Number(produto.estoqueAtual) || 0)}` : ""
+                      detalhe: `${formatCurrency(vendaDoProduto(produto, gruposImpostos))} / ${nomeUnidade(produto.unidade)}${
+                        produto.controlaEstoque ? ` - ${t("stock {n}", { n: formatNumber2(Number(produto.estoqueAtual) || 0) })}` : ""
                       }`,
                     }))}
                   />
@@ -1536,7 +1580,7 @@ export function OrcamentoEditor({
                   <>
                     <div className="grid gap-4 sm:grid-cols-3">
                       <div className="space-y-2">
-                        <Label>Quantidade ({produtoSelecionado.unidade})</Label>
+                        <Label>{t("Quantidade ({unidade})", { unidade: nomeUnidade(produtoSelecionado.unidade) })}</Label>
                         <CampoNumerico
                           min={0.01}
                           value={produtoForm.quantidade}
@@ -1546,7 +1590,7 @@ export function OrcamentoEditor({
                       </div>
                       {verCusto && (
                         <div className="space-y-2">
-                          <Label>Custo (inclui impostos de venda)</Label>
+                          <Label>{t("Custo (inclui impostos de venda)")}</Label>
                           <Input
                             value={toFixed2(custoOrcamentoProduto(produtoSelecionado, gruposImpostos))}
                             readOnly
@@ -1555,7 +1599,7 @@ export function OrcamentoEditor({
                         </div>
                       )}
                       <div className="space-y-2">
-                        <Label>Venda unitaria {formData.usarMargemItem ? "" : "(margem por item desligada)"}</Label>
+                        <Label>{formData.usarMargemItem ? t("Venda unitária") : t("Venda unitária (margem por item desligada)")}</Label>
                         <Input
                           value={toFixed2(precoDoItem(vendaDoProduto(produtoSelecionado, gruposImpostos), custoOrcamentoProduto(produtoSelecionado, gruposImpostos)))}
                           readOnly
@@ -1566,12 +1610,14 @@ export function OrcamentoEditor({
                     {produtoSelecionado.controlaEstoque &&
                       (Number(produtoSelecionado.estoqueAtual) || 0) < produtoForm.quantidade && (
                         <p className="text-xs text-amber-600">
-                          Estoque atual: {formatNumber2(Number(produtoSelecionado.estoqueAtual) || 0)}{" "}
-                          {produtoSelecionado.unidade} - abaixo da quantidade orcamentada.
+                          {t("Stock atual: {quantidade} {unidade} - abaixo da quantidade orçamentada.", {
+                            quantidade: formatNumber2(Number(produtoSelecionado.estoqueAtual) || 0),
+                            unidade: nomeUnidade(produtoSelecionado.unidade),
+                          })}
                         </p>
                       )}
                     <div className="flex items-center justify-between rounded-lg bg-muted p-3 text-sm">
-                      <span className="font-medium">Total do item (venda)</span>
+                      <span className="font-medium">{t("Total do item (venda)")}</span>
                       <span className="text-lg font-bold">
                         {formatCurrency(
                           calculateItemTotal(
@@ -1583,7 +1629,7 @@ export function OrcamentoEditor({
                     </div>
                     <div className="flex justify-end">
                       <Button type="button" onClick={handleProdutoSubmit} className="rounded-full">
-                        Adicionar ao Orcamento
+                        {t("Adicionar ao orçamento")}
                       </Button>
                     </div>
                   </>
@@ -1594,48 +1640,49 @@ export function OrcamentoEditor({
 
           <div className="space-y-4">
             <div>
-              <h3 className="text-lg font-medium">Mao de obra avulsa (opcional)</h3>
+              <h3 className="text-lg font-medium">{t("Mão de obra avulsa (opcional)")}</h3>
               <p className="text-sm text-muted-foreground">
-                A funcao define o preco ao cliente; o funcionario define o custo. Sem funcionario escolhido, usa-se o
-                custo medio da funcao. A mao de obra normal ja vem dentro do preco dos servicos.
+                {t(
+                  "A função define o preço ao cliente; o funcionário define o custo. Sem funcionário escolhido, usa-se o custo médio da função. A mão de obra normal já vem incluída no preço dos serviços.",
+                )}
               </p>
             </div>
             <Card className="p-4 border-2 border-dashed">
               <div className="space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label>Funcao (preco ao cliente)</Label>
+                    <Label>{t("Função (preço ao cliente)")}</Label>
                     <SeletorComBusca
                       valor={maoObraForm.funcaoId}
                       onChange={handleFuncaoSelect}
-                      placeholder={funcoes.length ? "Escolha a funcao" : "Sem funcoes cadastradas"}
-                      placeholderBusca="Procurar funcao..."
-                      vazio="Nenhuma funcao encontrada."
+                      placeholder={funcoes.length ? t("Escolha a função") : t("Sem funções registadas")}
+                      placeholderBusca={t("Procurar função...")}
+                      vazio={t("Nenhuma função encontrada.")}
                       className="rounded-full"
                       opcoes={funcoes.map((funcao) => ({
                         valor: funcao.id!,
                         rotulo: funcao.nome,
-                        detalhe: `${formatCurrency(funcao.precoHora)}/hora`,
+                        detalhe: t("{preco}/hora", { preco: formatCurrency(funcao.precoHora) }),
                       }))}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Funcionario (custo)</Label>
+                    <Label>{t("Funcionário (custo)")}</Label>
                     <SeletorComBusca
                       valor={maoObraForm.funcionarioId}
                       onChange={handleFuncionarioSelect}
-                      placeholder="Escolha um funcionario"
-                      placeholderBusca="Procurar funcionario..."
-                      vazio="Nenhum funcionario encontrado."
+                      placeholder={t("Escolha um funcionário")}
+                      placeholderBusca={t("Procurar funcionário...")}
+                      vazio={t("Nenhum funcionário encontrado.")}
                       className="rounded-full"
                       opcoes={[
                         ...(funcaoSelecionada
                           ? [
                               {
                                 valor: CUSTO_MEDIO,
-                                rotulo: "Custo medio da funcao",
+                                rotulo: t("Custo médio da função"),
                                 detalhe: verCusto
-                                  ? `${formatCurrency(custoMedioFuncao(funcaoSelecionada, funcionarios))}/hora`
+                                  ? t("{preco}/hora", { preco: formatCurrency(custoMedioFuncao(funcaoSelecionada, funcionarios)) })
                                   : undefined,
                               },
                             ]
@@ -1644,7 +1691,10 @@ export function OrcamentoEditor({
                           valor: funcionario.id!,
                           rotulo: funcionario.nome,
                           detalhe: verCusto
-                            ? `${funcionario.funcao} - custo ${formatCurrency(custoHoraFuncionario(funcionario))}/hora`
+                            ? t("{funcao} - custo {custo}/hora", {
+                                funcao: funcionario.funcao,
+                                custo: formatCurrency(custoHoraFuncionario(funcionario)),
+                              })
                             : funcionario.funcao,
                         })),
                       ]}
@@ -1656,7 +1706,7 @@ export function OrcamentoEditor({
                   <>
                     <div className="grid gap-4 sm:grid-cols-3">
                       <div className="space-y-2">
-                        <Label>Unidade</Label>
+                        <Label>{t("Unidade")}</Label>
                         <Select
                           value={maoObraForm.unidade}
                           onValueChange={(value) => setMaoObraForm({ ...maoObraForm, unidade: value })}
@@ -1665,14 +1715,14 @@ export function OrcamentoEditor({
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="horas">Horas</SelectItem>
-                            <SelectItem value="dias">Dias</SelectItem>
-                            <SelectItem value="projeto">Projeto</SelectItem>
+                            <SelectItem value="horas">{t("Horas")}</SelectItem>
+                            <SelectItem value="dias">{t("Dias")}</SelectItem>
+                            <SelectItem value="projeto">{t("Projeto")}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label>Quantidade de horas</Label>
+                        <Label>{t("Quantidade de horas")}</Label>
                         <CampoNumerico
                           min={0.01}
                           value={maoObraForm.quantidade}
@@ -1681,7 +1731,7 @@ export function OrcamentoEditor({
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>Valor de venda/hora (automatico)</Label>
+                        <Label>{t("Valor de venda/hora (automático)")}</Label>
                         <Input
                           value={toFixed2(precoDoItem(previaMaoObra.precoTabela, previaMaoObra.custo))}
                           readOnly
@@ -1694,14 +1744,16 @@ export function OrcamentoEditor({
                       {verCusto && (
                         <div className="flex items-center justify-between text-muted-foreground">
                           <span>
-                            Custo real ({toFixed2(previaMaoObra.custo)}/hora
-                            {funcionarioSelecionado ? ` - ${funcionarioSelecionado.nome}` : " - media da funcao"})
+                            {t("Custo real ({custo}/hora - {quem})", {
+                              custo: toFixed2(previaMaoObra.custo),
+                              quem: funcionarioSelecionado ? funcionarioSelecionado.nome : t("média da função"),
+                            })}
                           </span>
                           <span>{formatCurrency(calculateItemTotal(maoObraForm.quantidade, previaMaoObra.custo))}</span>
                         </div>
                       )}
                       <div className="flex items-center justify-between border-t pt-1">
-                        <span className="font-medium">Total do item (venda)</span>
+                        <span className="font-medium">{t("Total do item (venda)")}</span>
                         <span className="text-lg font-bold">
                           {formatCurrency(
                             calculateItemTotal(
@@ -1713,13 +1765,14 @@ export function OrcamentoEditor({
                       </div>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      O nome do funcionario fica so no uso interno e no PDF de custo. No PDF de venda o item aparece
-                      como &quot;Mao de obra&quot; com a funcao.
+                      {t(
+                        'O nome do funcionário fica só no uso interno e no PDF de custo. No PDF de venda, o item aparece como "Mão de obra" com a função.',
+                      )}
                     </p>
 
                     <div className="flex justify-end">
                       <Button type="button" onClick={handleMaoObraFormSubmit} className="rounded-full">
-                        Adicionar ao Orcamento
+                        {t("Adicionar ao orçamento")}
                       </Button>
                     </div>
                   </>
@@ -1730,14 +1783,14 @@ export function OrcamentoEditor({
 
           {formData.itens.length === 0 ? (
             <Card className="flex flex-col items-center justify-center py-10 text-center">
-              <p className="font-medium">Ainda sem itens</p>
+              <p className="font-medium">{t("Ainda sem itens")}</p>
               <p className="text-sm text-muted-foreground">
-                Escolha um servico ou produto acima, ou lance horas na mao de obra avulsa.
+                {t("Escolha um serviço ou produto acima, ou lance horas na mão de obra avulsa.")}
               </p>
             </Card>
           ) : (
             <div className="space-y-4">
-              <h3 className="text-lg font-medium">Itens do Orcamento</h3>
+              <h3 className="text-lg font-medium">{t("Itens do orçamento")}</h3>
               {agruparPorAmbiente(formData.itens, formData.ambientes).map((grupo, indiceGrupo) => {
                 const recolhido = ambientesRecolhidos.includes(grupo.nome)
                 return (
@@ -1753,27 +1806,29 @@ export function OrcamentoEditor({
                           variant="ghost"
                           size="icon"
                           className="h-6 w-6 shrink-0"
-                          title={recolhido ? "Expandir comodo" : "Recolher comodo"}
+                          title={recolhido ? t("Expandir divisão") : t("Recolher divisão")}
                           onClick={() => alternarAmbiente(grupo.nome)}
                         >
                           {recolhido ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                         </Button>
                         <span className="text-sm font-semibold">{indiceGrupo + 1}.</span>
                         {grupo.nome === SEM_AMBIENTE ? (
-                          <span className="text-sm font-semibold">{grupo.nome}</span>
+                          <span className="text-sm font-semibold">{t(SEM_AMBIENTE)}</span>
                         ) : (
                           <Input
                             value={grupo.nome}
                             onChange={(e) => renomearAmbiente(grupo.nome, e.target.value)}
                             className="h-7 max-w-[240px] border-none bg-transparent px-1 text-sm font-semibold shadow-none focus-visible:bg-background"
-                            title="Clique para renomear o comodo"
+                            title={t("Clique para mudar o nome da divisão")}
                           />
                         )}
                       </div>
                       <div className="flex items-center gap-2">
                         {recolhido && (
                           <span className="text-xs opacity-80">
-                            {grupo.itens.length} {grupo.itens.length === 1 ? "item" : "itens"}
+                            {grupo.itens.length === 1
+                              ? t("{n} item", { n: grupo.itens.length })
+                              : t("{n} itens", { n: grupo.itens.length })}
                           </span>
                         )}
                         <span className="text-sm font-semibold">{formatCurrency(grupo.subtotal)}</span>
@@ -1782,11 +1837,11 @@ export function OrcamentoEditor({
                           variant="ghost"
                           size="sm"
                           className="h-7 gap-1 text-xs"
-                          title={`Duplicar "${grupo.nome}" com todos os itens`}
+                          title={t('Duplicar "{nome}" com todos os itens', { nome: grupo.nome === SEM_AMBIENTE ? t(SEM_AMBIENTE) : grupo.nome })}
                           onClick={() => duplicarAmbiente(grupo.nome)}
                         >
                           <Copy className="h-3 w-3" />
-                          Duplicar comodo
+                          {t("Duplicar divisão")}
                         </Button>
                       </div>
                     </div>
@@ -1815,7 +1870,7 @@ export function OrcamentoEditor({
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="__sem">Sem comodo</SelectItem>
+                                    <SelectItem value="__sem">{t("Sem divisão")}</SelectItem>
                                     {formData.ambientes.map((nome) => (
                                       <SelectItem key={nome} value={nome}>
                                         {nome}
@@ -1830,7 +1885,7 @@ export function OrcamentoEditor({
                               {/* min-w-0: flex-1 sozinho nao encolhe abaixo do conteudo */}
                               <div className="min-w-0 flex-1 space-y-2">
                                 <div>
-                                  <Label className="text-xs">Nome do item</Label>
+                                  <Label className="text-xs">{t("Nome do item")}</Label>
                                   <Input
                                     value={item.nome ?? item.descricao}
                                     onChange={(e) => handleItemUpdate(item.id, "nome", e.target.value)}
@@ -1838,24 +1893,24 @@ export function OrcamentoEditor({
                                   />
                                 </div>
                                 <div>
-                                  <Label className="text-xs">Descricao do item</Label>
+                                  <Label className="text-xs">{t("Descrição do item")}</Label>
                                   <Textarea
                                     value={item.descricao}
                                     onChange={(e) => handleItemUpdate(item.id, "descricao", e.target.value)}
                                     rows={2}
                                     className="text-sm"
-                                    placeholder="Descricao detalhada impressa no orcamento"
+                                    placeholder={t("Descrição detalhada impressa no orçamento")}
                                   />
                                 </div>
                                 <div className="flex flex-wrap items-center gap-2">
                                   {item.valorFixo && (
                                     <Badge variant="secondary" className="text-xs">
-                                      Valor fixo
+                                      {t("Valor fixo")}
                                     </Badge>
                                   )}
                                   {item.tipo === "mao_obra" && (
                                     <Badge variant="secondary" className="text-xs">
-                                      No PDF do cliente: {item.descricaoCliente || "Mao de obra"}
+                                      {t("No PDF do cliente: {texto}", { texto: item.descricaoCliente || t("Mão de obra") })}
                                     </Badge>
                                   )}
                                 </div>
@@ -1865,7 +1920,7 @@ export function OrcamentoEditor({
                                   type="button"
                                   variant="ghost"
                                   size="icon"
-                                  title="Duplicar este item para outro comodo"
+                                  title={t("Duplicar este item para outra divisão")}
                                   onClick={() => {
                                     setDuplicandoItem(item)
                                     setDuplicarFuncionarioId(item.funcionarioId || (item.funcaoId ? CUSTO_MEDIO : ""))
@@ -1888,18 +1943,18 @@ export function OrcamentoEditor({
                             </div>
                             <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
                               <div>
-                                <Label className="text-xs">Quantidade</Label>
+                                <Label className="text-xs">{t("Quantidade")}</Label>
                                 <CampoNumerico
                                   tamanho="sm"
                                   value={item.quantidade}
                                   disabled={item.valorFixo || !!item.medicao}
-                                  title={item.medicao ? "Vem das dimensoes do comodo" : undefined}
+                                  title={item.medicao ? t("Vem das dimensões da divisão") : undefined}
                                   onChange={(quantidade) => handleItemUpdate(item.id, "quantidade", quantidade)}
                                   className={item.valorFixo || item.medicao ? "bg-muted" : undefined}
                                 />
                               </div>
                               <div>
-                                <Label className="text-xs">Unidade</Label>
+                                <Label className="text-xs">{t("Unidade")}</Label>
                                 <Input
                                   value={item.unidade}
                                   readOnly={readOnlyServico}
@@ -1908,7 +1963,7 @@ export function OrcamentoEditor({
                                 />
                               </div>
                               <div>
-                                <Label className="text-xs">Custo Unit. (EUR)</Label>
+                                <Label className="text-xs">{t("Custo unit. (EUR)")}</Label>
                                 <CampoNumerico
                                   tamanho="sm"
                                   value={custoUnitario}
@@ -1916,24 +1971,24 @@ export function OrcamentoEditor({
                                 />
                               </div>
                               <div>
-                                <Label className="text-xs">Venda Unit. (EUR)</Label>
+                                <Label className="text-xs">{t("Venda unit. (EUR)")}</Label>
                                 <CampoNumerico
                                   tamanho="sm"
                                   value={item.precoUnitario}
                                   readOnly={porEspecialidade || !formData.usarMargemItem}
                                   title={
                                     porEspecialidade
-                                      ? "Custo x (estrutura + margem da especialidade)"
+                                      ? t("Custo x (estrutura + margem da especialidade)")
                                       : formData.usarMargemItem
                                         ? undefined
-                                        : "Margem por item desligada: vende ao custo"
+                                        : t("Margem por item desligada: vende ao custo")
                                   }
                                   className={porEspecialidade || !formData.usarMargemItem ? "bg-muted" : undefined}
                                   onChange={(valor) => handleItemUpdate(item.id, "precoUnitario", valor)}
                                 />
                               </div>
                               <div>
-                                <Label className="text-xs">Total venda (EUR)</Label>
+                                <Label className="text-xs">{t("Total venda (EUR)")}</Label>
                                 <Input value={toFixed2(item.total)} readOnly className="h-8 text-sm bg-muted" />
                               </div>
                             </div>
@@ -1946,20 +2001,20 @@ export function OrcamentoEditor({
                                     handleItemUpdate(item.id, "valorFixo", checked === true)
                                   }
                                 />
-                                Valor fixo: nao multiplica pela quantidade/area
+                                {t("Valor fixo: não multiplica pela quantidade/área")}
                               </label>
                               {porEspecialidade && (
                                 <Select
                                   value={item.especialidadeId || especialidadesDe(configuracao)[0].id}
                                   onValueChange={(valor) => handleItemUpdate(item.id, "especialidadeId", valor)}
                                 >
-                                  <SelectTrigger className="h-7 w-auto gap-1 rounded-full text-xs" aria-label="Especialidade">
+                                  <SelectTrigger className="h-7 w-auto gap-1 rounded-full text-xs" aria-label={t("Especialidade")}>
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
                                     {especialidadesDe(configuracao).map((e) => (
                                       <SelectItem key={e.id} value={e.id}>
-                                        {e.nome} ({formatNumber2(estruturaDe(configuracao) + e.margem + (formData.margemAdicional || 0))}%)
+                                        {t(e.nome)} ({formatNumber2(estruturaDe(configuracao) + e.margem + (formData.margemAdicional || 0))}%)
                                       </SelectItem>
                                     ))}
                                   </SelectContent>
@@ -1970,26 +2025,28 @@ export function OrcamentoEditor({
                                   value={item.medicao || "__manual"}
                                   onValueChange={(valor) => handleItemUpdate(item.id, "medicao", valor === "__manual" ? "" : valor)}
                                 >
-                                  <SelectTrigger className="h-7 w-auto gap-1 rounded-full text-xs" aria-label="Medicao">
+                                  <SelectTrigger className="h-7 w-auto gap-1 rounded-full text-xs" aria-label={t("Medição")}>
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="__manual">Quantidade manual</SelectItem>
+                                    <SelectItem value="__manual">{t("Quantidade manual")}</SelectItem>
                                     {(Object.keys(MEDICOES) as TipoMedicao[]).map((m) => (
                                       <SelectItem key={m} value={m}>
-                                        Qtd = {MEDICOES[m].nome.toLowerCase()} do comodo
+                                        {t("Qtd = {medicao} da divisão", { medicao: t(MEDICOES[m].nome).toLowerCase() })}
                                       </SelectItem>
                                     ))}
                                   </SelectContent>
                                 </Select>
                               )}
                               <span className="text-xs text-muted-foreground">
-                                Custo do item:{" "}
-                                {formatCurrency(calculateItemTotal(item.quantidade, custoUnitario, item.valorFixo))}
+                                {t("Custo do item: {custo}", {
+                                  custo: formatCurrency(calculateItemTotal(item.quantidade, custoUnitario, item.valorFixo)),
+                                })}
                                 {verCusto &&
-                                  ` · Margem do item: ${formatNumber2(margemPorPreco(custoUnitario, item.precoUnitario))}% sobre o custo (${formatNumber2(
-                                    margemSobreVenda(custoUnitario, item.precoUnitario),
-                                  )}% da venda)`}
+                                  ` · ${t("Margem do item: {sobreCusto}% sobre o custo ({sobreVenda}% da venda)", {
+                                    sobreCusto: formatNumber2(margemPorPreco(custoUnitario, item.precoUnitario)),
+                                    sobreVenda: formatNumber2(margemSobreVenda(custoUnitario, item.precoUnitario)),
+                                  })}`}
                               </span>
                             </div>
                           </div>
@@ -2005,14 +2062,14 @@ export function OrcamentoEditor({
         {/* ---------------------------------------------------------- Preco */}
         <TabsContent value="preco" className="space-y-6 pt-4">
           <div className="space-y-4">
-            <h3 className="text-lg font-medium">Precificacao</h3>
+            <h3 className="text-lg font-medium">{t("Definição do preço")}</h3>
 
             {/* Modelo de preco: o da folha de obra, ou o das margens */}
             <div className="grid gap-3 sm:grid-cols-2" data-testid="modo-preco">
               {(
                 [
-                  ["especialidade", "Por especialidade (folha de obra)", "Preco = custo x (1 + estrutura + margem da especialidade). Cada item escolhe a especialidade."],
-                  ["margens", "Por margens", "Margem por item (preco de venda do cadastro) e/ou margem global sobre o subtotal."],
+                  ["especialidade", t("Por especialidade (folha de obra)"), t("Preço = custo x (1 + estrutura + margem da especialidade). Cada item escolhe a especialidade.")],
+                  ["margens", t("Por margens"), t("Margem por item (preço de venda do registo) e/ou margem global sobre o subtotal.")],
                 ] as const
               ).map(([modo, titulo, ajuda]) => (
                 <button
@@ -2033,22 +2090,25 @@ export function OrcamentoEditor({
               <Card className="p-4 space-y-2" data-testid="painel-especialidades">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <span className="font-medium">
-                    Estrutura {formatNumber2(estruturaDe(configuracao))}% + margem da especialidade
+                    {t("Estrutura {percentagem}% + margem da especialidade", { percentagem: formatNumber2(estruturaDe(configuracao)) })}
                   </span>
                   <a href="/configuracoes?aba=precos" target="_blank" className="text-xs text-primary underline">
-                    Alterar em Configuracoes &gt; Precos
+                    {t("Alterar em Configurações > Preços")}
                   </a>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {especialidadesDe(configuracao).map((e) => (
                     <Badge key={e.id} variant="outline" className="font-normal">
-                      {e.nome}: +{formatNumber2(estruturaDe(configuracao) + e.margem + (formData.margemAdicional || 0))}% sobre o custo
+                      {t("{nome}: +{percentagem}% sobre o custo", {
+                        nome: t(e.nome),
+                        percentagem: formatNumber2(estruturaDe(configuracao) + e.margem + (formData.margemAdicional || 0)),
+                      })}
                     </Badge>
                   ))}
                 </div>
                 <div className="flex flex-wrap items-end gap-3 pt-1">
                   <div className="space-y-1">
-                    <Label htmlFor="margemAdicional">Margem adicional desta proposta</Label>
+                    <Label htmlFor="margemAdicional">{t("Margem adicional desta proposta")}</Label>
                     <CampoNumerico
                       id="margemAdicional"
                       min={-100}
@@ -2060,15 +2120,18 @@ export function OrcamentoEditor({
                     />
                   </div>
                   <p className="max-w-md pb-1 text-xs text-muted-foreground">
-                    Soma-se a estrutura e a margem de cada especialidade, so nesta proposta. Positiva serve de coeficiente de
-                    seguranca; negativa, de desconto.
+                    {t(
+                      "Soma-se à estrutura e à margem de cada especialidade, só nesta proposta. Positiva, serve de coeficiente de segurança; negativa, de desconto.",
+                    )}
                   </p>
                 </div>
 
                 {verCusto && (
                   <p className="text-sm">
-                    Lucro previsto <span className="font-medium tabular-nums">{formatCurrency(lucroPrevisto)}</span> ={" "}
-                    <span className="font-medium tabular-nums">{formatNumber2(margemVendaAtual)}%</span> da venda sem IVA
+                    {comElementos(t("Lucro previsto {lucro} = {percentagem} da venda sem IVA"), {
+                      lucro: <span className="font-medium tabular-nums">{formatCurrency(lucroPrevisto)}</span>,
+                      percentagem: <span className="font-medium tabular-nums">{formatNumber2(margemVendaAtual)}%</span>,
+                    })}
                   </p>
                 )}
               </Card>
@@ -2079,26 +2142,28 @@ export function OrcamentoEditor({
               <Card className="p-4 space-y-2">
                 <label className="flex items-center gap-3 font-medium">
                   <Switch checked={formData.usarMargemItem} onCheckedChange={alternarMargemItem} />
-                  Margem por item
+                  {t("Margem por item")}
                 </label>
                 <p className="text-xs text-muted-foreground">
                   {formData.usarMargemItem
-                    ? "Cada produto e mao de obra entra pelo preco de venda do cadastro (com a margem dele)."
-                    : "Desligada: cada item entra ao preco de custo. Ao voltar a ligar, os precos de tabela voltam."}
+                    ? t("Cada produto e mão de obra entra pelo preço de venda do registo (com a respetiva margem).")
+                    : t("Desligada: cada item entra ao preço de custo. Ao voltar a ligar, os preços de tabela são repostos.")}
                 </p>
                 {verCusto && (
                   <p className="text-sm">
-                    Margem dos itens: <span className="font-medium tabular-nums">{formatCurrency(margemItensAtual)}</span>
+                    {comElementos(t("Margem dos itens: {valor}"), {
+                      valor: <span className="font-medium tabular-nums">{formatCurrency(margemItensAtual)}</span>,
+                    })}
                   </p>
                 )}
               </Card>
               <Card className="p-4 space-y-2">
                 <label className="flex items-center gap-3 font-medium">
                   <Switch checked={formData.usarMargemGlobal} onCheckedChange={alternarMargemGlobal} />
-                  Margem global
+                  {t("Margem global")}
                 </label>
                 <p className="text-xs text-muted-foreground">
-                  Percentagem somada ao subtotal de todos os itens, por cima da margem de cada item.
+                  {t("Percentagem somada ao subtotal de todos os itens, por cima da margem de cada item.")}
                 </p>
                 {formData.usarMargemGlobal && (
                   <CampoNumerico
@@ -2115,18 +2180,19 @@ export function OrcamentoEditor({
             {/* Custos indiretos: estaleiro, seguros, licenciamento */}
             <Card className="p-4 space-y-3">
               <div>
-                <div className="font-medium">Custos indiretos da obra</div>
+                <div className="font-medium">{t("Custos indiretos da obra")}</div>
                 <p className="text-xs text-muted-foreground">
-                  Entram no custo e vendem-se com a mesma regra dos itens
-                  {porEspecialidade ? " (estrutura + construcao civil)" : " (margem global)"}.
+                  {porEspecialidade
+                    ? t("Entram no custo e vendem-se com a mesma regra dos itens (estrutura + construção civil).")
+                    : t("Entram no custo e vendem-se com a mesma regra dos itens (margem global).")}
                 </p>
               </div>
               <div className="grid gap-3 sm:grid-cols-3">
                 {(
                   [
-                    ["estaleiro", "Estaleiro"],
-                    ["seguros", "Seguros"],
-                    ["licenciamento", "Licenciamento"],
+                    ["estaleiro", t("Estaleiro")],
+                    ["seguros", t("Seguros")],
+                    ["licenciamento", t("Licenciamento")],
                   ] as const
                 ).map(([campo, rotulo]) => (
                   <div key={campo} className="space-y-1">
@@ -2148,14 +2214,14 @@ export function OrcamentoEditor({
 
             {/* Contexto fiscal: sugere a taxa de IVA */}
             <Card className="p-4 space-y-3" data-testid="contexto-fiscal">
-              <div className="font-medium">Contexto fiscal</div>
+              <div className="font-medium">{t("Contexto fiscal")}</div>
               <div className="grid gap-3 sm:grid-cols-4">
                 {(
                   [
-                    ["regiao", "Regiao", Object.fromEntries(Object.entries(TAXAS_REGIAO).map(([k, v]) => [k, v.nome]))],
-                    ["tipoObra", "Tipo de obra", TIPOS_OBRA],
-                    ["tipoCliente", "Tipo de cliente", TIPOS_CLIENTE],
-                    ["tipoOperacao", "Operacao", TIPOS_OPERACAO],
+                    ["regiao", t("Região"), Object.fromEntries(Object.entries(TAXAS_REGIAO).map(([k, v]) => [k, v.nome]))],
+                    ["tipoObra", t("Tipo de obra"), TIPOS_OBRA],
+                    ["tipoCliente", t("Tipo de cliente"), TIPOS_CLIENTE],
+                    ["tipoOperacao", t("Operação"), TIPOS_OPERACAO],
                   ] as const
                 ).map(([campo, rotulo, opcoes]) => (
                   <div key={campo} className="space-y-1">
@@ -2173,10 +2239,10 @@ export function OrcamentoEditor({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {campo !== "regiao" && <SelectItem value="__nd">Nao especificado</SelectItem>}
+                        {campo !== "regiao" && <SelectItem value="__nd">{t("Não especificado")}</SelectItem>}
                         {Object.entries(opcoes).map(([valor, nome]) => (
                           <SelectItem key={valor} value={valor}>
-                            {nome}
+                            {t(nome)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -2187,7 +2253,7 @@ export function OrcamentoEditor({
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-muted p-3 text-sm">
                 <div>
                   <div className="font-medium" data-testid="sugestao-iva">
-                    Sugerido: {sugestaoIVA.regime} - {formatNumber2(sugestaoIVA.taxa)}%
+                    {t("Sugerido: {regime} - {taxa}%", { regime: sugestaoIVA.regime, taxa: formatNumber2(sugestaoIVA.taxa) })}
                   </div>
                   <div className="text-xs text-muted-foreground">{sugestaoIVA.fundamento}</div>
                   {sugestaoIVA.aviso && <div className="text-xs text-amber-700 dark:text-amber-400">{sugestaoIVA.aviso}</div>}
@@ -2199,14 +2265,14 @@ export function OrcamentoEditor({
                   disabled={formData.taxaIVA === sugestaoIVA.taxa}
                   onClick={() => setFormData({ ...formData, taxaIVA: sugestaoIVA.taxa })}
                 >
-                  {formData.taxaIVA === sugestaoIVA.taxa ? "Aplicado" : "Aplicar"}
+                  {formData.taxaIVA === sugestaoIVA.taxa ? t("Aplicado") : t("Aplicar")}
                 </Button>
               </div>
             </Card>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="transporte">Custo de transporte (EUR)</Label>
+                <Label htmlFor="transporte">{t("Custo de transporte (EUR)")}</Label>
                 <CampoNumerico
                   id="transporte"
                   min={0}
@@ -2216,36 +2282,36 @@ export function OrcamentoEditor({
                   className="rounded-full"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Somado automaticamente a partir dos servicos e lancado como linha propria no final do orcamento.
+                  {t("Somado automaticamente a partir dos serviços e lançado como linha própria no final do orçamento.")}
                 </p>
               </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="taxaIVA">IVA (%)</Label>
+                <Label htmlFor="taxaIVA">{t("IVA (%)")}</Label>
                 <Select
-                  value={TAXAS_IVA.some((t) => t.valor === formData.taxaIVA) ? String(formData.taxaIVA) : "outra"}
+                  value={TAXAS_IVA.some((taxa) => taxa.valor === formData.taxaIVA) ? String(formData.taxaIVA) : "outra"}
                   onValueChange={(value) => {
                     if (value === "outra") return
                     setFormData({ ...formData, taxaIVA: Number(value) })
                   }}
                 >
                   <SelectTrigger className="rounded-full">
-                    <SelectValue placeholder="Selecione a taxa" />
+                    <SelectValue placeholder={t("Selecione a taxa")} />
                   </SelectTrigger>
                   <SelectContent>
                     {TAXAS_IVA.map((taxa) => (
                       <SelectItem key={taxa.valor} value={String(taxa.valor)}>
-                        {taxa.label}
+                        {t(taxa.label)}
                       </SelectItem>
                     ))}
-                    <SelectItem value="outra">Outra taxa (indicar ao lado)</SelectItem>
+                    <SelectItem value="outra">{t("Outra taxa (indicar ao lado)")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="taxaIVAValor">Taxa aplicada (%)</Label>
+                <Label htmlFor="taxaIVAValor">{t("Taxa aplicada (%)")}</Label>
                 <CampoNumerico
                   id="taxaIVAValor"
                   min={0}
@@ -2256,20 +2322,19 @@ export function OrcamentoEditor({
                   className="rounded-full"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Incide sobre subtotal + margem + transporte. Nao entra no lucro: e cobrado ao cliente e entregue ao
-                  Estado.
+                  {t("Incide sobre subtotal + margem + transporte. Não entra no lucro: é cobrado ao cliente e entregue ao Estado.")}
                 </p>
               </div>
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="observacoes">Observacoes (Opcional)</Label>
+            <Label htmlFor="observacoes">{t("Observações (opcional)")}</Label>
             <Textarea
               id="observacoes"
               value={formData.observacoes}
               onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
-              placeholder="Observacoes adicionais sobre o orcamento..."
+              placeholder={t("Observações adicionais sobre o orçamento...")}
               rows={3}
             />
           </div>
@@ -2278,13 +2343,14 @@ export function OrcamentoEditor({
             <Switch
               checked={formData.discriminarPDF}
               onCheckedChange={(discriminarPDF) => setFormData({ ...formData, discriminarPDF })}
-              aria-label="Discriminar material e mao de obra no PDF"
+              aria-label={t("Discriminar material e mão de obra no PDF")}
             />
             <span>
-              <span className="font-medium">Discriminar material e mao de obra no PDF</span>
+              <span className="font-medium">{t("Discriminar material e mão de obra no PDF")}</span>
               <span className="block text-xs text-muted-foreground">
-                Por baixo de cada item sai quanto e material e quanto e mao de obra, pela composicao. Util quando o cliente
-                pede o valor repartido.
+                {t(
+                  "Por baixo de cada item aparece quanto é material e quanto é mão de obra, segundo a composição. Útil quando o cliente pede o valor repartido.",
+                )}
               </span>
             </span>
           </label>
@@ -2294,44 +2360,44 @@ export function OrcamentoEditor({
         <TabsContent value="resumo" className="space-y-4 pt-4">
           {formData.itens.length === 0 ? (
             <Card className="flex flex-col items-center justify-center py-10 text-center">
-              <p className="font-medium">Sem itens, sem resumo</p>
-              <p className="text-sm text-muted-foreground">Adicione itens na aba Itens para ver os totais.</p>
+              <p className="font-medium">{t("Sem itens, sem resumo")}</p>
+              <p className="text-sm text-muted-foreground">{t("Adicione itens no separador Itens para ver os totais.")}</p>
             </Card>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2 p-4 bg-muted rounded-lg">
-                <h4 className="font-medium">Orcamento de Venda (cliente)</h4>
+                <h4 className="font-medium">{t("Orçamento de venda (cliente)")}</h4>
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between">
-                    <span>Subtotal:</span>
+                    <span>{t("Subtotal:")}</span>
                     <span>{formatCurrency(subtotalAtual)}</span>
                   </div>
                   {indiretosCusto > 0 && (
                     <div className="flex justify-between">
-                      <span>Custos indiretos (estaleiro, seguros...):</span>
+                      <span>{t("Custos indiretos (estaleiro, seguros...):")}</span>
                       <span>{formatCurrency(indiretosVenda)}</span>
                     </div>
                   )}
                   {!porEspecialidade && formData.usarMargemGlobal && (
                     <div className="flex justify-between">
-                      <span>Margem global ({formatNumber2(margemGlobalAtual)}%):</span>
+                      <span>{t("Margem global ({percentagem}%):", { percentagem: formatNumber2(margemGlobalAtual) })}</span>
                       <span>{formatCurrency(round2(((subtotalAtual + indiretosVenda) * margemGlobalAtual) / 100))}</span>
                     </div>
                   )}
                   <div className="flex justify-between">
-                    <span>Transporte:</span>
+                    <span>{t("Transporte:")}</span>
                     <span>{formatCurrency(transporteAtual)}</span>
                   </div>
                   <div className="flex justify-between border-t pt-1">
-                    <span>Base tributavel:</span>
+                    <span>{t("Base tributável:")}</span>
                     <span>{formatCurrency(baseTributavelAtual)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>IVA ({formatNumber2(formData.taxaIVA)}%):</span>
+                    <span>{t("IVA ({percentagem}%):", { percentagem: formatNumber2(formData.taxaIVA) })}</span>
                     <span>{formatCurrency(valorIVAAtual)}</span>
                   </div>
                   <div className="flex justify-between font-medium border-t pt-1">
-                    <span>Total com IVA:</span>
+                    <span>{t("Total com IVA:")}</span>
                     <span>{formatCurrency(valorTotalAtual)}</span>
                   </div>
                 </div>
@@ -2339,51 +2405,51 @@ export function OrcamentoEditor({
 
               {verCusto && (
                 <div className="space-y-2 p-4 border rounded-lg">
-                  <h4 className="font-medium">Orcamento de Custo (interno)</h4>
+                  <h4 className="font-medium">{t("Orçamento de custo (interno)")}</h4>
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
-                      <span>Custo dos itens:</span>
+                      <span>{t("Custo dos itens:")}</span>
                       <span>{formatCurrency(subtotalCustoAtual)}</span>
                     </div>
                     {indiretosCusto > 0 && (
                       <div className="flex justify-between">
-                        <span>Custos indiretos:</span>
+                        <span>{t("Custos indiretos:")}</span>
                         <span>{formatCurrency(indiretosCusto)}</span>
                       </div>
                     )}
                     <div className="flex justify-between">
-                      <span>Transporte:</span>
+                      <span>{t("Transporte:")}</span>
                       <span>{formatCurrency(transporteAtual)}</span>
                     </div>
                     <div className="flex justify-between font-medium border-t pt-1">
-                      <span>Total de custo:</span>
+                      <span>{t("Total de custo:")}</span>
                       <span>{formatCurrency(valorTotalCustoAtual)}</span>
                     </div>
                     {porEspecialidade ? (
                       <div className="flex justify-between text-muted-foreground">
-                        <span>Estrutura + margens das especialidades:</span>
+                        <span>{t("Estrutura + margens das especialidades:")}</span>
                         <span>{formatCurrency(round2(margemItensAtual + indiretosVenda - indiretosCusto))}</span>
                       </div>
                     ) : (
                       <>
                         <div className="flex justify-between text-muted-foreground">
-                          <span>Margem dos itens{formData.usarMargemItem ? "" : " (desligada)"}:</span>
+                          <span>{formData.usarMargemItem ? t("Margem dos itens:") : t("Margem dos itens (desligada):")}</span>
                           <span>{formatCurrency(margemItensAtual)}</span>
                         </div>
                         <div className="flex justify-between text-muted-foreground">
-                          <span>Margem global{formData.usarMargemGlobal ? "" : " (desligada)"}:</span>
+                          <span>{formData.usarMargemGlobal ? t("Margem global:") : t("Margem global (desligada):")}</span>
                           <span>{formatCurrency(round2(((subtotalAtual + indiretosVenda) * margemGlobalAtual) / 100))}</span>
                         </div>
                       </>
                     )}
                     <div className="flex justify-between text-primary font-medium">
-                      <span>Lucro previsto:</span>
+                      <span>{t("Lucro previsto:")}</span>
                       <span data-testid="resumo-lucro">
-                        {formatCurrency(lucroPrevisto)} ({formatNumber2(margemVendaAtual)}% da venda)
+                        {t("{lucro} ({percentagem}% da venda)", { lucro: formatCurrency(lucroPrevisto), percentagem: formatNumber2(margemVendaAtual) })}
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground pt-1">
-                      Lucro = base tributavel ({formatCurrency(baseTributavelAtual)}) - custo, sem o IVA.
+                      {t("Lucro = base tributável ({base}) - custo, sem o IVA.", { base: formatCurrency(baseTributavelAtual) })}
                     </p>
                   </div>
                 </div>
@@ -2396,14 +2462,15 @@ export function OrcamentoEditor({
         {verCusto && (
           <TabsContent value="custos" className="space-y-4 pt-4">
             <p className="text-sm text-muted-foreground">
-              O que a obra gastou de facto. Escreva o valor da fatura (com IVA) e escolha a taxa: o custo sem IVA e o
-              IVA suportado sao calculados. A analise compara com a margem desta proposta, ja com o que estiver em
-              edicao nas outras abas.
+              {t(
+                "O que a obra gastou de facto. Escreva o valor da fatura (com IVA) e escolha a taxa: o custo sem IVA e o IVA suportado são calculados. A análise compara com a margem desta proposta, já com o que estiver em edição nos outros separadores.",
+              )}
             </p>
             {!podeLancarCustos && (
               <p className="rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground">
-                O seu cargo permite ver os custos, mas nao lancar. Peca a permissao &quot;Lancar custos reais da
-                obra&quot; a quem gere utilizadores.
+                {t(
+                  'O seu cargo permite ver os custos, mas não lançá-los. Peça a permissão "Lançar custos reais da obra" a quem gere os utilizadores.',
+                )}
               </p>
             )}
             <CustosObraFolha
@@ -2419,22 +2486,22 @@ export function OrcamentoEditor({
       {/* Barra de accoes: colada em baixo, para o Gravar estar sempre a mao */}
       <div className="sticky bottom-0 -mx-1 flex flex-wrap items-center justify-between gap-3 border-t bg-background/95 px-1 py-3 backdrop-blur">
         <div className="text-sm">
-          <span className="text-muted-foreground">Total com IVA: </span>
+          <span className="text-muted-foreground">{t("Total com IVA:")} </span>
           <span className="font-semibold tabular-nums">{formatCurrency(valorTotalAtual)}</span>
           {verCusto && formData.itens.length > 0 && (
             <>
-              <span className="text-muted-foreground"> · Lucro previsto: </span>
+              <span className="text-muted-foreground"> · {t("Lucro previsto:")} </span>
               <span className="font-semibold tabular-nums">{formatCurrency(lucroPrevisto)}</span>
             </>
           )}
         </div>
         <div className="flex gap-2">
           <Button type="button" variant="outline" onClick={onCancelar} className="rounded-full">
-            Cancelar
+            {t("Cancelar")}
           </Button>
           <Button type="submit" disabled={aGravar} className="rounded-full">
             {aGravar && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            {aGravar ? "A guardar..." : orcamento ? "Guardar alteracoes" : "Criar Orcamento"}
+            {aGravar ? t("A guardar...") : orcamento ? t("Guardar alterações") : t("Criar orçamento")}
           </Button>
         </div>
       </div>
@@ -2452,23 +2519,28 @@ export function OrcamentoEditor({
       >
         <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
-            <DialogTitle>Duplicar item</DialogTitle>
+            <DialogTitle>{t("Duplicar item")}</DialogTitle>
             <DialogDescription>
-              Copia &quot;{duplicandoItem?.nome || duplicandoItem?.descricao}&quot; (
-              {toFixed2(duplicandoItem?.quantidade || 0)} {duplicandoItem?.unidade}) para outro comodo. Util quando o
-              Quarto 02 leva os mesmos trabalhos do Quarto 01.
+              {t(
+                'Copia "{nome}" ({quantidade} {unidade}) para outra divisão. Útil quando o Quarto 02 leva os mesmos trabalhos do Quarto 01.',
+                {
+                  nome: duplicandoItem?.nome || duplicandoItem?.descricao,
+                  quantidade: toFixed2(duplicandoItem?.quantidade || 0),
+                  unidade: nomeUnidade(duplicandoItem?.unidade),
+                },
+              )}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Comodo de destino</Label>
+              <Label>{t("Divisão de destino")}</Label>
               <Select value={duplicarAmbienteDestino} onValueChange={setDuplicarAmbienteDestino}>
                 <SelectTrigger className="rounded-full">
-                  <SelectValue placeholder="Escolha o comodo" />
+                  <SelectValue placeholder={t("Escolha a divisão")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__sem">Sem comodo</SelectItem>
+                  <SelectItem value="__sem">{t("Sem divisão")}</SelectItem>
                   {formData.ambientes.map((nome) => (
                     <SelectItem key={nome} value={nome}>
                       {nome}
@@ -2480,13 +2552,13 @@ export function OrcamentoEditor({
 
             {duplicandoItem?.tipo === "mao_obra" && (
               <div className="space-y-2">
-                <Label>Funcionario da copia</Label>
+                <Label>{t("Funcionário da cópia")}</Label>
                 <Select value={duplicarFuncionarioId} onValueChange={setDuplicarFuncionarioId}>
                   <SelectTrigger className="rounded-full">
-                    <SelectValue placeholder="Escolha um funcionario" />
+                    <SelectValue placeholder={t("Escolha um funcionário")} />
                   </SelectTrigger>
                   <SelectContent>
-                    {duplicandoItem.funcaoId && <SelectItem value={CUSTO_MEDIO}>Custo medio da funcao</SelectItem>}
+                    {duplicandoItem.funcaoId && <SelectItem value={CUSTO_MEDIO}>{t("Custo médio da função")}</SelectItem>}
                     {funcionarios.map((funcionario) => (
                       <SelectItem key={funcionario.id} value={funcionario.id!}>
                         {funcionario.nome} - {funcionario.funcao}
@@ -2500,11 +2572,11 @@ export function OrcamentoEditor({
 
           <div className="flex justify-end gap-2 pt-4">
             <Button type="button" variant="outline" onClick={() => setDuplicandoItem(null)}>
-              Cancelar
+              {t("Cancelar")}
             </Button>
             <Button type="button" onClick={handleDuplicarItem} className="rounded-full">
               <Copy className="h-4 w-4 mr-2" />
-              Duplicar
+              {t("Duplicar")}
             </Button>
           </div>
         </DialogContent>

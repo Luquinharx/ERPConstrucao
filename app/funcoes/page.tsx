@@ -28,6 +28,7 @@ import {
 } from "@/lib/produto-calculos"
 import type { FuncaoMaoObra, Funcionario } from "@/lib/types"
 import { formatCurrency, formatNumber2, round2 } from "@/lib/utils"
+import { t } from "@/lib/i18n"
 
 interface FuncaoForm {
   nome: string
@@ -70,7 +71,7 @@ export default function FuncoesPage() {
       setFuncionarios(listaFuncionarios)
     } catch (error) {
       console.error("Erro ao carregar funcoes:", error)
-      toast({ title: "Erro ao carregar funcoes", variant: "destructive" })
+      toast({ title: t("Erro ao carregar funções"), variant: "destructive" })
     } finally {
       setACarregar(false)
     }
@@ -114,12 +115,16 @@ export default function FuncoesPage() {
     if (!user) return
     const nome = form.nome.trim()
     if (!nome) {
-      toast({ title: "Indique o nome da funcao", variant: "destructive" })
+      toast({ title: t("Indique o nome da função"), variant: "destructive" })
       return
     }
     const repetida = funcoes.some((f) => f.id !== editando?.id && f.nome.trim().toLowerCase() === nome.toLowerCase())
     if (repetida) {
-      toast({ title: "Funcao ja existe", description: `"${nome}" ja esta cadastrada.`, variant: "destructive" })
+      toast({
+        title: t("A função já existe"),
+        description: t('"{nome}" já está registada.', { nome }),
+        variant: "destructive",
+      })
       return
     }
 
@@ -134,24 +139,25 @@ export default function FuncoesPage() {
       }
       if (editando?.id) await updateFuncao(editando.id, dados)
       else await addFuncao(dados, user.uid)
-      toast({ title: editando ? "Funcao atualizada" : "Funcao cadastrada" })
+      toast({ title: editando ? t("Função atualizada") : t("Função registada") })
       setAberto(false)
       await carregar()
     } catch (error) {
       console.error("Erro ao gravar funcao:", error)
-      toast({ title: "Nao foi possivel gravar a funcao", variant: "destructive" })
+      toast({ title: t("Não foi possível guardar a função"), variant: "destructive" })
     } finally {
       setAGravar(false)
     }
   }
 
   const apagar = async (funcao: FuncaoMaoObra) => {
-    if (!funcao.id || !confirm(`Apagar a funcao "${funcao.nome}"? Os funcionarios nao sao alterados.`)) return
+    if (!funcao.id || !confirm(t('Eliminar a função "{nome}"? Os funcionários não são alterados.', { nome: funcao.nome })))
+      return
     try {
       await deleteFuncao(funcao.id)
       await carregar()
     } catch {
-      toast({ title: "Nao foi possivel apagar", variant: "destructive" })
+      toast({ title: t("Não foi possível eliminar"), variant: "destructive" })
     }
   }
 
@@ -167,14 +173,14 @@ export default function FuncoesPage() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold">Funcoes de mao de obra</h1>
+          <h1 className="text-3xl font-bold">{t("Funções de mão de obra")}</h1>
           <p className="text-muted-foreground mt-2">
-            Preco/hora cobrado ao cliente e custo medio/hora da equipa de cada funcao
+            {t("Preço/hora cobrado ao cliente e custo médio/hora da equipa de cada função")}
           </p>
         </div>
         <Button disabled={!podeGerir} onClick={() => abrir(null)} className="rounded-full">
           <Plus className="h-4 w-4 mr-2" />
-          Nova Funcao
+          {t("Nova função")}
         </Button>
       </div>
 
@@ -182,7 +188,7 @@ export default function FuncoesPage() {
         <Card className="border-dashed">
           <CardContent className="py-4 space-y-2">
             <p className="text-sm">
-              Os funcionarios usam estas funcoes, que ainda nao tem preco ao cliente. Clique para cadastrar:
+              {t("Os funcionários usam estas funções, que ainda não têm preço ao cliente. Clique para registar:")}
             </p>
             <div className="flex flex-wrap gap-2">
               {semCadastro.map((nome) => (
@@ -207,8 +213,10 @@ export default function FuncoesPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <HardHat className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium mb-2">Nenhuma funcao cadastrada</h3>
-            <p className="text-muted-foreground">Cadastre Pintor, Pedreiro, Eletricista... com o preco/hora ao cliente.</p>
+            <h3 className="text-lg font-medium mb-2">{t("Nenhuma função registada")}</h3>
+            <p className="text-muted-foreground">
+              {t("Registe Pintor, Pedreiro, Eletricista... com o preço/hora ao cliente.")}
+            </p>
           </CardContent>
         </Card>
       ) : (
@@ -225,22 +233,22 @@ export default function FuncoesPage() {
                       <CardTitle className="text-base">{funcao.nome}</CardTitle>
                       <CardDescription className="truncate">{descricaoClienteFuncao(funcao)}</CardDescription>
                     </div>
-                    {funcao.ativo === false && <Badge variant="secondary">Inativa</Badge>}
+                    {funcao.ativo === false && <Badge variant="secondary">{t("Inativa")}</Badge>}
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Preco ao cliente</span>
+                      <span className="text-muted-foreground">{t("Preço ao cliente")}</span>
                       <span className="font-medium tabular-nums">{formatCurrency(funcao.precoHora)}/h</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Custo medio</span>
-                      <span className="tabular-nums">{equipa.length ? `${formatCurrency(custo)}/h` : "sem funcionarios"}</span>
+                      <span className="text-muted-foreground">{t("Custo médio")}</span>
+                      <span className="tabular-nums">{equipa.length ? `${formatCurrency(custo)}/h` : t("sem funcionários")}</span>
                     </div>
                     {equipa.length > 0 && (
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Margem</span>
+                        <span className="text-muted-foreground">{t("Margem")}</span>
                         <span className={`tabular-nums ${margem < 0 ? "text-destructive font-medium" : ""}`}>
                           {formatNumber2(margem)}%
                         </span>
@@ -281,24 +289,24 @@ export default function FuncoesPage() {
       <Dialog open={aberto} onOpenChange={setAberto}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>{editando ? "Editar funcao" : "Nova funcao"}</DialogTitle>
+            <DialogTitle>{editando ? t("Editar função") : t("Nova função")}</DialogTitle>
             <DialogDescription>
-              O custo medio vem dos funcionarios ativos com esta funcao (campo Funcao na ficha do funcionario).
+              {t("O custo médio vem dos funcionários ativos com esta função (campo Função na ficha do funcionário).")}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={gravar} className="space-y-4">
             <div className="space-y-2">
-              <Label>Nome</Label>
+              <Label>{t("Nome")}</Label>
               <Input
                 value={form.nome}
                 onChange={(e) => setForm({ ...form, nome: e.target.value })}
-                placeholder="Ex.: Pintor"
+                placeholder={t("Ex.: Pintor")}
                 className="rounded-full"
               />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>Preco/hora ao cliente</Label>
+                <Label>{t("Preço/hora ao cliente")}</Label>
                 <CampoNumerico
                   min={0}
                   sufixo="EUR"
@@ -308,7 +316,7 @@ export default function FuncoesPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Margem sobre o custo medio</Label>
+                <Label>{t("Margem sobre o custo médio")}</Label>
                 <CampoNumerico
                   sufixo="%"
                   disabled={custoForm <= 0}
@@ -319,32 +327,33 @@ export default function FuncoesPage() {
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              Custo medio atual:{" "}
-              {custoForm > 0 ? `${formatCurrency(custoForm)}/h` : "nenhum funcionario ativo com esta funcao"}
+              {custoForm > 0
+                ? t("Custo médio atual: {valor}/h", { valor: formatCurrency(custoForm) })
+                : t("Custo médio atual: nenhum funcionário ativo com esta função")}
             </p>
             <div className="space-y-2">
-              <Label>Texto no PDF do cliente</Label>
+              <Label>{t("Texto no PDF do cliente")}</Label>
               <Input
                 value={form.descricaoCliente}
                 onChange={(e) => setForm({ ...form, descricaoCliente: e.target.value })}
-                placeholder={`Mao de obra - ${form.nome || "funcao"}`}
+                placeholder={t("Mão de obra - {nome}", { nome: form.nome || t("função") })}
                 className="rounded-full"
               />
             </div>
             <div className="space-y-2">
-              <Label>Observacoes</Label>
+              <Label>{t("Observações")}</Label>
               <Textarea value={form.observacoes} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} rows={2} />
             </div>
             <label className="flex items-center gap-3 text-sm">
               <Switch checked={form.ativo} onCheckedChange={(ativo) => setForm({ ...form, ativo })} />
-              Ativa (aparece nos orcamentos)
+              {t("Ativa (aparece nos orçamentos)")}
             </label>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setAberto(false)}>
-                Cancelar
+                {t("Cancelar")}
               </Button>
               <Button type="submit" disabled={aGravar} className="rounded-full">
-                {aGravar ? "A guardar..." : "Gravar"}
+                {aGravar ? t("A guardar...") : t("Guardar")}
               </Button>
             </div>
           </form>

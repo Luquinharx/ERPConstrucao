@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
+import { t } from "@/lib/i18n"
 
 export interface OpcaoSeletor {
   valor: string
@@ -37,9 +38,9 @@ export function SeletorComBusca({
   opcoes,
   valor,
   onChange,
-  placeholder = "Selecionar...",
-  placeholderBusca = "Escrever para procurar...",
-  vazio = "Nada encontrado.",
+  placeholder = t("Selecionar..."),
+  placeholderBusca = t("Escrever para procurar..."),
+  vazio = t("Nada encontrado."),
   className,
   compacto = false,
 }: SeletorComBuscaProps) {

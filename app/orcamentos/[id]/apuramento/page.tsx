@@ -36,15 +36,16 @@ import type {
   TipoLancamentoObra,
 } from "@/lib/types"
 import { formatCurrency, formatDate, formatNumber2, hojeLocal, round2 } from "@/lib/utils"
+import { m, t } from "@/lib/i18n"
 
 /** Pequenas despesas de obra: nome e bloco do apuramento onde entram. */
 const DESPESAS_RAPIDAS: Array<[string, TipoLancamentoObra]> = [
-  ["Almoco", "outros"],
-  ["Gasoleo", "transporte"],
-  ["Portagem", "transporte"],
-  ["Estacionamento", "transporte"],
-  ["Ferramenta", "outros"],
-  ["Deslocacao", "transporte"],
+  [m("Almoço"), "outros"],
+  [m("Gasóleo"), "transporte"],
+  [m("Portagem"), "transporte"],
+  [m("Estacionamento"), "transporte"],
+  [m("Ferramenta"), "outros"],
+  [m("Deslocação"), "transporte"],
 ]
 
 const novoId = () => `lanc-${Date.now()}-${Math.round(Math.random() * 1000)}`
@@ -63,7 +64,7 @@ const novoLancamento = (tipo: TipoLancamentoObra): LancamentoObra => ({
 function Diferenca({ previsto, real }: { previsto: number | null; real: number | null }) {
   if (previsto === null || real === null) return <span className="text-muted-foreground">-</span>
   const d = round2(real - previsto)
-  if (d === 0) return <span className="text-muted-foreground">0,00 €</span>
+  if (d === 0) return <span className="text-muted-foreground">{formatCurrency(0)}</span>
   return (
     <span className={d > 0 ? "text-destructive font-medium" : "text-emerald-600 font-medium"}>
       {d > 0 ? "+" : ""}
@@ -128,7 +129,7 @@ export default function ApuramentoObraPage() {
       await carregarMovimentos()
     } catch (error) {
       console.error("Erro ao carregar apuramento:", error)
-      toast({ title: "Erro ao carregar a obra", variant: "destructive" })
+      toast({ title: t("Erro ao carregar a obra"), variant: "destructive" })
     } finally {
       setACarregar(false)
     }
@@ -170,7 +171,7 @@ export default function ApuramentoObraPage() {
       .filter((l) => l.descricao.trim() || totalLancamento(l) > 0)
       .map((l) => ({
         ...l,
-        descricao: l.descricao.trim() || TIPOS_LANCAMENTO[l.tipo].nome,
+        descricao: l.descricao.trim() || t(TIPOS_LANCAMENTO[l.tipo].nome),
         fornecedor: l.fornecedor?.trim() || undefined,
         documento: l.documento?.trim() || undefined,
         quantidade: round2(l.quantidade),
@@ -181,9 +182,9 @@ export default function ApuramentoObraPage() {
       await FirebaseService.updateOrcamento(orcamento.id, { lancamentosObra: limpos })
       setLancamentos(limpos)
       setGravados(JSON.stringify(limpos))
-      toast({ title: "Apuramento gravado" })
+      toast({ title: t("Apuramento guardado") })
     } catch {
-      toast({ title: "Nao foi possivel gravar", variant: "destructive" })
+      toast({ title: t("Não foi possível guardar"), variant: "destructive" })
     } finally {
       setAGravar(false)
     }
@@ -198,14 +199,14 @@ export default function ApuramentoObraPage() {
       </div>
     )
   }
-  if (!pode("orcamentos.verCusto")) return <SemAcesso area="Apuramento da obra" requisito="a permissao de ver custos e margem" />
+  if (!pode("orcamentos.verCusto")) return <SemAcesso area={t("Apuramento da obra")} requisito={t("a permissão de ver custos e margem")} />
   if (!orcamento || !apuramento) {
     return (
       <Card>
         <CardContent className="py-12 text-center">
-          <p className="font-medium">Proposta nao encontrada</p>
+          <p className="font-medium">{t("Proposta não encontrada")}</p>
           <Button onClick={voltar} className="mt-4 rounded-full">
-            Voltar aos orcamentos
+            {t("Voltar aos orçamentos")}
           </Button>
         </CardContent>
       </Card>
@@ -218,10 +219,10 @@ export default function ApuramentoObraPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <CabecalhoObra orcamento={orcamento} subtitulo="vendido x previsto x real, sem IVA" />
+      <CabecalhoObra orcamento={orcamento} subtitulo={t("vendido × previsto × real, sem IVA")} />
       {!podeApurar(orcamento) && (
         <Badge variant="outline" className="border-amber-500/40 text-amber-700">
-          Ainda nao adjudicada: o real so faz sentido depois da obra
+          {t("Ainda não adjudicada: o real só faz sentido depois da obra")}
         </Badge>
       )}
 
@@ -229,37 +230,37 @@ export default function ApuramentoObraPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" data-testid="resumo-apuramento">
         <Card>
           <CardHeader className="pb-1">
-            <CardDescription>Venda (sem IVA)</CardDescription>
+            <CardDescription>{t("Venda (sem IVA)")}</CardDescription>
           </CardHeader>
           <CardContent className="text-2xl font-bold tabular-nums">{formatCurrency(apuramento.venda)}</CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-1">
-            <CardDescription>Custo previsto</CardDescription>
+            <CardDescription>{t("Custo previsto")}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold tabular-nums">{formatCurrency(apuramento.custoPrevisto)}</div>
             <p className="text-sm text-muted-foreground">
-              Lucro previsto {formatCurrency(apuramento.lucroPrevisto)} ({formatNumber2(apuramento.margemPrevista)}%)
+              {t("Lucro previsto {valor} ({margem}%)", { valor: formatCurrency(apuramento.lucroPrevisto), margem: formatNumber2(apuramento.margemPrevista) })}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-1">
-            <CardDescription>Custo real</CardDescription>
+            <CardDescription>{t("Custo real")}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold tabular-nums" data-testid="custo-real">
               {formatCurrency(apuramento.custoReal)}
             </div>
             <p className="text-sm text-muted-foreground">
-              {apuramento.temReal ? "Material do estoque + lancamentos" : "Ainda sem custos reais lancados"}
+              {apuramento.temReal ? t("Material do stock + lançamentos") : t("Ainda sem custos reais lançados")}
             </p>
           </CardContent>
         </Card>
         <Card className={apuramento.temReal && apuramento.lucroReal < apuramento.lucroPrevisto ? "border-destructive/50" : undefined}>
           <CardHeader className="pb-1">
-            <CardDescription>Lucro real</CardDescription>
+            <CardDescription>{t("Lucro real")}</CardDescription>
           </CardHeader>
           <CardContent>
             <div
@@ -270,13 +271,14 @@ export default function ApuramentoObraPage() {
             </div>
             {apuramento.temReal && (
               <p className="text-sm text-muted-foreground">
-                {formatNumber2(apuramento.margemReal)}% da venda ·{" "}
+                {t("{margem}% da venda", { margem: formatNumber2(apuramento.margemReal) })} ·{" "}
                 {apuramento.lucroReal === apuramento.lucroPrevisto ? (
-                  "igual ao previsto"
+                  t("igual ao previsto")
                 ) : (
                   <span className={apuramento.lucroReal < apuramento.lucroPrevisto ? "text-destructive" : "text-emerald-600"}>
-                    {formatCurrency(Math.abs(round2(apuramento.lucroReal - apuramento.lucroPrevisto)))}{" "}
-                    {apuramento.lucroReal < apuramento.lucroPrevisto ? "abaixo" : "acima"} do previsto
+                    {apuramento.lucroReal < apuramento.lucroPrevisto
+                      ? t("{valor} abaixo do previsto", { valor: formatCurrency(Math.abs(round2(apuramento.lucroReal - apuramento.lucroPrevisto))) })
+                      : t("{valor} acima do previsto", { valor: formatCurrency(Math.abs(round2(apuramento.lucroReal - apuramento.lucroPrevisto))) })}
                   </span>
                 )}
               </p>
@@ -288,21 +290,21 @@ export default function ApuramentoObraPage() {
       {/* Por bloco */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Por bloco</CardTitle>
+          <CardTitle className="text-lg">{t("Por bloco")}</CardTitle>
           <CardDescription>
-            Vendido e previsto vem do orcamento (antes da margem global de {formatCurrency(apuramento.margemGlobal)}).
-            Diferenca a vermelho = gastou-se mais do que o previsto.
+            {t("Vendido e previsto vêm do orçamento (antes da margem global de {valor}).", { valor: formatCurrency(apuramento.margemGlobal) })}{" "}
+            {t("Diferença a vermelho = gastou-se mais do que o previsto.")}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0 sm:p-6 sm:pt-0">
           <Table data-testid="tabela-blocos">
             <TableHeader>
               <TableRow>
-                <TableHead>Bloco</TableHead>
-                <TableHead className="text-right">Vendido</TableHead>
-                <TableHead className="text-right">Custo previsto</TableHead>
-                <TableHead className="text-right">Custo real</TableHead>
-                <TableHead className="text-right">Diferenca</TableHead>
+                <TableHead>{t("Bloco")}</TableHead>
+                <TableHead className="text-right">{t("Vendido")}</TableHead>
+                <TableHead className="text-right">{t("Custo previsto")}</TableHead>
+                <TableHead className="text-right">{t("Custo real")}</TableHead>
+                <TableHead className="text-right">{t("Diferença")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -325,7 +327,7 @@ export default function ApuramentoObraPage() {
             </TableBody>
             <TableFooter>
               <TableRow>
-                <TableCell>Total</TableCell>
+                <TableCell>{t("Total")}</TableCell>
                 <TableCell className="text-right tabular-nums">{formatCurrency(apuramento.venda)}</TableCell>
                 <TableCell className="text-right tabular-nums">{formatCurrency(apuramento.custoPrevisto)}</TableCell>
                 <TableCell className="text-right tabular-nums">{formatCurrency(apuramento.custoReal)}</TableCell>
@@ -342,20 +344,20 @@ export default function ApuramentoObraPage() {
       <Card>
         <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3 space-y-0">
           <div>
-            <CardTitle className="text-lg">Material da obra</CardTitle>
+            <CardTitle className="text-lg">{t("Material da obra")}</CardTitle>
             <CardDescription>
-              Entra so pelo estoque: saidas para esta obra, ou compras feitas para ela (entram e saem logo).
+              {t("Entra só pelo stock: saídas para esta obra, ou compras feitas para ela (entram e saem logo).")}
             </CardDescription>
           </div>
           {podeMovimentar && (
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" className="rounded-full" onClick={() => setDialogo("saida")}>
                 <ArrowDownToLine className="mr-2 h-4 w-4" />
-                Saida do estoque
+                {t("Saída do stock")}
               </Button>
               <Button className="rounded-full" onClick={() => setDialogo("compra")}>
                 <ShoppingCart className="mr-2 h-4 w-4" />
-                Compra para esta obra
+                {t("Compra para esta obra")}
               </Button>
             </div>
           )}
@@ -364,19 +366,19 @@ export default function ApuramentoObraPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Data</TableHead>
-                <TableHead>Produto</TableHead>
-                <TableHead>Origem</TableHead>
-                <TableHead className="text-right">Qtd.</TableHead>
-                <TableHead className="text-right">Custo unit.</TableHead>
-                <TableHead className="text-right">Total</TableHead>
+                <TableHead>{t("Data")}</TableHead>
+                <TableHead>{t("Produto")}</TableHead>
+                <TableHead>{t("Origem")}</TableHead>
+                <TableHead className="text-right">{t("Qtd.")}</TableHead>
+                <TableHead className="text-right">{t("Custo unit.")}</TableHead>
+                <TableHead className="text-right">{t("Total")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {saidas.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
-                    Nenhum material saiu ainda para esta obra.
+                    {t("Ainda não saiu nenhum material para esta obra.")}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -385,7 +387,7 @@ export default function ApuramentoObraPage() {
                     <TableCell className="whitespace-nowrap">{formatDate(m.data)}</TableCell>
                     <TableCell className="font-medium">{m.materialNome}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {[m.devolucao ? "Devolucao ao armazem" : m.fornecedor ? `Compra · ${m.fornecedor}` : "Estoque", m.documento]
+                      {[m.devolucao ? t("Devolução ao armazém") : m.fornecedor ? t("Compra · {fornecedor}", { fornecedor: m.fornecedor }) : t("Stock"), m.documento]
                         .filter(Boolean)
                         .join(" · ")}
                     </TableCell>
@@ -409,20 +411,20 @@ export default function ApuramentoObraPage() {
       {necessidades.length > 0 && (
         <Card data-testid="necessidades">
           <CardHeader>
-            <CardTitle className="text-lg">Material previsto vs saido</CardTitle>
+            <CardTitle className="text-lg">{t("Material previsto vs. saído")}</CardTitle>
             <CardDescription>
-              Pela composicao dos itens do orcamento. O que falta e a lista de compras da obra, ja em embalagens de compra.
+              {t("Pela composição dos itens do orçamento. O que falta é a lista de compras da obra, já em embalagens de compra.")}
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0 sm:p-6 sm:pt-0">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Produto</TableHead>
-                  <TableHead className="text-right">Previsto</TableHead>
-                  <TableHead className="text-right">Ja saiu</TableHead>
-                  <TableHead className="text-right">Falta</TableHead>
-                  <TableHead className="text-right">Comprar</TableHead>
+                  <TableHead>{t("Produto")}</TableHead>
+                  <TableHead className="text-right">{t("Previsto")}</TableHead>
+                  <TableHead className="text-right">{t("Já saiu")}</TableHead>
+                  <TableHead className="text-right">{t("Em falta")}</TableHead>
+                  <TableHead className="text-right">{t("Comprar")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -448,29 +450,37 @@ export default function ApuramentoObraPage() {
       {/* Horas do livro de ponto e faturas aprovadas: entram sozinhas */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Entradas automaticas</CardTitle>
-          <CardDescription>Nao se escrevem aqui: vem do livro de ponto e das faturas de fornecedor, depois de aprovadas.</CardDescription>
+          <CardTitle className="text-lg">{t("Entradas automáticas")}</CardTitle>
+          <CardDescription>{t("Não se escrevem aqui: vêm do livro de ponto e das faturas de fornecedor, depois de aprovadas.")}</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 text-sm sm:grid-cols-2">
           <div className="rounded-lg border p-3" data-testid="auto-horas">
-            <div className="font-medium">Livro de ponto</div>
+            <div className="font-medium">{t("Livro de ponto")}</div>
             <div>
-              {formatNumber2(horasAprovadas.horas)} h aprovadas · mao de obra {formatCurrency(horasAprovadas.maoObra)} · estrutura{" "}
-              {formatCurrency(horasAprovadas.estrutura)}
+              {t("{horas} h aprovadas · mão de obra {maoObra} · estrutura {estrutura}", {
+                horas: formatNumber2(horasAprovadas.horas),
+                maoObra: formatCurrency(horasAprovadas.maoObra),
+                estrutura: formatCurrency(horasAprovadas.estrutura),
+              })}
             </div>
-            {horasPendentes > 0 && <div className="text-amber-700">{horasPendentes} registo(s) por aprovar</div>}
-            <a href="/horas" className="text-xs text-primary underline">Abrir livro de ponto</a>
+            {horasPendentes > 0 && (
+              <div className="text-amber-700">
+                {horasPendentes === 1 ? t("{n} registo por aprovar", { n: horasPendentes }) : t("{n} registos por aprovar", { n: horasPendentes })}
+              </div>
+            )}
+            <a href="/horas" className="text-xs text-primary underline">{t("Abrir livro de ponto")}</a>
           </div>
           <div className="rounded-lg border p-3" data-testid="auto-faturas">
-            <div className="font-medium">Faturas de fornecedor</div>
+            <div className="font-medium">{t("Faturas de fornecedor")}</div>
             <div>
-              {faturasAprovadas.length} aprovada(s) ·{" "}
-              {formatCurrency(round2(faturasAprovadas.reduce((s, f) => s + f.valorSemIVA, 0)))} sem IVA
+              {faturasAprovadas.length === 1
+                ? t("{n} aprovada · {valor} sem IVA", { n: faturasAprovadas.length, valor: formatCurrency(round2(faturasAprovadas.reduce((s, f) => s + f.valorSemIVA, 0))) })
+                : t("{n} aprovadas · {valor} sem IVA", { n: faturasAprovadas.length, valor: formatCurrency(round2(faturasAprovadas.reduce((s, f) => s + f.valorSemIVA, 0))) })}
             </div>
             {faturas.length > faturasAprovadas.length && (
-              <div className="text-amber-700">{faturas.filter((f) => f.estado === "pendente").length} por aprovar</div>
+              <div className="text-amber-700">{t("{n} por aprovar", { n: faturas.filter((f) => f.estado === "pendente").length })}</div>
             )}
-            <a href="/faturas" className="text-xs text-primary underline">Abrir faturas</a>
+            <a href="/faturas" className="text-xs text-primary underline">{t("Abrir faturas")}</a>
           </div>
         </CardContent>
       </Card>
@@ -479,23 +489,23 @@ export default function ApuramentoObraPage() {
       {podeLancar && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Despesa rapida</CardTitle>
-            <CardDescription>Pequenos gastos de obra num toque. Grave o apuramento a seguir.</CardDescription>
+            <CardTitle className="text-lg">{t("Despesa rápida")}</CardTitle>
+            <CardDescription>{t("Pequenos gastos de obra num toque. Guarde o apuramento a seguir.")}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
             {DESPESAS_RAPIDAS.map(([nome, tipo]) => (
               <Button key={nome} variant="outline" size="sm" className="rounded-full" onClick={() => setDespesa({ nome, tipo, valor: 0 })}>
-                {nome}
+                {t(nome)}
               </Button>
             ))}
             {despesa && (
               <div className="flex w-full flex-wrap items-center gap-2 pt-2" data-testid="despesa-rapida">
-                <span className="text-sm font-medium">{despesa.nome}</span>
+                <span className="text-sm font-medium">{t(despesa.nome)}</span>
                 <CampoNumerico
                   tamanho="sm"
                   min={0}
                   sufixo="EUR"
-                  aria-label="Valor da despesa"
+                  aria-label={t("Valor da despesa")}
                   value={despesa.valor}
                   onChange={(valor) => setDespesa({ ...despesa, valor })}
                   className="w-36"
@@ -507,12 +517,12 @@ export default function ApuramentoObraPage() {
                     if (despesa.valor <= 0) return
                     setLancamentos((atual) => [
                       ...atual,
-                      { ...novoLancamento(despesa.tipo), descricao: despesa.nome, quantidade: 1, valorUnitario: round2(despesa.valor) },
+                      { ...novoLancamento(despesa.tipo), descricao: t(despesa.nome), quantidade: 1, valorUnitario: round2(despesa.valor) },
                     ])
                     setDespesa(null)
                   }}
                 >
-                  Adicionar
+                  {t("Adicionar")}
                 </Button>
               </div>
             )}
@@ -524,21 +534,21 @@ export default function ApuramentoObraPage() {
       <Card>
         <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3 space-y-0">
           <div>
-            <CardTitle className="text-lg">Mao de obra real</CardTitle>
+            <CardTitle className="text-lg">{t("Mão de obra real")}</CardTitle>
             <CardDescription>
-              Vendido no orcamento: <span className="font-medium">{formatCurrency(vendidoMaoObra)}</span>. Ao faturar,
-              informe o que se gastou: escolha o funcionario (puxa o custo/hora) ou escreva o valor.
+              {t("Vendido no orçamento:")} <span className="font-medium">{formatCurrency(vendidoMaoObra)}</span>.{" "}
+              {t("Ao faturar, indique o que se gastou: escolha o funcionário (puxa o custo/hora) ou escreva o valor.")}
             </CardDescription>
           </div>
           {podeLancar && (
             <Button variant="outline" className="rounded-full" onClick={() => adicionar("mao_obra")}>
               <Plus className="mr-2 h-4 w-4" />
-              Mao de obra
+              {t("Mão de obra")}
             </Button>
           )}
         </CardHeader>
         <CardContent className="space-y-2">
-          {maoObra.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma mao de obra lancada.</p>}
+          {maoObra.length === 0 && <p className="text-sm text-muted-foreground">{t("Nenhuma mão de obra lançada.")}</p>}
           {maoObra.map((l) => (
             <div
               key={l.id}
@@ -546,13 +556,13 @@ export default function ApuramentoObraPage() {
               className="grid items-end gap-2 rounded-lg border p-3 sm:grid-cols-[1.4fr_1.4fr_100px_120px_120px_auto]"
             >
               <div className="space-y-1">
-                <span className="text-xs text-muted-foreground">Funcionario</span>
+                <span className="text-xs text-muted-foreground">{t("Funcionário")}</span>
                 <SeletorComBusca
                   valor={l.funcionarioId || ""}
                   onChange={(fid) => escolherFuncionario(l.id, fid)}
-                  placeholder="Opcional"
-                  placeholderBusca="Procurar funcionario..."
-                  vazio="Nenhum funcionario."
+                  placeholder={t("Opcional")}
+                  placeholderBusca={t("Procurar funcionário...")}
+                  vazio={t("Nenhum funcionário.")}
                   opcoes={funcionarios.map((f) => ({
                     valor: f.id!,
                     rotulo: f.nome,
@@ -561,44 +571,44 @@ export default function ApuramentoObraPage() {
                 />
               </div>
               <div className="space-y-1">
-                <span className="text-xs text-muted-foreground">Descricao</span>
+                <span className="text-xs text-muted-foreground">{t("Descrição")}</span>
                 <Input
                   value={l.descricao}
                   disabled={!podeLancar}
                   onChange={(e) => alterar(l.id, { descricao: e.target.value })}
-                  placeholder={TIPOS_LANCAMENTO.mao_obra.exemplo}
-                  aria-label="Descricao da mao de obra"
+                  placeholder={t(TIPOS_LANCAMENTO.mao_obra.exemplo)}
+                  aria-label={t("Descrição da mão de obra")}
                 />
               </div>
               <div className="space-y-1">
-                <span className="text-xs text-muted-foreground">Horas</span>
+                <span className="text-xs text-muted-foreground">{t("Horas")}</span>
                 <CampoNumerico
                   min={0}
                   value={l.quantidade}
                   disabled={!podeLancar}
-                  aria-label="Horas"
+                  aria-label={t("Horas")}
                   onChange={(quantidade) => alterar(l.id, { quantidade })}
                 />
               </div>
               <div className="space-y-1">
-                <span className="text-xs text-muted-foreground">Custo/hora</span>
+                <span className="text-xs text-muted-foreground">{t("Custo/hora")}</span>
                 <CampoNumerico
                   min={0}
                   sufixo="EUR"
                   value={l.valorUnitario}
                   disabled={!podeLancar}
-                  aria-label="Custo por hora"
+                  aria-label={t("Custo por hora")}
                   onChange={(valorUnitario) => alterar(l.id, { valorUnitario })}
                 />
               </div>
               <div className="space-y-1">
-                <span className="text-xs text-muted-foreground">Total</span>
+                <span className="text-xs text-muted-foreground">{t("Total")}</span>
                 <div className="flex h-10 items-center justify-end rounded-md bg-muted px-3 text-sm font-medium tabular-nums">
                   {formatCurrency(totalLancamento(l))}
                 </div>
               </div>
               {podeLancar && (
-                <Button variant="ghost" size="icon" title="Remover" onClick={() => remover(l.id)} className="text-destructive">
+                <Button variant="ghost" size="icon" title={t("Remover")} onClick={() => remover(l.id)} className="text-destructive">
                   <X className="h-4 w-4" />
                 </Button>
               )}
@@ -611,18 +621,18 @@ export default function ApuramentoObraPage() {
       <Card>
         <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3 space-y-0">
           <div>
-            <CardTitle className="text-lg">Servicos de terceiros e outros custos</CardTitle>
-            <CardDescription>Subempreitadas, aluguer de equipamento, transporte, vazadouro... Valores sem IVA.</CardDescription>
+            <CardTitle className="text-lg">{t("Serviços de terceiros e outros custos")}</CardTitle>
+            <CardDescription>{t("Subempreitadas, aluguer de equipamento, transporte, vazadouro... Valores sem IVA.")}</CardDescription>
           </div>
           {podeLancar && (
             <Button variant="outline" className="rounded-full" onClick={() => adicionar("terceiros")}>
               <Plus className="mr-2 h-4 w-4" />
-              Custo
+              {t("Custo")}
             </Button>
           )}
         </CardHeader>
         <CardContent className="space-y-2">
-          {outros.length === 0 && <p className="text-sm text-muted-foreground">Nenhum custo lancado.</p>}
+          {outros.length === 0 && <p className="text-sm text-muted-foreground">{t("Nenhum custo lançado.")}</p>}
           {outros.map((l) => (
             <div
               key={l.id}
@@ -630,83 +640,83 @@ export default function ApuramentoObraPage() {
               className="grid items-end gap-2 rounded-lg border p-3 sm:grid-cols-[180px_1.5fr_1fr_1fr_90px_120px_120px_auto]"
             >
               <div className="space-y-1">
-                <span className="text-xs text-muted-foreground">Tipo</span>
+                <span className="text-xs text-muted-foreground">{t("Tipo")}</span>
                 <Select
                   value={l.tipo}
                   disabled={!podeLancar}
                   onValueChange={(tipo) => alterar(l.id, { tipo: tipo as TipoLancamentoObra })}
                 >
-                  <SelectTrigger aria-label="Tipo de custo">
+                  <SelectTrigger aria-label={t("Tipo de custo")}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {(Object.keys(TIPOS_LANCAMENTO) as TipoLancamentoObra[])
-                      .filter((t) => t !== "mao_obra")
-                      .map((t) => (
-                        <SelectItem key={t} value={t}>
-                          {TIPOS_LANCAMENTO[t].nome}
+                      .filter((tp) => tp !== "mao_obra")
+                      .map((tp) => (
+                        <SelectItem key={tp} value={tp}>
+                          {t(TIPOS_LANCAMENTO[tp].nome)}
                         </SelectItem>
                       ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1">
-                <span className="text-xs text-muted-foreground">Descricao</span>
+                <span className="text-xs text-muted-foreground">{t("Descrição")}</span>
                 <Input
                   value={l.descricao}
                   disabled={!podeLancar}
                   onChange={(e) => alterar(l.id, { descricao: e.target.value })}
-                  placeholder={TIPOS_LANCAMENTO[l.tipo].exemplo}
-                  aria-label="Descricao do custo"
+                  placeholder={t(TIPOS_LANCAMENTO[l.tipo].exemplo)}
+                  aria-label={t("Descrição do custo")}
                 />
               </div>
               <div className="space-y-1">
-                <span className="text-xs text-muted-foreground">Fornecedor</span>
+                <span className="text-xs text-muted-foreground">{t("Fornecedor")}</span>
                 <Input
                   value={l.fornecedor || ""}
                   disabled={!podeLancar}
                   onChange={(e) => alterar(l.id, { fornecedor: e.target.value })}
-                  aria-label="Fornecedor"
+                  aria-label={t("Fornecedor")}
                 />
               </div>
               <div className="space-y-1">
-                <span className="text-xs text-muted-foreground">Fatura</span>
+                <span className="text-xs text-muted-foreground">{t("Fatura")}</span>
                 <Input
                   value={l.documento || ""}
                   disabled={!podeLancar}
                   onChange={(e) => alterar(l.id, { documento: e.target.value })}
-                  aria-label="Fatura"
+                  aria-label={t("Fatura")}
                 />
               </div>
               <div className="space-y-1">
-                <span className="text-xs text-muted-foreground">Qtd.</span>
+                <span className="text-xs text-muted-foreground">{t("Qtd.")}</span>
                 <CampoNumerico
                   min={0}
                   value={l.quantidade}
                   disabled={!podeLancar}
-                  aria-label="Quantidade"
+                  aria-label={t("Quantidade")}
                   onChange={(quantidade) => alterar(l.id, { quantidade })}
                 />
               </div>
               <div className="space-y-1">
-                <span className="text-xs text-muted-foreground">Valor sem IVA</span>
+                <span className="text-xs text-muted-foreground">{t("Valor sem IVA")}</span>
                 <CampoNumerico
                   min={0}
                   sufixo="EUR"
                   value={l.valorUnitario}
                   disabled={!podeLancar}
-                  aria-label="Valor sem IVA"
+                  aria-label={t("Valor sem IVA")}
                   onChange={(valorUnitario) => alterar(l.id, { valorUnitario })}
                 />
               </div>
               <div className="space-y-1">
-                <span className="text-xs text-muted-foreground">Total</span>
+                <span className="text-xs text-muted-foreground">{t("Total")}</span>
                 <div className="flex h-10 items-center justify-end rounded-md bg-muted px-3 text-sm font-medium tabular-nums">
                   {formatCurrency(totalLancamento(l))}
                 </div>
               </div>
               {podeLancar && (
-                <Button variant="ghost" size="icon" title="Remover" onClick={() => remover(l.id)} className="text-destructive">
+                <Button variant="ghost" size="icon" title={t("Remover")} onClick={() => remover(l.id)} className="text-destructive">
                   <X className="h-4 w-4" />
                 </Button>
               )}
@@ -718,15 +728,15 @@ export default function ApuramentoObraPage() {
       {podeLancar && (
         <div className="sticky bottom-0 -mx-1 flex flex-wrap items-center justify-between gap-3 border-t bg-background/95 px-1 py-3 backdrop-blur">
           <div className="text-sm">
-            <span className="text-muted-foreground">Lucro real: </span>
+            <span className="text-muted-foreground">{t("Lucro real:")} </span>
             <span className="font-semibold tabular-nums">
               {apuramento.temReal ? formatCurrency(apuramento.lucroReal) : "-"}
             </span>
-            {porGravar && <span className="ml-3 text-amber-600">Alteracoes por gravar</span>}
+            {porGravar && <span className="ml-3 text-amber-600">{t("Alterações por guardar")}</span>}
           </div>
           <Button onClick={gravar} disabled={aGravar || !porGravar} className="rounded-full">
             {aGravar && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Gravar apuramento
+            {t("Guardar apuramento")}
           </Button>
         </div>
       )}

@@ -15,6 +15,7 @@ import { toast } from "@/hooks/use-toast"
 import { useConfiguracao } from "@/hooks/use-configuracao"
 import { FONTES_DISPONIVEIS, PALETAS, corDeTexto } from "@/lib/brand"
 import type { ConfiguracaoEmpresa } from "@/lib/types"
+import { t } from "@/lib/i18n"
 
 /** Limite do logotipo em base64, para nao estourar o documento do Firestore. */
 const LIMITE_LOGO_KB = 400
@@ -36,8 +37,8 @@ export function IdentidadeDaEmpresa() {
   const carregarLogo = (ficheiro: File) => {
     if (ficheiro.size > LIMITE_LOGO_KB * 1024) {
       toast({
-        title: "Imagem demasiado grande",
-        description: `O logotipo deve ter menos de ${LIMITE_LOGO_KB} KB. Reduza a imagem e tente de novo.`,
+        title: t("Imagem demasiado grande"),
+        description: t("O logótipo deve ter menos de {kb} KB. Reduza a imagem e tente de novo.", { kb: LIMITE_LOGO_KB }),
         variant: "destructive",
       })
       return
@@ -51,11 +52,11 @@ export function IdentidadeDaEmpresa() {
     setGuardando(true)
     try {
       await guardar(form)
-      toast({ title: "Identidade guardada", description: "As alteracoes ja se aplicam ao sistema e as propostas." })
+      toast({ title: t("Identidade guardada"), description: t("As alterações já se aplicam ao sistema e às propostas.") })
     } catch (error) {
       toast({
-        title: "Erro ao guardar",
-        description: "Nao foi possivel guardar a configuracao.",
+        title: t("Erro ao guardar"),
+        description: t("Não foi possível guardar a configuração."),
         variant: "destructive",
       })
     } finally {
@@ -69,9 +70,9 @@ export function IdentidadeDaEmpresa() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ImageIcon className="h-5 w-5" />
-            Logotipo
+            {t("Logótipo")}
           </CardTitle>
-          <CardDescription>Aparece no menu lateral e no cabecalho das propostas impressas.</CardDescription>
+          <CardDescription>{t("Aparece no menu lateral e no cabeçalho das propostas impressas.")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center gap-4">
@@ -90,7 +91,7 @@ export function IdentidadeDaEmpresa() {
                   <img src={form.logoUrl} alt={form.nome} className="max-h-16 max-w-full object-contain" />
                 </span>
               ) : (
-                <span className="text-xs text-muted-foreground">Sem logotipo</span>
+                <span className="text-xs text-muted-foreground">{t("Sem logótipo")}</span>
               )}
             </div>
 
@@ -107,20 +108,22 @@ export function IdentidadeDaEmpresa() {
               />
               <Button type="button" variant="outline" onClick={() => document.getElementById("ficheiro-logo")?.click()}>
                 <Upload className="h-4 w-4 mr-2" />
-                Carregar imagem
+                {t("Carregar imagem")}
               </Button>
               {form.logoUrl && (
                 <Button type="button" variant="ghost" className="w-full" onClick={() => alterar({ logoUrl: "" })}>
                   <X className="h-4 w-4 mr-2" />
-                  Remover
+                  {t("Remover")}
                 </Button>
               )}
-              <p className="text-xs text-muted-foreground">PNG, JPG, SVG ou WEBP ate {LIMITE_LOGO_KB} KB.</p>
+              <p className="text-xs text-muted-foreground">
+                {t("PNG, JPG, SVG ou WEBP até {kb} KB.", { kb: LIMITE_LOGO_KB })}
+              </p>
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="logoFundo">Fundo por tras do logotipo</Label>
+            <Label htmlFor="logoFundo">{t("Fundo por trás do logótipo")}</Label>
             <Select
               value={form.logoFundo || "auto"}
               onValueChange={(valor) => alterar({ logoFundo: valor as ConfiguracaoEmpresa["logoFundo"] })}
@@ -129,19 +132,19 @@ export function IdentidadeDaEmpresa() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="auto">Automatico - placa clara so no tema escuro</SelectItem>
-                <SelectItem value="claro">Sempre claro</SelectItem>
-                <SelectItem value="escuro">Sempre escuro</SelectItem>
-                <SelectItem value="nenhum">Sem fundo</SelectItem>
+                <SelectItem value="auto">{t("Automático - placa clara só no tema escuro")}</SelectItem>
+                <SelectItem value="claro">{t("Sempre claro")}</SelectItem>
+                <SelectItem value="escuro">{t("Sempre escuro")}</SelectItem>
+                <SelectItem value="nenhum">{t("Sem fundo")}</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Logotipos com tinta escura desaparecem sobre fundo escuro. A placa resolve isso sem alterar a imagem.
+              {t("Logótipos com tinta escura desaparecem sobre fundo escuro. A placa resolve isso sem alterar a imagem.")}
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="logoUrl">Ou indicar um endereco</Label>
+            <Label htmlFor="logoUrl">{t("Ou indicar um endereço")}</Label>
             <Input
               id="logoUrl"
               value={form.logoUrl?.startsWith("data:") ? "" : form.logoUrl || ""}
@@ -157,13 +160,13 @@ export function IdentidadeDaEmpresa() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Palette className="h-5 w-5" />
-            Cores e tipografia
+            {t("Cores e tipografia")}
           </CardTitle>
-          <CardDescription>As mudancas aplicam-se de imediato, para poder ver antes de guardar.</CardDescription>
+          <CardDescription>{t("As mudanças aplicam-se de imediato, para poder ver antes de guardar.")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
           <div className="space-y-2">
-            <Label>Paletas prontas</Label>
+            <Label>{t("Paletas prontas")}</Label>
             <div className="flex flex-wrap gap-2">
               {PALETAS.map((paleta) => {
                 const ativa = form.corPrimaria.toUpperCase() === paleta.primaria.toUpperCase()
@@ -187,7 +190,7 @@ export function IdentidadeDaEmpresa() {
                         <span key={cor} className="h-4 w-4 rounded-full border" style={{ backgroundColor: cor }} />
                       ))}
                     </span>
-                    {paleta.nome}
+                    {t(paleta.nome)}
                     {ativa && <Check className="h-3 w-3" />}
                   </button>
                 )
@@ -197,9 +200,9 @@ export function IdentidadeDaEmpresa() {
 
           <div className="grid gap-4 sm:grid-cols-3">
             {[
-              { campo: "corPrimaria" as const, rotulo: "Cor principal", ajuda: "Botoes, destaques e cabecalhos" },
-              { campo: "corSecundaria" as const, rotulo: "Cor secundaria", ajuda: "Apoio nos documentos" },
-              { campo: "corEscura" as const, rotulo: "Cor escura", ajuda: "Cabecalhos de tabela" },
+              { campo: "corPrimaria" as const, rotulo: t("Cor principal"), ajuda: t("Botões, destaques e cabeçalhos") },
+              { campo: "corSecundaria" as const, rotulo: t("Cor secundária"), ajuda: t("Apoio nos documentos") },
+              { campo: "corEscura" as const, rotulo: t("Cor escura"), ajuda: t("Cabeçalhos de tabela") },
             ].map(({ campo, rotulo, ajuda }) => (
               <div key={campo} className="space-y-2">
                 <Label htmlFor={campo}>{rotulo}</Label>
@@ -223,7 +226,7 @@ export function IdentidadeDaEmpresa() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="fonte">Tipo de letra</Label>
+            <Label htmlFor="fonte">{t("Tipo de letra")}</Label>
             <Select value={form.fonte} onValueChange={(valor) => alterar({ fonte: valor })}>
               <SelectTrigger className="rounded-full">
                 <SelectValue />
@@ -231,7 +234,7 @@ export function IdentidadeDaEmpresa() {
               <SelectContent>
                 {FONTES_DISPONIVEIS.map((fonte) => (
                   <SelectItem key={fonte.id} value={fonte.id}>
-                    {fonte.nome} - {fonte.amostra}
+                    {fonte.nome} - {t(fonte.amostra)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -239,21 +242,21 @@ export function IdentidadeDaEmpresa() {
           </div>
 
           <div className="rounded-lg border p-4">
-            <p className="text-xs font-medium uppercase text-muted-foreground">Pre-visualizacao</p>
+            <p className="text-xs font-medium uppercase text-muted-foreground">{t("Pré-visualização")}</p>
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <span
                 className="rounded-md px-3 py-1.5 text-sm font-semibold"
                 style={{ backgroundColor: form.corPrimaria, color: corDeTexto(form.corPrimaria) }}
               >
-                {form.nome || "Nome da empresa"}
+                {form.nome || t("Nome da empresa")}
               </span>
               <span
                 className="rounded-md px-3 py-1.5 text-sm font-semibold"
                 style={{ backgroundColor: form.corEscura, color: corDeTexto(form.corEscura) }}
               >
-                Cabecalho de tabela
+                {t("Cabeçalho de tabela")}
               </span>
-              <Button size="sm">Botao</Button>
+              <Button size="sm">{t("Botão")}</Button>
             </div>
           </div>
         </CardContent>
@@ -263,14 +266,14 @@ export function IdentidadeDaEmpresa() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Building2 className="h-5 w-5" />
-            Dados da empresa
+            {t("Dados da empresa")}
           </CardTitle>
-          <CardDescription>Impressos no cabecalho das propostas.</CardDescription>
+          <CardDescription>{t("Impressos no cabeçalho das propostas.")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="nome">Nome</Label>
+              <Label htmlFor="nome">{t("Nome")}</Label>
               <Input
                 id="nome"
                 value={form.nome}
@@ -279,37 +282,37 @@ export function IdentidadeDaEmpresa() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="slogan">Descritivo</Label>
+              <Label htmlFor="slogan">{t("Descritivo")}</Label>
               <Input
                 id="slogan"
                 value={form.slogan || ""}
                 onChange={(e) => alterar({ slogan: e.target.value })}
-                placeholder="Construcao Civil e Remodelacoes"
+                placeholder={t("Construção Civil e Remodelações")}
                 className="rounded-full"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="razaoSocial">Denominacao social</Label>
+              <Label htmlFor="razaoSocial">{t("Denominação social")}</Label>
               <Input
                 id="razaoSocial"
                 value={form.razaoSocial || ""}
                 onChange={(e) => alterar({ razaoSocial: e.target.value })}
-                placeholder="EMPRESA, Lda."
+                placeholder={t("EMPRESA, Lda.")}
                 className="rounded-full"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="capitalSocial">Capital social</Label>
+              <Label htmlFor="capitalSocial">{t("Capital social")}</Label>
               <Input
                 id="capitalSocial"
                 value={form.capitalSocial || ""}
                 onChange={(e) => alterar({ capitalSocial: e.target.value })}
-                placeholder="5.000,00 euros"
+                placeholder={t("5.000,00 euros")}
                 className="rounded-full"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="nif">NIF</Label>
+              <Label htmlFor="nif">{t("NIF")}</Label>
               <Input
                 id="nif"
                 value={form.nif || ""}
@@ -318,7 +321,7 @@ export function IdentidadeDaEmpresa() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="telefone">Telefone</Label>
+              <Label htmlFor="telefone">{t("Telefone")}</Label>
               <Input
                 id="telefone"
                 value={form.telefone || ""}
@@ -327,7 +330,7 @@ export function IdentidadeDaEmpresa() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="emailEmpresa">Email</Label>
+              <Label htmlFor="emailEmpresa">{t("Email")}</Label>
               <Input
                 id="emailEmpresa"
                 value={form.email || ""}
@@ -336,7 +339,7 @@ export function IdentidadeDaEmpresa() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="website">Website</Label>
+              <Label htmlFor="website">{t("Website")}</Label>
               <Input
                 id="website"
                 value={form.website || ""}
@@ -349,7 +352,7 @@ export function IdentidadeDaEmpresa() {
 
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="morada">Morada</Label>
+              <Label htmlFor="morada">{t("Morada")}</Label>
               <Input
                 id="morada"
                 value={form.morada || ""}
@@ -358,7 +361,7 @@ export function IdentidadeDaEmpresa() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="codigoPostal">Codigo postal</Label>
+              <Label htmlFor="codigoPostal">{t("Código postal")}</Label>
               <Input
                 id="codigoPostal"
                 value={form.codigoPostal || ""}
@@ -372,13 +375,13 @@ export function IdentidadeDaEmpresa() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Padroes das propostas</CardTitle>
-          <CardDescription>Valores sugeridos ao criar um orcamento e notas do rodape.</CardDescription>
+          <CardTitle>{t("Padrões das propostas")}</CardTitle>
+          <CardDescription>{t("Valores sugeridos ao criar um orçamento e notas do rodapé.")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
             <div className="space-y-2">
-              <Label htmlFor="prefixoOrcamento">Prefixo concurso</Label>
+              <Label htmlFor="prefixoOrcamento">{t("Prefixo concurso")}</Label>
               <Input
                 id="prefixoOrcamento"
                 value={form.prefixoOrcamento ?? ""}
@@ -388,7 +391,7 @@ export function IdentidadeDaEmpresa() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="prefixoObra">Prefixo obra</Label>
+              <Label htmlFor="prefixoObra">{t("Prefixo obra")}</Label>
               <Input
                 id="prefixoObra"
                 value={form.prefixoObra ?? ""}
@@ -398,7 +401,7 @@ export function IdentidadeDaEmpresa() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="sufixoOrcamento">Sufixo</Label>
+              <Label htmlFor="sufixoOrcamento">{t("Sufixo")}</Label>
               <Input
                 id="sufixoOrcamento"
                 value={form.sufixoOrcamento || ""}
@@ -408,7 +411,7 @@ export function IdentidadeDaEmpresa() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="validadeDiasPadrao">Validade (dias)</Label>
+              <Label htmlFor="validadeDiasPadrao">{t("Validade (dias)")}</Label>
               <CampoNumerico
                 id="validadeDiasPadrao"
                 decimais={0}
@@ -419,7 +422,7 @@ export function IdentidadeDaEmpresa() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="margemPadrao">Margem (%)</Label>
+              <Label htmlFor="margemPadrao">{t("Margem (%)")}</Label>
               <CampoNumerico
                 id="margemPadrao"
                 min={0}
@@ -430,7 +433,7 @@ export function IdentidadeDaEmpresa() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="taxaIVAPadrao">IVA (%)</Label>
+              <Label htmlFor="taxaIVAPadrao">{t("IVA (%)")}</Label>
               <CampoNumerico
                 id="taxaIVAPadrao"
                 min={0}
@@ -450,14 +453,14 @@ export function IdentidadeDaEmpresa() {
                 checked={form.margemItemPadraoAtiva ?? true}
                 onCheckedChange={(margemItemPadraoAtiva) => alterar({ margemItemPadraoAtiva })}
               />
-              Margem por item ligada nas propostas novas
+              {t("Margem por item ligada nas propostas novas")}
             </label>
             <label className="flex items-center gap-3 text-sm">
               <Switch
                 checked={form.margemGlobalPadraoAtiva ?? true}
                 onCheckedChange={(margemGlobalPadraoAtiva) => alterar({ margemGlobalPadraoAtiva })}
               />
-              Margem global ligada nas propostas novas
+              {t("Margem global ligada nas propostas novas")}
             </label>
           </div>
 
@@ -467,28 +470,37 @@ export function IdentidadeDaEmpresa() {
             o mesmo numero, por isso ve-se de onde a obra veio.
           */}
           <p className="text-xs text-muted-foreground">
-            Concursos saem como{" "}
-            <strong className="text-foreground">
-              {(form.prefixoOrcamento ?? "CO")}26/0001{form.sufixoOrcamento || ""}
-            </strong>{" "}
-            e obras como{" "}
-            <strong className="text-foreground">
-              {(form.prefixoObra ?? "O")}26/0001{form.sufixoOrcamento || ""}
-            </strong>
-            . Cada tipo conta por si, e um concurso adjudicado passa a obra com o mesmo numero.
+            {/* A frase traduz-se inteira; {concurso} e {obra} marcam os exemplos a negrito */}
+            {t(
+              "Concursos saem como {concurso} e obras como {obra}. Cada tipo conta por si, e um concurso adjudicado passa a obra com o mesmo número.",
+            )
+              .split(/(\{concurso\}|\{obra\})/)
+              .map((parte, i) =>
+                parte === "{concurso}" ? (
+                  <strong key={i} className="text-foreground">
+                    {(form.prefixoOrcamento ?? "CO")}26/0001{form.sufixoOrcamento || ""}
+                  </strong>
+                ) : parte === "{obra}" ? (
+                  <strong key={i} className="text-foreground">
+                    {(form.prefixoObra ?? "O")}26/0001{form.sufixoOrcamento || ""}
+                  </strong>
+                ) : (
+                  parte
+                ),
+              )}
           </p>
 
           <div className="space-y-2">
-            <Label htmlFor="notas">Notas do rodape (uma por linha)</Label>
+            <Label htmlFor="notas">{t("Notas do rodapé (uma por linha)")}</Label>
             <Textarea
               id="notas"
               rows={6}
               value={(form.notasOrcamento || []).join("\n")}
               onChange={(e) => alterar({ notasOrcamento: e.target.value.split("\n") })}
-              placeholder="Condicoes de pagamento, validade da proposta..."
+              placeholder={t("Condições de pagamento, validade da proposta...")}
             />
             <p className="text-xs text-muted-foreground">
-              Saem numeradas no fim da proposta, como nas condicoes gerais.
+              {t("Saem numeradas no fim da proposta, como nas condições gerais.")}
             </p>
           </div>
         </CardContent>
@@ -496,7 +508,7 @@ export function IdentidadeDaEmpresa() {
 
       <div className="flex justify-end">
         <Button onClick={submeter} disabled={guardando} className="rounded-full min-w-[160px]">
-          {guardando ? <Loader2 className="h-4 w-4 animate-spin" /> : "Guardar identidade"}
+          {guardando ? <Loader2 className="h-4 w-4 animate-spin" /> : t("Guardar identidade")}
         </Button>
       </div>
     </div>

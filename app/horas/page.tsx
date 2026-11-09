@@ -25,6 +25,7 @@ import { custoHoras } from "@/lib/obra"
 import { custoHoraFuncionario } from "@/lib/produto-calculos"
 import type { Funcionario, Orcamento, RegistoHoras } from "@/lib/types"
 import { formatCurrency, formatDate, formatNumber2, hojeLocal, round2 } from "@/lib/utils"
+import { t } from "@/lib/i18n"
 
 /**
  * Livro de ponto: as horas de cada trabalhador em cada obra.
@@ -82,9 +83,9 @@ export default function HorasPage() {
   }, [doMes])
 
   const gravarDia = async () => {
-    if (!user || !obra?.id) return toast({ title: "Escolha a obra", variant: "destructive" })
+    if (!user || !obra?.id) return toast({ title: t("Escolha a obra"), variant: "destructive" })
     const linhas = Object.entries(horas).filter(([, h]) => h > 0)
-    if (linhas.length === 0) return toast({ title: "Indique as horas de pelo menos um trabalhador", variant: "destructive" })
+    if (linhas.length === 0) return toast({ title: t("Indique as horas de pelo menos um trabalhador"), variant: "destructive" })
     setAGravar(true)
     try {
       for (const [funcionarioId, h] of linhas) {
@@ -102,7 +103,13 @@ export default function HorasPage() {
           userId: user.uid,
         })
       }
-      toast({ title: `${linhas.length} registo(s) gravado(s)`, description: "Ficam pendentes ate serem aprovados." })
+      toast({
+        title:
+          linhas.length === 1
+            ? t("{n} registo guardado", { n: linhas.length })
+            : t("{n} registos guardados", { n: linhas.length }),
+        description: t("Ficam pendentes até serem aprovados."),
+      })
       setHoras({})
       await carregar()
     } finally {
@@ -112,7 +119,9 @@ export default function HorasPage() {
 
   const aprovar = async (ids: string[]) => {
     for (const id of ids) await atualizar("registosHoras", id, { estado: "aprovado", aprovadoPor: user?.email || "" })
-    toast({ title: `${ids.length} registo(s) aprovado(s)` })
+    toast({
+      title: ids.length === 1 ? t("{n} registo aprovado", { n: ids.length }) : t("{n} registos aprovados", { n: ids.length }),
+    })
     setSelecionados([])
     await carregar()
   }
@@ -122,18 +131,18 @@ export default function HorasPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-3xl font-bold">Livro de ponto</h1>
-        <p className="mt-2 text-muted-foreground">Horas por trabalhador e por obra. So as aprovadas contam no custo da obra.</p>
+        <h1 className="text-3xl font-bold">{t("Livro de ponto")}</h1>
+        <p className="mt-2 text-muted-foreground">{t("Horas por trabalhador e por obra. Só as aprovadas contam no custo da obra.")}</p>
       </div>
 
       <Tabs defaultValue="registo">
         <TabsList>
-          <TabsTrigger value="registo">Registo diario</TabsTrigger>
+          <TabsTrigger value="registo">{t("Registo diário")}</TabsTrigger>
           <TabsTrigger value="aprovacoes">
-            Aprovacoes
+            {t("Aprovações")}
             {pendentes.length > 0 && <Badge className="ml-2 px-1.5 py-0 text-[10px]">{pendentes.length}</Badge>}
           </TabsTrigger>
-          <TabsTrigger value="resumo">Resumo do mes</TabsTrigger>
+          <TabsTrigger value="resumo">{t("Resumo do mês")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="registo" className="space-y-4 pt-4">
@@ -141,18 +150,18 @@ export default function HorasPage() {
             <CardContent className="space-y-4 pt-6">
               <div className="grid gap-4 sm:grid-cols-[1fr_200px]">
                 <div className="space-y-1">
-                  <Label>Obra</Label>
+                  <Label>{t("Obra")}</Label>
                   <SeletorComBusca
                     valor={obraId}
                     onChange={setObraId}
-                    placeholder="Escolha a obra"
-                    placeholderBusca="Procurar obra..."
-                    vazio="Nenhuma obra adjudicada."
+                    placeholder={t("Escolha a obra")}
+                    placeholderBusca={t("Procurar obra...")}
+                    vazio={t("Nenhuma obra adjudicada.")}
                     opcoes={obras.map((o) => ({ valor: o.id!, rotulo: numeroCompleto(o, configuracao), detalhe: o.cliente.nome }))}
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label>Dia</Label>
+                  <Label>{t("Dia")}</Label>
                   <Input type="date" value={data} onChange={(e) => setData(e.target.value)} />
                 </div>
               </div>
@@ -162,10 +171,10 @@ export default function HorasPage() {
                   <Table data-testid="grelha-horas">
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Trabalhador</TableHead>
-                        <TableHead>Funcao</TableHead>
-                        <TableHead className="w-40 text-right">Horas</TableHead>
-                        <TableHead className="text-right">Ja registado no dia</TableHead>
+                        <TableHead>{t("Trabalhador")}</TableHead>
+                        <TableHead>{t("Função")}</TableHead>
+                        <TableHead className="w-40 text-right">{t("Horas")}</TableHead>
+                        <TableHead className="text-right">{t("Já registado no dia")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -181,7 +190,7 @@ export default function HorasPage() {
                                 min={0}
                                 max={24}
                                 sufixo="h"
-                                aria-label={`Horas ${f.nome}`}
+                                aria-label={t("Horas de {nome}", { nome: f.nome })}
                                 disabled={!podeRegistar}
                                 value={horas[f.id!] || 0}
                                 onChange={(h) => setHoras({ ...horas, [f.id!]: h })}
@@ -197,7 +206,7 @@ export default function HorasPage() {
                     <div className="flex justify-end">
                       <Button onClick={gravarDia} disabled={aGravar} className="rounded-full">
                         {aGravar && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Gravar horas do dia
+                        {t("Guardar horas do dia")}
                       </Button>
                     </div>
                   )}
@@ -211,13 +220,13 @@ export default function HorasPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
               <div>
-                <CardTitle className="text-lg">Horas por aprovar</CardTitle>
-                <CardDescription>Aprovadas, entram no custo real da obra.</CardDescription>
+                <CardTitle className="text-lg">{t("Horas por aprovar")}</CardTitle>
+                <CardDescription>{t("Aprovadas, entram no custo real da obra.")}</CardDescription>
               </div>
               {podeAprovar && (
                 <Button disabled={selecionados.length === 0} onClick={() => aprovar(selecionados)} className="rounded-full">
                   <Check className="mr-2 h-4 w-4" />
-                  Aprovar selecionadas ({selecionados.length})
+                  {t("Aprovar selecionadas ({n})", { n: selecionados.length })}
                 </Button>
               )}
             </CardHeader>
@@ -227,30 +236,30 @@ export default function HorasPage() {
                   <TableRow>
                     <TableHead className="w-10">
                       <Checkbox
-                        aria-label="Selecionar todas"
+                        aria-label={t("Selecionar todas")}
                         checked={pendentes.length > 0 && selecionados.length === pendentes.length}
                         onCheckedChange={(v) => setSelecionados(v === true ? pendentes.map((p) => p.id!) : [])}
                       />
                     </TableHead>
-                    <TableHead>Dia</TableHead>
-                    <TableHead>Trabalhador</TableHead>
-                    <TableHead>Obra</TableHead>
-                    <TableHead className="text-right">Horas</TableHead>
-                    <TableHead className="text-right">Custo</TableHead>
+                    <TableHead>{t("Dia")}</TableHead>
+                    <TableHead>{t("Trabalhador")}</TableHead>
+                    <TableHead>{t("Obra")}</TableHead>
+                    <TableHead className="text-right">{t("Horas")}</TableHead>
+                    <TableHead className="text-right">{t("Custo")}</TableHead>
                     <TableHead />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {pendentes.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Nada por aprovar.</TableCell>
+                      <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">{t("Nada por aprovar.")}</TableCell>
                     </TableRow>
                   ) : (
                     pendentes.map((r) => (
                       <TableRow key={r.id}>
                         <TableCell>
                           <Checkbox
-                            aria-label={`Selecionar ${r.funcionarioNome}`}
+                            aria-label={t("Selecionar {nome}", { nome: r.funcionarioNome })}
                             checked={selecionados.includes(r.id!)}
                             onCheckedChange={(v) =>
                               setSelecionados((s) => (v === true ? [...s, r.id!] : s.filter((x) => x !== r.id)))
@@ -269,9 +278,9 @@ export default function HorasPage() {
                             <Button
                               size="icon"
                               variant="ghost"
-                              title="Apagar registo"
+                              title={t("Eliminar registo")}
                               onClick={async () => {
-                                if (!confirm("Apagar este registo?")) return
+                                if (!confirm(t("Eliminar este registo?"))) return
                                 await apagar("registosHoras", r.id!)
                                 await carregar()
                               }}
@@ -292,23 +301,23 @@ export default function HorasPage() {
         <TabsContent value="resumo" className="pt-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Horas aprovadas em {mes.split("-").reverse().join("/")}</CardTitle>
-              <CardDescription>Custo = horas x (custo/hora do trabalhador + custo fixo/hora da empresa).</CardDescription>
+              <CardTitle className="text-lg">{t("Horas aprovadas em {mes}", { mes: mes.split("-").reverse().join("/") })}</CardTitle>
+              <CardDescription>{t("Custo = horas x (custo/hora do trabalhador + custo fixo/hora da empresa).")}</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Obra</TableHead>
-                    <TableHead className="text-right">Horas</TableHead>
-                    <TableHead className="text-right">Mao de obra</TableHead>
-                    <TableHead className="text-right">Estrutura</TableHead>
-                    <TableHead className="text-right">Por aprovar</TableHead>
+                    <TableHead>{t("Obra")}</TableHead>
+                    <TableHead className="text-right">{t("Horas")}</TableHead>
+                    <TableHead className="text-right">{t("Mão de obra")}</TableHead>
+                    <TableHead className="text-right">{t("Estrutura")}</TableHead>
+                    <TableHead className="text-right">{t("Por aprovar")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {porObra.length === 0 ? (
-                    <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Sem horas este mes.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">{t("Sem horas este mês.")}</TableCell></TableRow>
                   ) : (
                     porObra.map((p) => (
                       <TableRow key={p.numero}>

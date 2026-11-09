@@ -45,6 +45,7 @@ import type {
 } from "@/lib/types"
 import { FirebaseService, apagarDadosDaObra } from "@/lib/firebase-service"
 import { formatCurrency, formatNumber2, matchesSearch, round2, toFixed2 } from "@/lib/utils"
+import { idiomaAtual, localeIntl, t } from "@/lib/i18n"
 import { ListToolbar } from "@/components/ui/list-toolbar"
 import { useSearchQuery } from "@/hooks/use-search-query"
 import { useConfiguracao } from "@/hooks/use-configuracao"
@@ -82,7 +83,7 @@ import {
 } from "@/lib/orcamento-calculos"
 
 function getStatusLabel(status: Orcamento["status"]): string {
-  return getFase(status).nome
+  return t(getFase(status).nome)
 }
 
 function buildOrcamentoDocumentHtml(
@@ -156,7 +157,7 @@ function buildOrcamentoDocumentHtml(
             : totaisVenda[indice]
           const precoUnitario =
             item.valorFixo || !item.quantidade ? totalItem : round2(totalItem / Number(item.quantidade))
-          const quantidadeLabel = item.valorFixo ? "Valor fixo" : toFixed2(item.quantidade)
+          const quantidadeLabel = item.valorFixo ? t("Valor fixo") : toFixed2(item.quantidade)
           const numero = temAmbientes ? `${indiceGrupo + 1}.${indiceItem + 1}` : String(indice + 1)
 
           // Discriminado: reparte o total do item pela composicao do custo
@@ -166,9 +167,9 @@ function buildOrcamentoDocumentHtml(
           if (!isCusto && orcamento.discriminarPDF && d && somaD > 0) {
             const parte = (valor: number) => formatCurrency(round2((totalItem * valor) / somaD))
             const partes = [
-              d.materiais > 0 ? `Material ${parte(d.materiais)}` : "",
-              d.mao_obra > 0 ? `Mao de obra ${parte(d.mao_obra)}` : "",
-              d.outros > 0 ? `Equipamento e outros ${parte(d.outros)}` : "",
+              d.materiais > 0 ? t("Material {valor}", { valor: parte(d.materiais) }) : "",
+              d.mao_obra > 0 ? t("Mão de obra {valor}", { valor: parte(d.mao_obra) }) : "",
+              d.outros > 0 ? t("Equipamento e outros {valor}", { valor: parte(d.outros) }) : "",
             ].filter(Boolean)
             repartido = `<div style="font-size:10px; color:#64748b; margin-top:2px">${partes.join(" &middot; ")}</div>`
           }
@@ -215,7 +216,7 @@ function buildOrcamentoDocumentHtml(
    */
   const cabecalhoCondicoes = `
     <div class="condicoes-topo">
-      <div class="condicoes-titulo">Condicoes gerais da ${escapeHtml(marca.nome)}</div>
+      <div class="condicoes-titulo">${t("Condições gerais da {empresa}", { empresa: escapeHtml(marca.nome) })}</div>
     </div>
     <div class="condicoes-dados">
       <div>
@@ -226,13 +227,13 @@ function buildOrcamentoDocumentHtml(
             ? `<div>${escapeHtml([marca.codigoPostal, marca.cidade].filter(Boolean).join(" "))}</div>`
             : ""
         }
-        ${marca.nif ? `<div>Contribuinte n.o ${escapeHtml(marca.nif)}</div>` : ""}
-        ${marca.capitalSocial ? `<div>Capital Social ${escapeHtml(marca.capitalSocial)}</div>` : ""}
+        ${marca.nif ? `<div>${t("Contribuinte n.º {nif}", { nif: escapeHtml(marca.nif) })}</div>` : ""}
+        ${marca.capitalSocial ? `<div>${t("Capital social {valor}", { valor: escapeHtml(marca.capitalSocial) })}</div>` : ""}
       </div>
       <div style="text-align:right">
-        ${marca.telefone ? `<div>Tel: ${escapeHtml(marca.telefone)}</div>` : ""}
-        ${marca.email ? `<div>E-mail: ${escapeHtml(marca.email)}</div>` : ""}
-        ${marca.website ? `<div>Homepage: ${escapeHtml(marca.website)}</div>` : ""}
+        ${marca.telefone ? `<div>${t("Tel.: {telefone}", { telefone: escapeHtml(marca.telefone) })}</div>` : ""}
+        ${marca.email ? `<div>${t("Email: {email}", { email: escapeHtml(marca.email) })}</div>` : ""}
+        ${marca.website ? `<div>${t("Site: {site}", { site: escapeHtml(marca.website) })}</div>` : ""}
       </div>
     </div>
     <div class="barra"></div>
@@ -243,9 +244,9 @@ function buildOrcamentoDocumentHtml(
       ? `
     <section class="termos">
       ${cabecalhoCondicoes}
-      ${renderTermSection("1. Inclusoes", grouped.termos)}
-      ${renderTermSection("2. Exclusoes", grouped.regras)}
-      ${renderTermSection("3. Condicoes gerais", grouped.condicoes)}
+      ${renderTermSection(t("1. Inclusões"), grouped.termos)}
+      ${renderTermSection(t("2. Exclusões"), grouped.regras)}
+      ${renderTermSection(t("3. Condições gerais"), grouped.condicoes)}
     </section>
   `
       : ""
@@ -255,7 +256,7 @@ function buildOrcamentoDocumentHtml(
   const notasHtml = notas.length
     ? `
       <section class="notas">
-        <div class="notas-titulo">Notas</div>
+        <div class="notas-titulo">${t("Notas")}</div>
         <ol>
           ${notas.map((nota) => `<li>${escapeHtml(nota)}</li>`).join("")}
         </ol>
@@ -264,10 +265,14 @@ function buildOrcamentoDocumentHtml(
 
   return `
   <!doctype html>
-  <html lang="pt">
+  <html lang="${idiomaAtual()}">
     <head>
       <meta charset="utf-8" />
-      <title>${escapeHtml(marca.nome)} - Proposta ${isCusto ? "CUSTO " : ""}${escapeHtml(orcamento.numero)}</title>
+      <title>${
+        isCusto
+          ? t("{empresa} - Proposta de custo {numero}", { empresa: escapeHtml(marca.nome), numero: escapeHtml(orcamento.numero) })
+          : t("{empresa} - Proposta {numero}", { empresa: escapeHtml(marca.nome), numero: escapeHtml(orcamento.numero) })
+      }</title>
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link href="https://fonts.googleapis.com/css2?family=${encodeURIComponent(
         marca.fonte || "Montserrat",
@@ -447,27 +452,29 @@ function buildOrcamentoDocumentHtml(
       <header class="topo">
         <div class="topo-dados">
           <div class="ref">${escapeHtml(numeroCompleto(orcamento, marca))}</div>
-          <div class="muted">${escapeHtml(getTipoDocumento(tipoDoDocumento(orcamento)).nome)}</div>
-          <div class="muted">Versao: ${escapeHtml(nomeDaVersao(orcamento.revisao))}</div>
-          <div>Cliente: <strong>${escapeHtml(orcamento.cliente.nome)}</strong></div>
+          <div class="muted">${escapeHtml(t(getTipoDocumento(tipoDoDocumento(orcamento)).nome))}</div>
+          <div class="muted">${t("Versão: {versao}", { versao: escapeHtml(nomeDaVersao(orcamento.revisao)) })}</div>
+          <div>${t("Cliente:")} <strong>${escapeHtml(orcamento.cliente.nome)}</strong></div>
           ${
             orcamento.cliente.morada
-              ? `<div>Morada: ${escapeHtml(
-                  [orcamento.cliente.morada, orcamento.cliente.cidade, orcamento.cliente.codigoPostal]
-                    .filter(Boolean)
-                    .join(", "),
-                )}</div>`
+              ? `<div>${t("Morada: {morada}", {
+                  morada: escapeHtml(
+                    [orcamento.cliente.morada, orcamento.cliente.cidade, orcamento.cliente.codigoPostal]
+                      .filter(Boolean)
+                      .join(", "),
+                  ),
+                })}</div>`
               : ""
           }
-          ${orcamento.cliente.nif ? `<div>NIF: ${escapeHtml(orcamento.cliente.nif)}</div>` : ""}
-          <div>Responsavel: ${escapeHtml(orcamento.orcamentista)}</div>
+          ${orcamento.cliente.nif ? `<div>${t("NIF: {nif}", { nif: escapeHtml(orcamento.cliente.nif) })}</div>` : ""}
+          <div>${t("Responsável: {nome}", { nome: escapeHtml(orcamento.orcamentista) })}</div>
           <div class="muted">
-            Data: ${new Date(orcamento.dataOrcamento).toLocaleDateString("pt-PT")} &nbsp;·&nbsp;
-            Validade: ${new Date(orcamento.dataValidade).toLocaleDateString("pt-PT")}
+            ${t("Data: {data}", { data: new Date(orcamento.dataOrcamento).toLocaleDateString(localeIntl()) })} &nbsp;·&nbsp;
+            ${t("Validade: {data}", { data: new Date(orcamento.dataValidade).toLocaleDateString(localeIntl()) })}
           </div>
           <div style="margin-top:6px">
             <span class="selo ${isCusto ? "selo-custo" : "selo-venda"}">
-              ${isCusto ? "USO INTERNO - NAO ENVIAR AO CLIENTE" : "PROPOSTA"}
+              ${isCusto ? t("USO INTERNO - NÃO ENVIAR AO CLIENTE") : t("PROPOSTA")}
             </span>
           </div>
         </div>
@@ -479,12 +486,12 @@ function buildOrcamentoDocumentHtml(
       <table>
         <thead>
           <tr>
-            <th style="width:46px; text-align:center">Item</th>
-            <th>Descricao</th>
-            <th style="width:44px; text-align:center">UN</th>
-            <th style="width:62px; text-align:right">Qtd.</th>
-            <th style="width:86px; text-align:right">Valor unitario</th>
-            <th style="width:92px; text-align:right">Valor total</th>
+            <th style="width:46px; text-align:center">${t("Item")}</th>
+            <th>${t("Descrição")}</th>
+            <th style="width:44px; text-align:center">${t("UN")}</th>
+            <th style="width:62px; text-align:right">${t("Qtd.")}</th>
+            <th style="width:86px; text-align:right">${t("Valor unitário")}</th>
+            <th style="width:92px; text-align:right">${t("Valor total")}</th>
           </tr>
         </thead>
         <tbody>
@@ -496,26 +503,26 @@ function buildOrcamentoDocumentHtml(
         ${
           isCusto
             ? `
-          <div><span>Subtotal (custo real):</span><span>${formatCurrency(subtotalCusto)}</span></div>
-          <div><span>Transporte:</span><span>${formatCurrency(transporte)}</span></div>
-          <div class="total-final"><span>Total de custo:</span><span>${formatCurrency(totalCusto)}</span></div>
-          <div style="margin-top:8px"><span>Subtotal de venda:</span><span>${formatCurrency(subtotal)}</span></div>
-          <div><span>Lucro previsto (sem IVA):</span><span>${formatCurrency(round2(baseTributavel - totalCusto))}</span></div>
-          <div><span>Venda sem IVA (base):</span><span>${formatCurrency(baseTributavel)}</span></div>
-          <div><span>IVA (${formatNumber2(taxaIVA)}%) a entregar:</span><span>${formatCurrency(valorIVA)}</span></div>
-          <div><span>Total cobrado ao cliente:</span><span>${formatCurrency(totalVenda)}</span></div>
+          <div><span>${t("Subtotal (custo real):")}</span><span>${formatCurrency(subtotalCusto)}</span></div>
+          <div><span>${t("Transporte:")}</span><span>${formatCurrency(transporte)}</span></div>
+          <div class="total-final"><span>${t("Total de custo:")}</span><span>${formatCurrency(totalCusto)}</span></div>
+          <div style="margin-top:8px"><span>${t("Subtotal de venda:")}</span><span>${formatCurrency(subtotal)}</span></div>
+          <div><span>${t("Lucro previsto (sem IVA):")}</span><span>${formatCurrency(round2(baseTributavel - totalCusto))}</span></div>
+          <div><span>${t("Venda sem IVA (base):")}</span><span>${formatCurrency(baseTributavel)}</span></div>
+          <div><span>${t("IVA ({taxa}%) a entregar:", { taxa: formatNumber2(taxaIVA) })}</span><span>${formatCurrency(valorIVA)}</span></div>
+          <div><span>${t("Total cobrado ao cliente:")}</span><span>${formatCurrency(totalVenda)}</span></div>
         `
             : `
-          <div><span>Subtotal:</span><span>${formatCurrency(baseTributavel)}</span></div>
-          <div><span>IVA (${formatNumber2(taxaIVA)}%):</span><span>${formatCurrency(valorIVA)}</span></div>
-          <div class="total-final"><span>Total a pagar:</span><span>${formatCurrency(totalVenda)}</span></div>
+          <div><span>${t("Subtotal:")}</span><span>${formatCurrency(baseTributavel)}</span></div>
+          <div><span>${t("IVA ({taxa}%):", { taxa: formatNumber2(taxaIVA) })}</span><span>${formatCurrency(valorIVA)}</span></div>
+          <div class="total-final"><span>${t("Total a pagar:")}</span><span>${formatCurrency(totalVenda)}</span></div>
         `
         }
       </section>
 
       ${
         orcamento.observacoes?.trim()
-          ? `<section class="observacoes"><strong>Observacoes</strong><div>${escapeHtml(
+          ? `<section class="observacoes"><strong>${t("Observações")}</strong><div>${escapeHtml(
               orcamento.observacoes.trim(),
             )}</div></section>`
           : ""
@@ -529,7 +536,7 @@ function buildOrcamentoDocumentHtml(
 
       <div class="rodape">
         <span>${escapeHtml(marca.nome)}${marca.website ? ` · ${escapeHtml(marca.website)}` : ""}</span>
-        <span>${escapeHtml(numeroCompleto(orcamento, marca))} · emitido em ${new Date().toLocaleDateString("pt-PT")}</span>
+        <span>${t("{numero} · emitido em {data}", { numero: escapeHtml(numeroCompleto(orcamento, marca)), data: new Date().toLocaleDateString(localeIntl()) })}</span>
       </div>
     </body>
   </html>
@@ -579,8 +586,8 @@ export default function OrcamentosPage() {
     } catch (error) {
       console.error("Erro ao carregar dados:", error)
       toast({
-        title: "Erro ao carregar dados",
-        description: "Nao foi possivel carregar os dados necessarios.",
+        title: t("Erro ao carregar dados"),
+        description: t("Não foi possível carregar os dados necessários."),
         variant: "destructive",
       })
     } finally {
@@ -600,7 +607,7 @@ export default function OrcamentosPage() {
         matchesSearch(searchTerm, [
           orcamento.numero,
           numeroCompleto(orcamento, configuracao),
-          getTipoDocumento(tipoDoDocumento(orcamento)).nome,
+          t(getTipoDocumento(tipoDoDocumento(orcamento)).nome),
           orcamento.cliente.nome,
           orcamento.cliente.email,
           orcamento.cliente.telefone,
@@ -622,7 +629,9 @@ export default function OrcamentosPage() {
     if (!id) return
     if (
       !confirm(
-        "Tem certeza que deseja excluir este orcamento?\n\nSe ja for obra, apagam-se tambem os autos, o diario, as horas, a garantia, o portal e as contas a receber dela. Faturas de fornecedor e movimentos de estoque ficam.",
+        t(
+          "Tem a certeza de que pretende eliminar este orçamento?\n\nSe já for obra, eliminam-se também os autos, o diário, as horas, a garantia, o portal e as contas a receber dela. As faturas de fornecedor e os movimentos de stock ficam.",
+        ),
       )
     )
       return
@@ -632,15 +641,15 @@ export default function OrcamentosPage() {
       await apagarDadosDaObra(id)
       await FirebaseService.deleteOrcamento(id)
       toast({
-        title: "Orcamento excluido",
-        description: "O orcamento foi excluido com sucesso.",
+        title: t("Orçamento eliminado"),
+        description: t("O orçamento foi eliminado com sucesso."),
       })
       await loadData()
     } catch (error) {
       console.error("Erro ao excluir orcamento:", error)
       toast({
-        title: "Erro ao excluir orcamento",
-        description: "Nao foi possivel excluir o orcamento.",
+        title: t("Erro ao eliminar orçamento"),
+        description: t("Não foi possível eliminar o orçamento."),
         variant: "destructive",
       })
     } finally {
@@ -692,12 +701,12 @@ export default function OrcamentosPage() {
     try {
       await FirebaseService.updateOrcamento(orcamento.id, alteracoes)
       toast({
-        title: `Proposta em ${getFase(novaFase).nome}`,
-        description: getFase(novaFase).descricao,
+        title: t("Proposta em {fase}", { fase: t(getFase(novaFase).nome) }),
+        description: t(getFase(novaFase).descricao),
       })
       await loadData()
     } catch (error) {
-      toast({ title: "Erro ao mudar de fase", description: "Tente novamente.", variant: "destructive" })
+      toast({ title: t("Erro ao mudar de fase"), description: t("Tente novamente."), variant: "destructive" })
     }
   }
 
@@ -715,9 +724,10 @@ export default function OrcamentosPage() {
 
     if (
       !confirm(
-        `Criar a ${nomeDaVersao(proximaRevisao)} desta proposta?
-
-A versao atual fica guardada como foi entregue ao cliente, e a nova abre em Rascunho para poder ser alterada.`,
+        t(
+          "Criar a {versao} desta proposta?\n\nA versão atual fica guardada como foi entregue ao cliente, e a nova abre em Rascunho para poder ser alterada.",
+          { versao: nomeDaVersao(proximaRevisao) },
+        ),
       )
     )
       return
@@ -740,7 +750,7 @@ A versao atual fica guardada como foi entregue ao cliente, e a nova abre em Rasc
               estado: "rascunho" as StatusOrcamento,
               data: new Date(),
               utilizador: user.email || user.uid,
-              nota: `Revisao criada a partir de ${orcamento.numero}`,
+              nota: t("Revisão criada a partir de {numero}", { numero: orcamento.numero }),
             },
           ],
           createdAt: new Date(),
@@ -750,15 +760,15 @@ A versao atual fica guardada como foi entregue ao cliente, e a nova abre em Rasc
       )
 
       toast({
-        title: `${nomeDaVersao(proximaRevisao)} criada`,
-        description: "A nova versao abriu em Rascunho. A anterior fica como esta.",
+        title: t("{versao} criada", { versao: nomeDaVersao(proximaRevisao) }),
+        description: t("A nova versão abriu em Rascunho. A anterior fica como está."),
       })
       await loadData()
     } catch (error) {
       console.error("Erro ao criar revisao:", error)
       toast({
-        title: "Erro ao criar revisao",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        title: t("Erro ao criar revisão"),
+        description: error instanceof Error ? error.message : t("Tente novamente."),
         variant: "destructive",
       })
     }
@@ -781,13 +791,20 @@ A versao atual fica guardada como foi entregue ao cliente, e a nova abre em Rasc
 
     const aviso = manteve
       ? ""
-      : `
+      : "\n\n" +
+        t("Atenção: {numero} já está ocupado por outra obra, por isso esta fica com o próximo número livre.", {
+          numero: numeroCompleto({ ...orcamento, tipoDocumento: "obra" }, configuracao),
+        })
 
-Atencao: ${numeroCompleto({ ...orcamento, tipoDocumento: "obra" }, configuracao)} ja esta ocupado por outra obra, por isso esta fica com o proximo numero livre.`
-
-    if (!confirm(`Passar ${antes} a obra?
-
-O documento passa a ${depois}. A proposta nao muda de valores nem de conteudo.${aviso}`)) return
+    if (
+      !confirm(
+        t("Passar {antes} a obra?\n\nO documento passa a {depois}. A proposta não muda de valores nem de conteúdo.", {
+          antes,
+          depois,
+        }) + aviso,
+      )
+    )
+      return
 
     try {
       await FirebaseService.updateOrcamento(orcamento.id, {
@@ -799,24 +816,24 @@ O documento passa a ${depois}. A proposta nao muda de valores nem de conteudo.${
             estado: normalizarFase(orcamento.status),
             data: new Date(),
             utilizador: user.email || user.uid,
-            nota: `Passou a obra: ${antes} passa a ${depois}.`,
+            nota: t("Passou a obra: {antes} passa a {depois}.", { antes, depois }),
           },
         ],
         updatedAt: new Date(),
       })
 
       toast({
-        title: `Agora e obra ${depois}`,
+        title: t("Agora é obra {numero}", { numero: depois }),
         description: manteve
-          ? "O numero manteve-se. A contabilidade ja pode faturar."
-          : `O numero de origem estava ocupado, por isso ficou ${depois}.`,
+          ? t("O número manteve-se. A contabilidade já pode faturar.")
+          : t("O número de origem estava ocupado, por isso ficou {numero}.", { numero: depois }),
       })
       await loadData()
     } catch (error) {
       console.error("Erro ao passar a obra:", error)
       toast({
-        title: "Erro ao passar a obra",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        title: t("Erro ao passar a obra"),
+        description: error instanceof Error ? error.message : t("Tente novamente."),
         variant: "destructive",
       })
     }
@@ -834,8 +851,8 @@ O documento passa a ${depois}. A proposta nao muda de valores nem de conteudo.${
 
       if (!popup) {
         toast({
-          title: "Nao foi possivel abrir o documento",
-          description: "Desbloqueie popups do navegador para emitir PDF.",
+          title: t("Não foi possível abrir o documento"),
+          description: t("Desbloqueie as janelas pop-up do navegador para emitir o PDF."),
           variant: "destructive",
         })
         return
@@ -852,8 +869,8 @@ O documento passa a ${depois}. A proposta nao muda de valores nem de conteudo.${
     } catch (error) {
       console.error("Erro ao gerar documento:", error)
       toast({
-        title: "Erro ao gerar documento",
-        description: "Nao foi possivel gerar o documento deste orcamento.",
+        title: t("Erro ao gerar documento"),
+        description: t("Não foi possível gerar o documento deste orçamento."),
         variant: "destructive",
       })
     } finally {
@@ -864,8 +881,8 @@ O documento passa a ${depois}. A proposta nao muda de valores nem de conteudo.${
   const getStatusBadge = (status: Orcamento["status"]) => {
     const fase = getFase(status)
     return (
-      <Badge variant="outline" className={fase.cor} title={fase.descricao}>
-        {fase.nome}
+      <Badge variant="outline" className={fase.cor} title={t(fase.descricao)}>
+        {t(fase.nome)}
       </Badge>
     )
   }
@@ -874,12 +891,12 @@ O documento passa a ${depois}. A proposta nao muda de valores nem de conteudo.${
     <div className="space-y-6 animate-fade-in">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Orcamentos</h1>
-          <p className="text-muted-foreground mt-2">Fluxo com cliente automatico, valor de servico vinculado e PDF</p>
+          <h1 className="text-3xl font-bold">{t("Orçamentos")}</h1>
+          <p className="text-muted-foreground mt-2">{t("Fluxo com cliente automático, valor de serviço associado e PDF")}</p>
         </div>
         <Button onClick={() => router.push("/orcamentos/novo")} className="rounded-full">
           <Plus className="h-4 w-4 mr-2" />
-          Novo Orcamento
+          {t("Novo orçamento")}
         </Button>
       </div>
 
@@ -887,19 +904,19 @@ O documento passa a ${depois}. A proposta nao muda de valores nem de conteudo.${
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
         onClear={clearSearch}
-        placeholder="Pesquisar por numero, cliente, email, cidade, NIF ou status..."
+        placeholder={t("Pesquisar por número, cliente, email, cidade, NIF ou estado...")}
         resultCount={filteredOrcamentos.length}
         totalCount={orcamentos.length}
       >
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-full sm:w-[220px] rounded-full">
-            <SelectValue placeholder="Todos os status" />
+            <SelectValue placeholder={t("Todos os estados")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todos os status</SelectItem>
+            <SelectItem value="all">{t("Todos os estados")}</SelectItem>
             {FASES_ORCAMENTO.map((fase) => (
               <SelectItem key={fase.id} value={fase.id}>
-                {fase.nome}
+                {t(fase.nome)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -918,9 +935,9 @@ O documento passa a ${depois}. A proposta nao muda de valores nem de conteudo.${
                     <Badge
                       variant="outline"
                       className={`text-xs ${getTipoDocumento(tipoDoDocumento(orcamento)).cor}`}
-                      title={getTipoDocumento(tipoDoDocumento(orcamento)).descricao}
+                      title={t(getTipoDocumento(tipoDoDocumento(orcamento)).descricao)}
                     >
-                      {getTipoDocumento(tipoDoDocumento(orcamento)).nome}
+                      {t(getTipoDocumento(tipoDoDocumento(orcamento)).nome)}
                     </Badge>
                     {(orcamento.revisao ?? 0) > 0 && (
                       <Badge variant="secondary" className="text-xs">
@@ -931,7 +948,7 @@ O documento passa a ${depois}. A proposta nao muda de valores nem de conteudo.${
                   <CardDescription>
                     {orcamento.cliente.nome}
                     {orcamento.dataEmissao && (
-                      <> · emitida em {new Date(orcamento.dataEmissao).toLocaleDateString("pt-PT")}</>
+                      <> · {t("emitida em {data}", { data: new Date(orcamento.dataEmissao).toLocaleDateString(localeIntl()) })}</>
                     )}
                   </CardDescription>
                 </div>
@@ -944,12 +961,12 @@ O documento passa a ${depois}. A proposta nao muda de valores nem de conteudo.${
             <CardContent>
               <div className="flex items-center justify-between">
                 <div className="text-sm text-muted-foreground">
-                  <p>Data: {new Date(orcamento.dataOrcamento).toLocaleDateString("pt-PT")}</p>
-                  <p>Validade: {new Date(orcamento.dataValidade).toLocaleDateString("pt-PT")}</p>
-                  <p>Itens: {orcamento.itens.length}</p>
+                  <p>{t("Data: {data}", { data: new Date(orcamento.dataOrcamento).toLocaleDateString(localeIntl()) })}</p>
+                  <p>{t("Validade: {data}", { data: new Date(orcamento.dataValidade).toLocaleDateString(localeIntl()) })}</p>
+                  <p>{t("Itens: {n}", { n: orcamento.itens.length })}</p>
                   {/* O motivo pertence ao cancelamento: reaberta a proposta, deixa de fazer sentido */}
                   {normalizarFase(orcamento.status) === "cancelado" && orcamento.motivoPerda && (
-                    <p className="text-destructive">Motivo: {orcamento.motivoPerda}</p>
+                    <p className="text-destructive">{t("Motivo: {motivo}", { motivo: orcamento.motivoPerda })}</p>
                   )}
 
                   {/*
@@ -972,21 +989,23 @@ O documento passa a ${depois}. A proposta nao muda de valores nem de conteudo.${
                       <dl className="mt-2 grid w-fit grid-cols-[auto_auto] gap-x-4 gap-y-0.5">
                         {pode("orcamentos.verCusto") && (
                           <>
-                            {linha("Custo", formatCurrency(resumo.totalCusto))}
-                            {resumo.transporte > 0 && linha("Transporte", formatCurrency(resumo.transporte))}
+                            {linha(t("Custo"), formatCurrency(resumo.totalCusto))}
+                            {resumo.transporte > 0 && linha(t("Transporte"), formatCurrency(resumo.transporte))}
                             {linha(
-                              `Lucro previsto (${formatNumber2(
-                                resumo.baseTributavel > 0
-                                  ? ((resumo.baseTributavel - resumo.totalCusto) / resumo.baseTributavel) * 100
-                                  : 0,
-                              )}%)`,
+                              t("Lucro previsto ({percentagem}%)", {
+                                percentagem: formatNumber2(
+                                  resumo.baseTributavel > 0
+                                    ? ((resumo.baseTributavel - resumo.totalCusto) / resumo.baseTributavel) * 100
+                                    : 0,
+                                ),
+                              }),
                               formatCurrency(round2(resumo.baseTributavel - resumo.totalCusto)),
                             )}
                           </>
                         )}
-                        {linha("Base sem IVA", formatCurrency(resumo.baseTributavel))}
-                        {linha(`IVA (${formatNumber2(resumo.taxaIVA)}%)`, formatCurrency(resumo.valorIVA))}
-                        {linha("Total", formatCurrency(resumo.totalVenda), true)}
+                        {linha(t("Base sem IVA"), formatCurrency(resumo.baseTributavel))}
+                        {linha(t("IVA ({taxa}%)", { taxa: formatNumber2(resumo.taxaIVA) }), formatCurrency(resumo.valorIVA))}
+                        {linha(t("Total"), formatCurrency(resumo.totalVenda), true)}
                         {/*
                           Com custos lancados, a margem real e a unica que
                           interessa: e a que sobreviveu ao estaleiro.
@@ -1001,9 +1020,9 @@ O documento passa a ${depois}. A proposta nao muda de valores nem de conteudo.${
                             )
                             return (
                               <>
-                                {linha("Custo real", formatCurrency(analise.custoReal))}
+                                {linha(t("Custo real"), formatCurrency(analise.custoReal))}
                                 {linha(
-                                  `Margem real (${formatNumber2(analise.margemRealPercent)}%)`,
+                                  t("Margem real ({percentagem}%)", { percentagem: formatNumber2(analise.margemRealPercent) }),
                                   formatCurrency(analise.margemReal),
                                   true,
                                 )}
@@ -1021,7 +1040,7 @@ O documento passa a ${depois}. A proposta nao muda de valores nem de conteudo.${
                         variant="outline"
                         size="icon"
                         className="rounded-full bg-transparent"
-                        title="Abrir orcamento (venda ou custo)"
+                        title={t("Abrir orçamento (venda ou custo)")}
                         disabled={generatingDocId === orcamento.id}
                       >
                         {generatingDocId === orcamento.id ? (
@@ -1032,30 +1051,31 @@ O documento passa a ${depois}. A proposta nao muda de valores nem de conteudo.${
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Orcamento de Venda (cliente)</DropdownMenuLabel>
+                      <DropdownMenuLabel>{t("Orçamento de venda (cliente)")}</DropdownMenuLabel>
                       <DropdownMenuItem onClick={() => handleOpenDocument(orcamento, false, "venda")}>
                         <FileText className="h-4 w-4 mr-2" />
-                        Visualizar venda - {formatCurrency(orcamento.valorTotal)}
+                        {t("Ver venda - {valor}", { valor: formatCurrency(orcamento.valorTotal) })}
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleOpenDocument(orcamento, true, "venda")}>
                         <Download className="h-4 w-4 mr-2" />
-                        Imprimir / PDF de venda
+                        {t("Imprimir / PDF de venda")}
                       </DropdownMenuItem>
                       {pode("orcamentos.verCusto") && (
                       <>
                       <DropdownMenuSeparator />
-                      <DropdownMenuLabel>Orcamento de Custo (interno)</DropdownMenuLabel>
+                      <DropdownMenuLabel>{t("Orçamento de custo (interno)")}</DropdownMenuLabel>
                       <DropdownMenuItem onClick={() => handleOpenDocument(orcamento, false, "custo")}>
                         <FileText className="h-4 w-4 mr-2" />
-                        Visualizar custo -{" "}
-                        {formatCurrency(
-                          orcamento.valorTotalCusto ??
-                            calculateTotalCusto(calculateSubtotalCusto(orcamento.itens || []), orcamento.transporte),
-                        )}
+                        {t("Ver custo - {valor}", {
+                          valor: formatCurrency(
+                            orcamento.valorTotalCusto ??
+                              calculateTotalCusto(calculateSubtotalCusto(orcamento.itens || []), orcamento.transporte),
+                          ),
+                        })}
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleOpenDocument(orcamento, true, "custo")}>
                         <Download className="h-4 w-4 mr-2" />
-                        Imprimir / PDF de custo
+                        {t("Imprimir / PDF de custo")}
                       </DropdownMenuItem>
                       </>
                       )}
@@ -1064,13 +1084,13 @@ O documento passa a ${depois}. A proposta nao muda de valores nem de conteudo.${
                   {/* Mudar de fase: so aparecem as transicoes permitidas */}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="icon" className="rounded-full" title="Mudar de fase">
+                      <Button variant="outline" size="icon" className="rounded-full" title={t("Mudar de fase")}>
                         <ArrowRightLeft className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>
-                        Fase atual: {getFase(orcamento.status).nome}
+                        {t("Fase atual: {fase}", { fase: t(getFase(orcamento.status).nome) })}
                       </DropdownMenuLabel>
                       <DropdownMenuSeparator />
                       {getFase(orcamento.status).seguintes.filter(podeMudarPara).map((proxima) => (
@@ -1083,16 +1103,16 @@ O documento passa a ${depois}. A proposta nao muda de valores nem de conteudo.${
                             }
                             if (proxima === "cancelado") {
                               const motivo = window.prompt(
-                                "Motivo do cancelamento (fica registado para analise):",
+                                t("Motivo do cancelamento (fica registado para análise):"),
                               )
                               if (motivo === null) return
-                              void mudarFase(orcamento, proxima, motivo.trim() || "Nao indicado")
+                              void mudarFase(orcamento, proxima, motivo.trim() || t("Não indicado"))
                               return
                             }
                             void mudarFase(orcamento, proxima)
                           }}
                         >
-                          {getFase(proxima).nome}
+                          {t(getFase(proxima).nome)}
                         </DropdownMenuItem>
                       ))}
                       {podePassarAObra(orcamento.status, orcamento.tipoDocumento) && pode("orcamentos.editar") && (
@@ -1100,7 +1120,7 @@ O documento passa a ${depois}. A proposta nao muda de valores nem de conteudo.${
                           <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => void passarAObra(orcamento)}>
                             <Building2 className="h-4 w-4 mr-2" />
-                            Passar a obra
+                            {t("Passar a obra")}
                           </DropdownMenuItem>
                         </>
                       )}
@@ -1109,7 +1129,7 @@ O documento passa a ${depois}. A proposta nao muda de valores nem de conteudo.${
                           <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => void criarRevisao(orcamento)}>
                             <Copy className="h-4 w-4 mr-2" />
-                            Criar {nomeDaVersao((orcamento.revisao ?? 0) + 1)}
+                            {t("Criar {versao}", { versao: nomeDaVersao((orcamento.revisao ?? 0) + 1) })}
                           </DropdownMenuItem>
                         </>
                       )}
@@ -1121,7 +1141,7 @@ O documento passa a ${depois}. A proposta nao muda de valores nem de conteudo.${
                       variant="outline"
                       size="icon"
                       onClick={() => setCustosObraDe(orcamento)}
-                      title="Custos reais da obra e margem real"
+                      title={t("Custos reais da obra e margem real")}
                       className="rounded-full"
                     >
                       <Receipt className="h-4 w-4" />
@@ -1133,7 +1153,7 @@ O documento passa a ${depois}. A proposta nao muda de valores nem de conteudo.${
                       variant="outline"
                       size="icon"
                       onClick={() => router.push(`/orcamentos/${orcamento.id}/apuramento`)}
-                      title="Apuramento da obra: vendido x previsto x real"
+                      title={t("Apuramento da obra: vendido x previsto x real")}
                       className="rounded-full"
                     >
                       <Scale className="h-4 w-4" />
@@ -1146,10 +1166,10 @@ O documento passa a ${depois}. A proposta nao muda de valores nem de conteudo.${
                     disabled={!podeEditar(orcamento.status) || !pode("orcamentos.editar")}
                     title={
                       !pode("orcamentos.editar")
-                        ? "O seu cargo nao permite editar propostas"
+                        ? t("O seu cargo não permite editar propostas")
                         : podeEditar(orcamento.status)
-                          ? "Editar proposta"
-                          : `Bloqueada em ${getFase(orcamento.status).nome}. Crie uma revisao para alterar.`
+                          ? t("Editar proposta")
+                          : t("Bloqueada em {fase}. Crie uma revisão para alterar.", { fase: t(getFase(orcamento.status).nome) })
                     }
                     className="rounded-full"
                   >
@@ -1174,9 +1194,9 @@ O documento passa a ${depois}. A proposta nao muda de valores nem de conteudo.${
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <Search className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium mb-2">Nenhum orcamento encontrado</h3>
+              <h3 className="text-lg font-medium mb-2">{t("Nenhum orçamento encontrado")}</h3>
               <p className="text-muted-foreground text-center mb-4">
-                Tente ajustar os filtros de pesquisa para encontrar os orcamentos desejados.
+                {t("Tente ajustar os filtros de pesquisa para encontrar os orçamentos pretendidos.")}
               </p>
               <Button
                 onClick={() => {
@@ -1186,7 +1206,7 @@ O documento passa a ${depois}. A proposta nao muda de valores nem de conteudo.${
                 variant="outline"
                 className="rounded-full"
               >
-                Limpar filtros
+                {t("Limpar filtros")}
               </Button>
             </CardContent>
           </Card>
@@ -1196,11 +1216,11 @@ O documento passa a ${depois}. A proposta nao muda de valores nem de conteudo.${
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <Calculator className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium mb-2">Nenhum orcamento criado</h3>
-              <p className="text-muted-foreground text-center mb-4">Comece criando o primeiro orcamento.</p>
+              <h3 className="text-lg font-medium mb-2">{t("Nenhum orçamento criado")}</h3>
+              <p className="text-muted-foreground text-center mb-4">{t("Comece por criar o primeiro orçamento.")}</p>
               <Button onClick={() => router.push("/orcamentos/novo")} className="rounded-full">
                 <Plus className="h-4 w-4 mr-2" />
-                Criar primeiro orcamento
+                {t("Criar primeiro orçamento")}
               </Button>
             </CardContent>
           </Card>

@@ -14,6 +14,7 @@ import { useConfiguracao } from "@/hooks/use-configuracao"
 import { usePermissoes } from "@/hooks/use-permissoes"
 import { toast } from "@/hooks/use-toast"
 import { podeApurar } from "@/lib/apuramento-obra"
+import { t } from "@/lib/i18n"
 import { FirebaseService } from "@/lib/firebase-service"
 import { numeroCompleto } from "@/lib/numeracao"
 import { CONFIG_PONTO_PADRAO, diaLocal } from "@/lib/ponto"
@@ -67,7 +68,7 @@ export default function PontoPage() {
       setAgora(new Date())
     } catch (e) {
       console.error(e)
-      toast({ title: "Nao foi possivel carregar o ponto", description: e instanceof Error ? e.message : String(e), variant: "destructive" })
+      toast({ title: t("Não foi possível carregar o ponto"), description: e instanceof Error ? e.message : String(e), variant: "destructive" })
     } finally {
       setACarregar(false)
     }
@@ -76,8 +77,8 @@ export default function PontoPage() {
     void carregar()
   }, [carregar])
   useEffect(() => {
-    const t = setInterval(() => setAgora(new Date()), 60000)
-    return () => clearInterval(t)
+    const relogio = setInterval(() => setAgora(new Date()), 60000)
+    return () => clearInterval(relogio)
   }, [])
 
   /** Junta funcionarios, acessos e quem aparece nas picagens/pedidos. */
@@ -116,27 +117,27 @@ export default function PontoPage() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <div className="pl-12 lg:pl-0">
-          <h1 className="text-3xl font-bold">Ponto da equipa</h1>
-          <p className="mt-2 text-muted-foreground">Picagens, ferias e faltas. Os trabalhadores picam no telemovel com o n.º de funcionario e PIN.</p>
+          <h1 className="text-3xl font-bold">{t("Ponto da equipa")}</h1>
+          <p className="mt-2 text-muted-foreground">{t("Picagens, férias e faltas. Os trabalhadores picam no telemóvel com o n.º de funcionário e PIN.")}</p>
         </div>
         <Button variant="outline" className="rounded-full" onClick={() => void carregar()}>
           <RefreshCw className="mr-2 h-4 w-4" />
-          Atualizar
+          {t("Atualizar")}
         </Button>
       </div>
 
       <Tabs defaultValue="hoje">
         <TabsList className="flex h-auto flex-wrap justify-start print:hidden">
-          <TabsTrigger value="hoje">Hoje</TabsTrigger>
+          <TabsTrigger value="hoje">{t("Hoje")}</TabsTrigger>
           <TabsTrigger value="pedidos">
-            Pedidos
+            {t("Pedidos")}
             {pendentes > 0 && <Badge className="ml-2 h-5 px-1.5">{pendentes}</Badge>}
           </TabsTrigger>
-          <TabsTrigger value="registos">Registos</TabsTrigger>
-          <TabsTrigger value="ferias">Mapa de ferias</TabsTrigger>
-          <TabsTrigger value="acessos">Acessos</TabsTrigger>
-          <TabsTrigger value="obras">Obras</TabsTrigger>
-          <TabsTrigger value="config">Configuracao</TabsTrigger>
+          <TabsTrigger value="registos">{t("Registo de tempos")}</TabsTrigger>
+          <TabsTrigger value="ferias">{t("Mapa de férias")}</TabsTrigger>
+          <TabsTrigger value="acessos">{t("Acessos")}</TabsTrigger>
+          <TabsTrigger value="obras">{t("Obras")}</TabsTrigger>
+          <TabsTrigger value="config">{t("Configuração")}</TabsTrigger>
         </TabsList>
         <TabsContent value="hoje">
           <PainelHoje pessoas={pessoas} picagens={picagens} pedidos={pedidos} config={config} agora={agora} />

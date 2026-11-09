@@ -1,0 +1,93 @@
+# Publica o ERP na VM Oracle (https://erp.tecknowhow.pt) a cada push para o master.
+#
+# 1. verifica as traduções (falta de tradução = não publica);
+# 2. envia o código à VM, que compila, troca a versão e reinicia o serviço
+#    (deploy/erp-publicar.sh; se a versão nova não arrancar, volta à anterior);
+# 3. confirma que o site responde.
+#
+# Segredos do repositório (Settings > Secrets and variables > Actions):
+#   VM_SSH_KEY  chave privada de deploy. Na VM só pode correr o erp-publicar
+#               (command="..." no authorized_keys): não dá terminal.
+name: Deploy VM
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-vm
+  cancel-in-progress: false
+
+env:
+  VM_HOST: 146.235.62.113
+  VM_USER: ubuntu
+  URL: https://erp.tecknowhow.pt
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Traduções (pt-PT, pt-BR, en)
+        run: npx tsx scripts/verificar-traducoes.ts
+
+  publicar:
+    needs: verificar
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: producao
+      url: ${{ env.URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Segredo VM_SSH_KEY configurado?
+        id: chave
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          if [ -z "$VM_SSH_KEY" ]; then
+            echo "::warning::Falta o segredo VM_SSH_KEY (bash deploy/criar-chave-deploy.sh). Publicacao saltada."
+            echo "tem=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "tem=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Chave SSH
+        if: steps.chave.outputs.tem == 'true'
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$VM_SSH_KEY" > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          # Chave do servidor fixada: so publica na VM certa
+          cat deploy/known_hosts >> ~/.ssh/known_hosts
+
+      - name: Enviar, compilar e reiniciar na VM
+        if: steps.chave.outputs.tem == 'true'
+        run: |
+          git ls-files \
+            | grep -E '^(app|components|hooks|lib|public|styles|scripts|deploy)/|^(package(-lock)?\.json|next\.config\.mjs|tsconfig\.json|postcss\.config\.mjs|tailwind\.config\.ts|components\.json|next-env\.d\.ts)$' \
+            | tar -czf - -T - \
+            | ssh -i ~/.ssh/deploy -o BatchMode=yes -o StrictHostKeyChecking=yes "$VM_USER@$VM_HOST"
+
+      - name: Confirmar que o site responde
+        if: steps.chave.outputs.tem == 'true'
+        run: |
+          for i in $(seq 1 20); do
+            if curl -fsS "$URL/api/saude"; then echo; exit 0; fi
+            sleep 3
+          done
+          echo "o site nao respondeu"; exit 1
+
+      - name: Limpar chave
+        if: always()
+        run: rm -f ~/.ssh/deploy

@@ -1,23 +1,27 @@
+import { m, t } from "@/lib/i18n"
+
 export interface ServiceCategoryPreset {
   id: string
   nome: string
 }
 
 export const SERVICE_CATEGORY_PRESETS: ServiceCategoryPreset[] = [
-  { id: "pintura-interna", nome: "Pintura Interna" },
-  { id: "pintura-externa", nome: "Pintura Externa" },
-  { id: "preparacao-superficie", nome: "Preparacao de Superficie" },
-  { id: "acabamentos", nome: "Acabamentos" },
-  { id: "impermeabilizacao", nome: "Impermeabilizacao" },
-  { id: "manutencao", nome: "Manutencao" },
-  { id: "limpeza-tecnica", nome: "Limpeza Tecnica" },
-  { id: "transporte-logistica", nome: "Transporte e Logistica" },
-  // Escolher esta opcao abre o campo para escrever o nome da categoria
-  { id: "outros", nome: "Outra categoria" },
+  { id: "pintura-interna", nome: m("Pintura Interior") },
+  { id: "pintura-externa", nome: m("Pintura Exterior") },
+  { id: "preparacao-superficie", nome: m("Preparação de Superfície") },
+  { id: "acabamentos", nome: m("Acabamentos") },
+  { id: "impermeabilizacao", nome: m("Impermeabilização") },
+  { id: "manutencao", nome: m("Manutenção") },
+  { id: "limpeza-tecnica", nome: m("Limpeza Técnica") },
+  { id: "transporte-logistica", nome: m("Transporte e Logística") },
+  // Escolher esta opção abre o campo para escrever o nome da categoria
+  { id: "outros", nome: m("Outra categoria") },
 ]
 
 export function getServiceCategoryName(categoriaId?: string, categoriaNome?: string): string {
-  if (categoriaNome?.trim()) return categoriaNome.trim()
+  // Categoria predefinida: o nome segue o idioma (o nome gravado é só uma cópia)
   const found = SERVICE_CATEGORY_PRESETS.find((item) => item.id === categoriaId)
-  return found?.nome || "Sem categoria"
+  if (found && found.id !== "outros") return t(found.nome)
+  if (categoriaNome?.trim()) return categoriaNome.trim()
+  return found ? t(found.nome) : t("Sem categoria")
 }

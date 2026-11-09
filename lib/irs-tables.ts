@@ -1,4 +1,5 @@
 import { round2 } from "./utils"
+import { m } from "./i18n"
 
 /**
  * Tabelas de retencao na fonte de IRS - Continente, 2026.
@@ -30,7 +31,9 @@ interface EscalaoIRS {
 
 export interface TabelaIRS {
   id: string
+  /** Texto marcado com m(): mostrar com t(tabela.nome). */
   nome: string
+  /** Texto marcado com m(): mostrar com t(tabela.descricao). */
   descricao: string
   /** Abatimento por cada dependente, em euros. */
   parcelaDependente: number
@@ -58,24 +61,24 @@ const ESCALOES_I_II: EscalaoIRS[] = [
 export const TABELAS_IRS: TabelaIRS[] = [
   {
     id: "I",
-    nome: "Tabela I",
-    descricao: "Nao casado sem dependentes ou casado 2 titulares",
+    nome: m("Tabela I"),
+    descricao: m("Não casado sem dependentes ou casado, dois titulares"),
     parcelaDependente: 21.43,
     aceitaDependentes: true,
     escaloes: ESCALOES_I_II,
   },
   {
     id: "II",
-    nome: "Tabela II",
-    descricao: "Nao casado com um ou mais dependentes",
+    nome: m("Tabela II"),
+    descricao: m("Não casado com um ou mais dependentes"),
     parcelaDependente: 34.29,
     aceitaDependentes: true,
     escaloes: ESCALOES_I_II,
   },
   {
     id: "III",
-    nome: "Tabela III",
-    descricao: "Casado, unico titular",
+    nome: m("Tabela III"),
+    descricao: m("Casado, único titular"),
     parcelaDependente: 42.86,
     aceitaDependentes: true,
     escaloes: [
@@ -95,8 +98,8 @@ export const TABELAS_IRS: TabelaIRS[] = [
   },
   {
     id: "IV",
-    nome: "Tabela IV",
-    descricao: "Nao casado ou casado dois titulares sem dependentes - pessoa com deficiencia",
+    nome: m("Tabela IV"),
+    descricao: m("Não casado ou casado, dois titulares, sem dependentes - pessoa com deficiência"),
     parcelaDependente: 0,
     aceitaDependentes: false,
     escaloes: [
@@ -112,8 +115,8 @@ export const TABELAS_IRS: TabelaIRS[] = [
   },
   {
     id: "V",
-    nome: "Tabela V",
-    descricao: "Nao casado com um ou mais dependentes - pessoa com deficiencia",
+    nome: m("Tabela V"),
+    descricao: m("Não casado com um ou mais dependentes - pessoa com deficiência"),
     parcelaDependente: 42.86,
     aceitaDependentes: true,
     escaloes: [
@@ -129,8 +132,8 @@ export const TABELAS_IRS: TabelaIRS[] = [
   },
   {
     id: "VI",
-    nome: "Tabela VI",
-    descricao: "Casado dois titulares com um ou mais dependentes - pessoa com deficiencia",
+    nome: m("Tabela VI"),
+    descricao: m("Casado, dois titulares, com um ou mais dependentes - pessoa com deficiência"),
     parcelaDependente: 21.43,
     aceitaDependentes: true,
     escaloes: [
@@ -147,8 +150,8 @@ export const TABELAS_IRS: TabelaIRS[] = [
   },
   {
     id: "VII",
-    nome: "Tabela VII",
-    descricao: "Casado, unico titular - pessoa com deficiencia",
+    nome: m("Tabela VII"),
+    descricao: m("Casado, único titular - pessoa com deficiência"),
     parcelaDependente: 42.86,
     aceitaDependentes: true,
     escaloes: [

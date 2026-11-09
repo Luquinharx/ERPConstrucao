@@ -1,3 +1,4 @@
+import { m } from "./i18n"
 import type { ConfiguracaoEmpresa, Orcamento, TipoDocumentoProposta } from "./types"
 
 /**
@@ -11,7 +12,9 @@ import type { ConfiguracaoEmpresa, Orcamento, TipoDocumentoProposta } from "./ty
  */
 export interface TipoDocumento {
   id: TipoDocumentoProposta
+  /** Texto marcado com m(): mostrar com t(tipo.nome). */
   nome: string
+  /** Texto marcado com m(): mostrar com t(tipo.descricao). */
   descricao: string
   /** Prefixo usado quando a empresa nao configurou nenhum. */
   prefixoPadrao: string
@@ -22,15 +25,15 @@ export interface TipoDocumento {
 export const TIPOS_DOCUMENTO: TipoDocumento[] = [
   {
     id: "concurso",
-    nome: "Concurso",
-    descricao: "Proposta em disputa. Ainda nao ha trabalho adjudicado.",
+    nome: m("Concurso"),
+    descricao: m("Proposta em disputa. Ainda não há trabalho adjudicado."),
     prefixoPadrao: "CO",
     cor: "bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-500/40",
   },
   {
     id: "obra",
-    nome: "Obra",
-    descricao: "Trabalho adjudicado. A contabilidade ja pode faturar.",
+    nome: m("Obra"),
+    descricao: m("Trabalho adjudicado. A contabilidade já pode faturar."),
     prefixoPadrao: "O",
     cor: "bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/40",
   },

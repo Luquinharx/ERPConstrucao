@@ -18,8 +18,8 @@ import {
   runTransaction,
   where,
   writeBatch,
-} from "firebase/firestore"
-import { db } from "./firebase"
+  db,
+} from "./db/cliente"
 import { estaAdjudicada, foiEntregue, normalizarFase } from "./orcamento-fases"
 import {
   custoMedioAposEntrada,
@@ -29,6 +29,7 @@ import {
   saldoAposMovimento,
 } from "./produto-calculos"
 import { round2 } from "./utils"
+import { t } from "./i18n"
 
 /**
  * BASE COMPARTILHADA
@@ -71,11 +72,10 @@ function generateUniqueNumber(prefix: string): string {
 // Função para testar conexão
 export async function testFirebaseConnection(): Promise<boolean> {
   try {
-    const testCollection = collection(db, "test")
-    await getDocs(query(testCollection, limit(1)))
-    return true
+    const r = await fetch("/api/saude", { cache: "no-store" })
+    return r.ok
   } catch (error) {
-    console.error("❌ Erro na conexão com Firebase:", error)
+    console.error("❌ Erro na conexão com a base de dados:", error)
     return false
   }
 }
@@ -392,19 +392,23 @@ export async function registarMovimentoEstoque(
 
   await runTransaction(db, async (transacao) => {
     const snap = await transacao.get(materialRef)
-    if (!snap.exists()) throw new Error("Produto nao encontrado.")
+    if (!snap.exists()) throw new Error(t("Produto não encontrado."))
     const produto = { id: snap.id, ...snap.data() } as Material
 
     const saldoAnterior = Number(produto.estoqueAtual) || 0
     const quantidade = round2(movimento.quantidade)
     if (quantidade < 0 || (movimento.tipo !== "ajuste" && quantidade === 0)) {
-      throw new Error("Indique uma quantidade maior que zero.")
+      throw new Error(t("Indique uma quantidade maior que zero."))
     }
 
     const saldoApos = saldoAposMovimento(saldoAnterior, movimento.tipo, quantidade)
     if (movimento.tipo === "saida" && saldoApos < 0) {
       throw new Error(
-        `Estoque insuficiente: ha ${saldoAnterior} ${produto.unidade} de ${produto.nome}. Registe primeiro a entrada ou um ajuste.`,
+        t("Stock insuficiente: há {saldo} {unidade} de {produto}. Registe primeiro a entrada ou um ajuste.", {
+          saldo: saldoAnterior,
+          unidade: produto.unidade,
+          produto: produto.nome,
+        }),
       )
     }
 
@@ -478,11 +482,11 @@ export async function registarCompraParaObra(
 
   await runTransaction(db, async (transacao) => {
     const snap = await transacao.get(materialRef)
-    if (!snap.exists()) throw new Error("Produto nao encontrado.")
+    if (!snap.exists()) throw new Error(t("Produto não encontrado."))
     const produto = { id: snap.id, ...snap.data() } as Material
 
     const quantidade = round2(dados.quantidade)
-    if (quantidade <= 0) throw new Error("Indique uma quantidade maior que zero.")
+    if (quantidade <= 0) throw new Error(t("Indique uma quantidade maior que zero."))
     const custoUnitario = round2(dados.custoUnitario)
     const saldo = Number(produto.estoqueAtual) || 0
     const medioAnterior = Number(produto.custoMedio) || custoDoProduto(produto, grupos)
@@ -1336,7 +1340,7 @@ export async function registarDevolucao(
   grupos: GrupoImpostos[] = [],
 ): Promise<string> {
   const snap = await getDoc(doc(db, "materiais", dados.materialId))
-  if (!snap.exists()) throw new Error("Produto nao encontrado.")
+  if (!snap.exists()) throw new Error(t("Produto não encontrado."))
   const produto = { id: snap.id, ...snap.data() } as Material
   const medio = Number(produto.custoMedio) || custoDoProduto(produto, grupos)
   return registarMovimentoEstoque(

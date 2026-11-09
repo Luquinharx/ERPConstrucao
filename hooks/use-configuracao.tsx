@@ -6,6 +6,7 @@ import { CONFIGURACAO_PADRAO, aplicarIdentidade } from "@/lib/brand"
 import { getConfiguracaoEmpresa, saveConfiguracaoEmpresa } from "@/lib/firebase-service"
 import type { ConfiguracaoEmpresa } from "@/lib/types"
 import { useAuth } from "@/hooks/use-auth"
+import { t } from "@/lib/i18n"
 
 interface ConfiguracaoContextValue {
   configuracao: ConfiguracaoEmpresa
@@ -101,7 +102,7 @@ export function ConfiguracaoProvider({ children }: { children: ReactNode }) {
 
   const guardar = useCallback(
     async (novos: Partial<ConfiguracaoEmpresa>) => {
-      if (!user) throw new Error("Utilizador nao autenticado")
+      if (!user) throw new Error(t("Utilizador não autenticado."))
       const completa = { ...configuracao, ...novos }
       await saveConfiguracaoEmpresa(completa, user.uid)
       setConfiguracao(completa)

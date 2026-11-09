@@ -1,0 +1,27 @@
+[Unit]
+Description=ERP TecKnowHow (Next.js) - erp.tecknowhow.pt
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=erp
+WorkingDirectory=/opt/erp/app
+# DATABASE_URL e companhia (criado por: sudo novo-banco erp)
+EnvironmentFile=/etc/bancos/erp.env
+# APP_URL, FIREBASE_API_KEY (logins antigos), SMTP_* (emails)
+EnvironmentFile=-/etc/erp/app.env
+Environment=NODE_ENV=production PORT=3002 HOSTNAME=127.0.0.1 TZ=Europe/Lisbon
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=3
+MemoryMax=700M
+NoNewPrivileges=true
+ProtectSystem=strict
+# cache do Next (paginas pre-geradas); o resto do disco fica so de leitura
+ReadWritePaths=/opt/erp/app/.next
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

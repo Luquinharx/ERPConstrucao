@@ -7,6 +7,7 @@ import type {
   RegraImposto,
   TipoMovimentoEstoque,
 } from "@/lib/types"
+import { m, t } from "@/lib/i18n"
 import { round2 } from "@/lib/utils"
 
 /**
@@ -167,9 +168,30 @@ export function saldoAposMovimento(saldoAnterior: number, tipo: TipoMovimentoEst
 }
 
 export const TIPOS_MOVIMENTO: Record<TipoMovimentoEstoque, { nome: string; cor: string }> = {
-  entrada: { nome: "Entrada", cor: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40" },
-  saida: { nome: "Saida", cor: "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/40" },
-  ajuste: { nome: "Ajuste", cor: "bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/40" },
+  entrada: { nome: m("Entrada"), cor: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40" },
+  saida: { nome: m("Saída"), cor: "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/40" },
+  ajuste: { nome: m("Ajuste"), cor: "bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/40" },
+}
+
+/** Unidades da lista do cadastro de produtos (valor gravado na base; o nome mostrado traduz-se). */
+const UNIDADES_PRODUTO = new Set<string>([
+  m("Unidades"),
+  m("Litros"),
+  m("Kg"),
+  m("Metros"),
+  m("M²"),
+  m("M³"),
+  m("Galões"),
+  m("Latas"),
+  m("Rolos"),
+  m("Sacos"),
+  m("Caixas"),
+])
+
+/** Nome a mostrar de uma unidade gravada: as da lista traduzem-se, as escritas à mão ficam como estão. */
+export function nomeUnidade(unidade?: string): string {
+  if (!unidade) return ""
+  return UNIDADES_PRODUTO.has(unidade) ? t(unidade) : unidade
 }
 
 // ------------------------------------------------------------ Mao de obra
@@ -203,5 +225,5 @@ export function funcaoDoFuncionario(funcionario: Funcionario, funcoes: FuncaoMao
 }
 
 export function descricaoClienteFuncao(funcao: FuncaoMaoObra): string {
-  return funcao.descricaoCliente?.trim() || `Mao de obra - ${funcao.nome}`
+  return funcao.descricaoCliente?.trim() || t("Mão de obra - {nome}", { nome: funcao.nome })
 }

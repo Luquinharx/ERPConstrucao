@@ -12,6 +12,7 @@ import type {
   TipoLancamentoObra,
 } from "@/lib/types"
 import { round2 } from "@/lib/utils"
+import { m, t } from "@/lib/i18n"
 
 /**
  * Apuramento da obra: o que se vendeu, o que se previu gastar e o que se
@@ -29,11 +30,11 @@ import { round2 } from "@/lib/utils"
  */
 
 export const TIPOS_LANCAMENTO: Record<TipoLancamentoObra, { nome: string; exemplo: string; unidade: string }> = {
-  mao_obra: { nome: "Mao de obra", exemplo: "Equipa do Patolino - semana 1", unidade: "h" },
-  terceiros: { nome: "Servico de terceiros", exemplo: "Subempreitada de pladur", unidade: "vg" },
-  aluguer: { nome: "Aluguer de equipamento", exemplo: "Andaime - 2 semanas", unidade: "vg" },
-  transporte: { nome: "Transporte", exemplo: "Frete de material", unidade: "vg" },
-  outros: { nome: "Outros custos", exemplo: "Vazadouro, licencas...", unidade: "vg" },
+  mao_obra: { nome: m("Mão de obra"), exemplo: m("Equipa do Patolino - semana 1"), unidade: "h" },
+  terceiros: { nome: m("Serviço de terceiros"), exemplo: m("Subempreitada de pladur"), unidade: "vg" },
+  aluguer: { nome: m("Aluguer de equipamento"), exemplo: m("Andaime - 2 semanas"), unidade: "vg" },
+  transporte: { nome: m("Transporte"), exemplo: m("Frete de material"), unidade: "vg" },
+  outros: { nome: m("Outros custos"), exemplo: m("Vazadouro, licenças..."), unidade: "vg" },
 }
 
 export function totalLancamento(l: Pick<LancamentoObra, "quantidade" | "valorUnitario">): number {
@@ -161,47 +162,47 @@ export function apurarObra(
   )
 
   const blocos: BlocoApuramento[] = [
-    { id: "materiais", nome: "Materiais", ...materiais, real: materialReal, ajuda: "Real = saidas de estoque para esta obra" },
+    { id: "materiais", nome: t("Materiais"), ...materiais, real: materialReal, ajuda: t("Real = saídas de stock para esta obra") },
     {
       id: "mao_obra",
-      nome: "Mao de obra",
+      nome: t("Mão de obra"),
       ...maoObra,
       real: round2(real("mao_obra") + ponto.maoObra),
-      ajuda: "Real = horas aprovadas no livro de ponto + lancamentos",
+      ajuda: t("Real = horas aprovadas no livro de ponto + lançamentos"),
     },
     {
       id: "servicos",
-      nome: "Servicos (composicao)",
+      nome: t("Serviços (composição)"),
       ...servicos,
       real: null,
-      ajuda: "O custo real dos servicos entra pelos materiais, mao de obra e terceiros",
+      ajuda: t("O custo real dos serviços entra pelos materiais, mão de obra e terceiros"),
     },
-    { id: "terceiros", nome: "Servicos de terceiros", vendido: null, previsto: null, real: real("terceiros") },
-    { id: "aluguer", nome: "Aluguer de equipamento", vendido: null, previsto: null, real: real("aluguer") },
-    { id: "transporte", nome: "Transporte", vendido: valores.transporte, previsto: valores.transporte, real: real("transporte") },
+    { id: "terceiros", nome: t("Serviços de terceiros"), vendido: null, previsto: null, real: real("terceiros") },
+    { id: "aluguer", nome: t("Aluguer de equipamento"), vendido: null, previsto: null, real: real("aluguer") },
+    { id: "transporte", nome: t("Transporte"), vendido: valores.transporte, previsto: valores.transporte, real: real("transporte") },
     {
       id: "outros",
-      nome: "Equipamento e outros custos",
+      nome: t("Equipamento e outros custos"),
       vendido: partes.outros.vendido || null,
       previsto: partes.outros.previsto || null,
       real: real("outros"),
-      ajuda: "Previsto = aluguer, vazadouro, transporte e extras das composicoes",
+      ajuda: t("Previsto = aluguer, vazadouro, transporte e extras das composições"),
     },
     {
       id: "indiretos",
-      nome: "Custos indiretos (estaleiro, seguros, licencas)",
+      nome: t("Custos indiretos (estaleiro, seguros, licenças)"),
       vendido: null,
       previsto: indiretosCusto || null,
       real: null,
-      ajuda: "Os gastos reais entram como faturas ou lancamentos dos outros blocos",
+      ajuda: t("Os gastos reais entram como faturas ou lançamentos dos outros blocos"),
     },
     {
       id: "estrutura",
-      nome: "Estrutura (custo fixo/hora)",
+      nome: t("Estrutura (custo fixo/hora)"),
       vendido: null,
       previsto: null,
       real: ponto.estrutura,
-      ajuda: "Horas aprovadas x custo fixo/hora da empresa",
+      ajuda: t("Horas aprovadas × custo fixo/hora da empresa"),
     },
   ]
 

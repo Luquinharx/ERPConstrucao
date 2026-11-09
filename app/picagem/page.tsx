@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { Coffee, KeyRound, LogIn, LogOut, MapPin, Play, RefreshCw } from "lucide-react"
 
 import { LeitorQR } from "@/components/ponto/leitor-qr"
+import { SeletorIdioma } from "@/components/seletor-idioma"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -17,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { useAuth } from "@/hooks/use-auth"
 import { usePermissoes } from "@/hooks/use-permissoes"
 import { toast } from "@/hooks/use-toast"
+import { localeIntl, t } from "@/lib/i18n"
 import {
   CONFIG_PONTO_PADRAO,
   CORES_ESTADO,
@@ -54,12 +56,12 @@ const SEM_OBRA = "__sem_obra"
 
 function obterPosicao(): Promise<{ lat: number; lng: number; precisao: number }> {
   return new Promise((resolver, rejeitar) => {
-    if (typeof navigator === "undefined" || !navigator.geolocation) return rejeitar(new Error("Este aparelho nao tem localizacao."))
+    if (typeof navigator === "undefined" || !navigator.geolocation) return rejeitar(new Error(t("Este aparelho não tem localização.")))
     navigator.geolocation.getCurrentPosition(
       (p) => resolver({ lat: p.coords.latitude, lng: p.coords.longitude, precisao: Math.round(p.coords.accuracy) }),
       (e) =>
         rejeitar(
-          new Error(e.code === 1 ? "Autorize a localizacao no browser para picar nesta obra." : "Nao foi possivel obter a localizacao. Tente de novo."),
+          new Error(e.code === 1 ? t("Autorize a localização no browser para picar nesta obra.") : t("Não foi possível obter a localização. Tente de novo.")),
         ),
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
     )
@@ -101,7 +103,7 @@ export default function PicagemPage() {
       setPedidos(r.sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0)))
     } catch (e) {
       console.error(e)
-      toast({ title: "Nao foi possivel carregar", description: "Verifique a ligacao a internet.", variant: "destructive" })
+      toast({ title: t("Não foi possível carregar"), description: t("Verifique a ligação à internet."), variant: "destructive" })
     } finally {
       setACarregar(false)
     }
@@ -110,8 +112,8 @@ export default function PicagemPage() {
     void carregar()
   }, [carregar])
   useEffect(() => {
-    const t = setInterval(() => setAgora(new Date()), 20000)
-    return () => clearInterval(t)
+    const relogio = setInterval(() => setAgora(new Date()), 20000)
+    return () => clearInterval(relogio)
   }, [])
 
   const hoje = diaLocal(agora)
@@ -127,13 +129,13 @@ export default function PicagemPage() {
     const v = config.validacao
     if (!obra) {
       if (v === "livre") return { metodo: "livre" }
-      throw new Error("Escolha a obra.")
+      throw new Error(t("Escolha a obra."))
     }
     if (v === "livre") return { metodo: "livre" }
-    if (v === "qr") throw new Error("Nesta empresa a entrada faz-se a ler o QR afixado na obra.")
+    if (v === "qr") throw new Error(t("Nesta empresa a entrada faz-se a ler o QR afixado na obra."))
     if (!obra.local) {
       throw new Error(
-        v === "qr_ou_gps" ? "Esta obra ainda nao tem localizacao. Leia o QR da obra." : "Esta obra ainda nao tem localizacao. Fale com o encarregado.",
+        v === "qr_ou_gps" ? t("Esta obra ainda não tem localização. Leia o QR da obra.") : t("Esta obra ainda não tem localização. Fale com o encarregado."),
       )
     }
     const pos = await obterPosicao()
@@ -141,7 +143,11 @@ export default function PicagemPage() {
     const raio = obra.raio || config.raioMetros
     // A margem do proprio GPS conta a favor (ate 100 m), para nao barrar quem esta a porta
     if (distancia > raio + Math.min(pos.precisao, 100)) {
-      throw new Error(`Esta a ${distancia} m da obra (maximo ${raio} m).${v === "qr_ou_gps" ? " Pode ler o QR da obra." : ""}`)
+      throw new Error(
+        v === "qr_ou_gps"
+          ? t("Está a {distancia} m da obra (máximo {raio} m). Pode ler o QR da obra.", { distancia, raio })
+          : t("Está a {distancia} m da obra (máximo {raio} m).", { distancia, raio }),
+      )
     }
     return { metodo: "gps", gps: { ...pos, distancia } }
   }
@@ -168,10 +174,10 @@ export default function PicagemPage() {
         ...local,
       })
       if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(60)
-      toast({ title: `${NOMES_PICAGEM[tipo]} registada`, description: `${formatarHora(new Date())}${obra ? ` · ${obra.numero}` : ""}` })
+      toast({ title: t("{tipo} registada", { tipo: t(NOMES_PICAGEM[tipo]) }), description: `${formatarHora(new Date())}${obra ? ` · ${obra.numero}` : ""}` })
       await carregar()
     } catch (e) {
-      toast({ title: "Nao foi possivel picar", description: e instanceof Error ? e.message : String(e), variant: "destructive" })
+      toast({ title: t("Não foi possível picar"), description: e instanceof Error ? e.message : String(e), variant: "destructive" })
     } finally {
       setAPicar(false)
     }
@@ -180,8 +186,8 @@ export default function PicagemPage() {
   const lerQR = (texto: string) => {
     const lido = lerCodigoQRObra(texto)
     const obra = lido && obras.find((o) => o.id === lido.obraId)
-    if (!lido || !obra) return toast({ title: "QR desconhecido", description: "Nao e um QR de obra deste sistema.", variant: "destructive" })
-    if (obra.tokenQR !== lido.token) return toast({ title: "QR antigo", description: "Este QR ja nao e valido. Peca o novo ao encarregado.", variant: "destructive" })
+    if (!lido || !obra) return toast({ title: t("QR desconhecido"), description: t("Não é um QR de obra deste sistema."), variant: "destructive" })
+    if (obra.tokenQR !== lido.token) return toast({ title: t("QR antigo"), description: t("Este QR já não é válido. Peça o novo ao encarregado."), variant: "destructive" })
     setObraId(obra.id!)
     void registar("entrada", { obra, viaQR: true })
   }
@@ -191,9 +197,9 @@ export default function PicagemPage() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Picagem</CardTitle>
+          <CardTitle>{t("Picagem")}</CardTitle>
           <CardDescription>
-            Esta conta nao esta ligada a um funcionario. A picagem faz-se com o n.º de funcionario e PIN, criados em Ponto da equipa &gt; Acessos.
+            {t("Esta conta não está ligada a um funcionário. A picagem faz-se com o n.º de funcionário e PIN, criados em Ponto da equipa > Acessos.")}
           </CardDescription>
         </CardHeader>
       </Card>
@@ -203,24 +209,27 @@ export default function PicagemPage() {
   const usaQR = config.validacao === "qr" || config.validacao === "qr_ou_gps"
   const mostraLista = config.validacao !== "qr"
   const estadoTexto =
-    dia.estado === "a_trabalhar" ? "A trabalhar" : dia.estado === "em_pausa" ? "Em pausa" : dia.estado === "saiu" ? "Saiu" : "Ainda nao entrou"
+    dia.estado === "a_trabalhar" ? t("A trabalhar") : dia.estado === "em_pausa" ? t("Em pausa") : dia.estado === "saiu" ? t("Saiu") : t("Ainda não entrou")
   const pedidoHoje = pedidoNoDia(pedidos, hoje)
+  const primeiroNome = nome.split(" ")[0]
+  const [hojeAntes, hojeDepois] = t("Hoje: {tempo} de trabalho").split("{tempo}")
 
   return (
     <div className="mx-auto max-w-xl space-y-4 animate-fade-in">
       {/* No telemovel o botao do menu fica no canto: o titulo comeca depois dele */}
       <div className="flex items-start justify-between gap-3 pl-12 lg:pl-0">
         <div>
-          <h1 className="text-2xl font-bold">Ola, {nome.split(" ")[0] || "bem-vindo"}</h1>
+          <h1 className="text-2xl font-bold">{primeiroNome ? t("Olá, {nome}", { nome: primeiroNome }) : t("Olá, bem-vindo")}</h1>
           <p className="text-sm text-muted-foreground">
-            {agora.toLocaleDateString("pt-PT", { weekday: "long", day: "numeric", month: "long" })}
+            {agora.toLocaleDateString(localeIntl(), { weekday: "long", day: "numeric", month: "long" })}
           </p>
         </div>
         <div className="flex gap-1">
-          <Button variant="ghost" size="icon" title="Atualizar" onClick={() => void carregar()}>
+          <SeletorIdioma />
+          <Button variant="ghost" size="icon" title={t("Atualizar")} onClick={() => void carregar()}>
             <RefreshCw className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" title="Mudar PIN" onClick={() => setMudarPin(true)}>
+          <Button variant="ghost" size="icon" title={t("Mudar PIN")} onClick={() => setMudarPin(true)}>
             <KeyRound className="h-4 w-4" />
           </Button>
         </div>
@@ -252,12 +261,17 @@ export default function PicagemPage() {
               )}
             </div>
             <div className="mt-2 text-sm text-muted-foreground">
-              Hoje: <span className="font-medium text-foreground">{formatarMinutos(dia.minutosTrabalho)}</span> de trabalho
-              {dia.minutosPausa > 0 && <> · {formatarMinutos(dia.minutosPausa)} de pausa</>}
+              {hojeAntes}
+              <span className="font-medium text-foreground">{formatarMinutos(dia.minutosTrabalho)}</span>
+              {hojeDepois}
+              {dia.minutosPausa > 0 && <> · {t("{tempo} de pausa", { tempo: formatarMinutos(dia.minutosPausa) })}</>}
             </div>
             {pedidoHoje && (
               <div className="mt-2 text-xs text-muted-foreground">
-                Hoje tem {pedidoHoje.tipo === "ferias" ? "ferias" : nomeMotivoFalta(pedidoHoje.motivoFalta).toLowerCase()} ({NOMES_ESTADO[pedidoHoje.estado].toLowerCase()}).
+                {t("Hoje tem {ausencia} ({estado}).", {
+                  ausencia: pedidoHoje.tipo === "ferias" ? t("férias") : nomeMotivoFalta(pedidoHoje.motivoFalta).toLowerCase(),
+                  estado: t(NOMES_ESTADO[pedidoHoje.estado]).toLowerCase(),
+                })}
               </div>
             )}
           </div>
@@ -267,10 +281,10 @@ export default function PicagemPage() {
             <div className={`space-y-2 ${dia.estado === "a_trabalhar" ? "order-3" : "order-2"}`}>
               {mostraLista && (
                 <div className="space-y-1">
-                  <Label>{dia.estado === "a_trabalhar" ? "Mudar para outra obra" : "Obra"}</Label>
+                  <Label>{dia.estado === "a_trabalhar" ? t("Mudar para outra obra") : t("Obra")}</Label>
                   <Select value={obraId} onValueChange={setObraId}>
-                    <SelectTrigger className="rounded-full" aria-label="Obra">
-                      <SelectValue placeholder="Escolha a obra" />
+                    <SelectTrigger className="rounded-full" aria-label={t("Obra")}>
+                      <SelectValue placeholder={t("Escolha a obra")} />
                     </SelectTrigger>
                     <SelectContent>
                       {obras.map((o) => (
@@ -278,7 +292,7 @@ export default function PicagemPage() {
                           {o.numero} · {o.nome}
                         </SelectItem>
                       ))}
-                      {config.validacao === "livre" && <SelectItem value={SEM_OBRA}>Sem obra (armazem / escritorio)</SelectItem>}
+                      {config.validacao === "livre" && <SelectItem value={SEM_OBRA}>{t("Sem obra (armazém / escritório)")}</SelectItem>}
                     </SelectContent>
                   </Select>
                 </div>
@@ -293,11 +307,11 @@ export default function PicagemPage() {
                   data-testid="botao-entrada"
                 >
                   <LogIn className={dia.estado === "a_trabalhar" ? "mr-2 h-4 w-4" : "mr-2 h-5 w-5"} />
-                  {dia.estado === "a_trabalhar" ? "Mudar de obra" : "Entrar"}
-                  {config.validacao !== "livre" && obraId && <span className="ml-2 text-xs opacity-80">(confirma GPS)</span>}
+                  {dia.estado === "a_trabalhar" ? t("Mudar de obra") : t("Picar entrada")}
+                  {config.validacao !== "livre" && obraId && <span className="ml-2 text-xs opacity-80">{t("(confirma GPS)")}</span>}
                 </Button>
               )}
-              {usaQR && <LeitorQR onLer={lerQR} rotulo={dia.estado === "a_trabalhar" ? "Ler QR de outra obra" : "Entrar a ler o QR da obra"} />}
+              {usaQR && <LeitorQR onLer={lerQR} rotulo={dia.estado === "a_trabalhar" ? t("Ler QR de outra obra") : t("Entrar a ler o QR da obra")} />}
             </div>
           )}
 
@@ -305,13 +319,13 @@ export default function PicagemPage() {
             {acoes.includes("pausa") && (
               <Button variant="outline" className="h-12 rounded-full" disabled={aPicar} onClick={() => registar("pausa")}>
                 <Coffee className="mr-2 h-4 w-4" />
-                Pausa
+                {t("Pausa")}
               </Button>
             )}
             {acoes.includes("retoma") && (
               <Button className="h-12 rounded-full" disabled={aPicar} onClick={() => registar("retoma")}>
                 <Play className="mr-2 h-4 w-4" />
-                Voltar da pausa
+                {t("Voltar da pausa")}
               </Button>
             )}
             {acoes.includes("saida") && (
@@ -323,7 +337,7 @@ export default function PicagemPage() {
                 data-testid="botao-saida"
               >
                 <LogOut className="mr-2 h-4 w-4" />
-                Sair
+                {t("Picar saída")}
               </Button>
             )}
           </div>
@@ -333,11 +347,11 @@ export default function PicagemPage() {
               {dia.picagens.map((p) => (
                 <li key={p.id} className="flex items-center justify-between px-3 py-2">
                   <span>
-                    <span className="font-medium tabular-nums">{formatarHora(p.hora)}</span> · {NOMES_PICAGEM[p.tipo]}
+                    <span className="font-medium tabular-nums">{formatarHora(p.hora)}</span> · {t(NOMES_PICAGEM[p.tipo])}
                     {p.orcamentoNumero ? <span className="text-muted-foreground"> · {p.orcamentoNumero}</span> : null}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {p.origem === "correcao" ? "corrigida" : p.metodo === "qr" ? "QR" : p.metodo === "gps" ? "GPS" : ""}
+                    {p.origem === "correcao" ? t("corrigida") : p.metodo === "qr" ? "QR" : p.metodo === "gps" ? "GPS" : ""}
                   </span>
                 </li>
               ))}
@@ -348,10 +362,10 @@ export default function PicagemPage() {
 
       <Tabs defaultValue="mes">
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="mes">Mes</TabsTrigger>
-          <TabsTrigger value="ferias">Ferias</TabsTrigger>
-          <TabsTrigger value="faltas">Faltas</TabsTrigger>
-          <TabsTrigger value="correcoes">Correcoes</TabsTrigger>
+          <TabsTrigger value="mes">{t("Mês")}</TabsTrigger>
+          <TabsTrigger value="ferias">{t("Férias")}</TabsTrigger>
+          <TabsTrigger value="faltas">{t("Faltas")}</TabsTrigger>
+          <TabsTrigger value="correcoes">{t("Correções")}</TabsTrigger>
         </TabsList>
         <TabsContent value="mes">
           <HistoricoMes picagens={picagens} pedidos={pedidos} agora={agora} />
@@ -391,8 +405,8 @@ function HistoricoMes({ picagens, pedidos, agora }: { picagens: Picagem[]; pedid
     <Card>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between gap-2">
-          <CardTitle className="text-base">Total: {formatarMinutos(total)}</CardTitle>
-          <Input type="month" value={mes} onChange={(e) => setMes(e.target.value)} className="w-44" aria-label="Mes" />
+          <CardTitle className="text-base">{t("Total: {tempo}", { tempo: formatarMinutos(total) })}</CardTitle>
+          <Input type="month" value={mes} onChange={(e) => setMes(e.target.value)} className="w-44" aria-label={t("Mês")} />
         </div>
       </CardHeader>
       <CardContent>
@@ -407,13 +421,13 @@ function HistoricoMes({ picagens, pedidos, agora }: { picagens: Picagem[]; pedid
                     <div className="font-medium">{formatDate(d.dia)}</div>
                     <div className="text-xs text-muted-foreground">
                       {d.picagens.length > 0 ? `${formatarHora(d.primeiraEntrada)} - ${formatarHora(d.ultimaSaida)}` : ""}
-                      {pedido ? ` ${pedido.tipo === "ferias" ? "Ferias" : nomeMotivoFalta(pedido.motivoFalta)}` : ""}
+                      {pedido ? ` ${pedido.tipo === "ferias" ? t("Férias") : nomeMotivoFalta(pedido.motivoFalta)}` : ""}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     {d.incompleto && d.dia !== hoje && (
                       <Badge variant="outline" className="border-rose-300 text-rose-700">
-                        Falta picar
+                        {t("Falta picar")}
                       </Badge>
                     )}
                     <span className="tabular-nums">{formatarMinutos(d.minutosTrabalho)}</span>
@@ -422,7 +436,7 @@ function HistoricoMes({ picagens, pedidos, agora }: { picagens: Picagem[]; pedid
               )
             })}
         </ul>
-        {lidos.every((d) => d.picagens.length === 0) && <p className="py-6 text-center text-sm text-muted-foreground">Sem picagens neste mes.</p>}
+        {lidos.every((d) => d.picagens.length === 0) && <p className="py-6 text-center text-sm text-muted-foreground">{t("Sem picagens neste mês.")}</p>}
       </CardContent>
     </Card>
   )
@@ -433,7 +447,7 @@ function HistoricoMes({ picagens, pedidos, agora }: { picagens: Picagem[]; pedid
 type Base = { uid: string; funcionarioId: string; funcionarioNome: string }
 
 function ListaPedidos({ pedidos, aoGravar }: { pedidos: PedidoPonto[]; aoGravar: () => Promise<void> }) {
-  if (pedidos.length === 0) return <p className="py-4 text-center text-sm text-muted-foreground">Ainda sem pedidos.</p>
+  if (pedidos.length === 0) return <p className="py-4 text-center text-sm text-muted-foreground">{t("Ainda sem pedidos.")}</p>
   return (
     <ul className="space-y-2" data-testid="lista-pedidos">
       {pedidos.map((p) => (
@@ -442,19 +456,21 @@ function ListaPedidos({ pedidos, aoGravar }: { pedidos: PedidoPonto[]; aoGravar:
             <div>
               <div className="font-medium">
                 {p.tipo === "correcao" && p.correcao
-                  ? `${NOMES_PICAGEM[p.correcao.tipo]} as ${p.correcao.hora} de ${formatDate(p.correcao.dia)}`
-                  : `${formatDate(p.inicio!)}${p.fim && p.fim !== p.inicio ? ` a ${formatDate(p.fim)}` : ""}`}
+                  ? t("{tipo} às {hora} de {data}", { tipo: t(NOMES_PICAGEM[p.correcao.tipo]), hora: p.correcao.hora, data: formatDate(p.correcao.dia) })
+                  : p.fim && p.fim !== p.inicio
+                    ? t("{inicio} a {fim}", { inicio: formatDate(p.inicio!), fim: formatDate(p.fim) })
+                    : formatDate(p.inicio!)}
               </div>
               <div className="text-xs opacity-80">
-                {p.tipo === "ferias" && `${p.diasUteis} dia(s) uteis`}
+                {p.tipo === "ferias" && (p.diasUteis === 1 ? t("{n} dia útil", { n: p.diasUteis }) : t("{n} dias úteis", { n: p.diasUteis ?? 0 }))}
                 {p.tipo === "falta" && `${nomeMotivoFalta(p.motivoFalta)}${p.horas ? ` · ${p.horas} h` : ""}`}
                 {p.observacoes ? ` · ${p.observacoes}` : ""}
               </div>
-              {p.respostaGestor && <div className="mt-1 text-xs">Resposta: {p.respostaGestor}</div>}
+              {p.respostaGestor && <div className="mt-1 text-xs">{t("Resposta: {resposta}", { resposta: p.respostaGestor })}</div>}
             </div>
             <div className="flex flex-col items-end gap-1">
               <Badge variant="outline" className="bg-white/60">
-                {NOMES_ESTADO[p.estado]}
+                {t(NOMES_ESTADO[p.estado])}
               </Badge>
               {p.estado === "pendente" && (
                 <button
@@ -465,7 +481,7 @@ function ListaPedidos({ pedidos, aoGravar }: { pedidos: PedidoPonto[]; aoGravar:
                     await aoGravar()
                   }}
                 >
-                  Cancelar
+                  {t("Cancelar")}
                 </button>
               )}
             </div>
@@ -487,14 +503,18 @@ function PedidoFerias({ pedidos, config, base, aoGravar }: { pedidos: PedidoPont
   const minhas = pedidos.filter((p) => p.tipo === "ferias")
 
   const pedir = async () => {
-    if (!inicio || !fim || fim < inicio) return toast({ title: "Indique o primeiro e o ultimo dia", variant: "destructive" })
-    if (dias === 0) return toast({ title: "O periodo nao tem dias uteis", variant: "destructive" })
+    if (!inicio || !fim || fim < inicio) return toast({ title: t("Indique o primeiro e o último dia"), variant: "destructive" })
+    if (dias === 0) return toast({ title: t("O período não tem dias úteis"), variant: "destructive" })
     if (dias > saldo.disponiveis - saldo.pendentes)
-      return toast({ title: "Sem dias suficientes", description: `Tem ${saldo.disponiveis - saldo.pendentes} dia(s) livres.`, variant: "destructive" })
+      return toast({
+        title: t("Sem dias suficientes"),
+        description: saldo.disponiveis - saldo.pendentes === 1 ? t("Tem {n} dia livre.", { n: 1 }) : t("Tem {n} dias livres.", { n: saldo.disponiveis - saldo.pendentes }),
+        variant: "destructive",
+      })
     setAGravar(true)
     try {
       await criarPedido({ ...base, tipo: "ferias", inicio, fim, diasUteis: dias, observacoes: obs.trim() })
-      toast({ title: "Pedido de ferias enviado", description: "Fica amarelo ate o encarregado aprovar." })
+      toast({ title: t("Pedido de férias enviado"), description: t("Fica amarelo até o encarregado aprovar.") })
       setInicio("")
       setFim("")
       setObs("")
@@ -507,27 +527,31 @@ function PedidoFerias({ pedidos, config, base, aoGravar }: { pedidos: PedidoPont
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-base">Ferias {ano}</CardTitle>
+        <CardTitle className="text-base">{t("Férias {ano}", { ano })}</CardTitle>
         <CardDescription data-testid="saldo-ferias">
-          {saldo.disponiveis} de {saldo.direito} dias disponiveis
-          {saldo.pendentes > 0 ? ` · ${saldo.pendentes} a aguardar aprovacao` : ""}
+          {t("{disponiveis} de {direito} dias disponíveis", { disponiveis: saldo.disponiveis, direito: saldo.direito })}
+          {saldo.pendentes > 0 ? ` · ${t("{n} a aguardar aprovação", { n: saldo.pendentes })}` : ""}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
-            <Label htmlFor="ferias-inicio">Primeiro dia</Label>
+            <Label htmlFor="ferias-inicio">{t("Primeiro dia")}</Label>
             <Input id="ferias-inicio" type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="ferias-fim">Ultimo dia</Label>
+            <Label htmlFor="ferias-fim">{t("Último dia")}</Label>
             <Input id="ferias-fim" type="date" value={fim} min={inicio} onChange={(e) => setFim(e.target.value)} />
           </div>
         </div>
-        {dias > 0 && <p className="text-sm">{dias} dia(s) uteis (sem fins de semana nem feriados).</p>}
-        <Input placeholder="Observacoes (opcional)" value={obs} onChange={(e) => setObs(e.target.value)} />
+        {dias > 0 && (
+          <p className="text-sm">
+            {dias === 1 ? t("{n} dia útil (sem fins de semana nem feriados).", { n: dias }) : t("{n} dias úteis (sem fins de semana nem feriados).", { n: dias })}
+          </p>
+        )}
+        <Input placeholder={t("Observações (opcional)")} value={obs} onChange={(e) => setObs(e.target.value)} />
         <Button className="w-full rounded-full" onClick={pedir} disabled={aGravar}>
-          Pedir ferias
+          {t("Pedir férias")}
         </Button>
         <ListaPedidos pedidos={minhas} aoGravar={aoGravar} />
       </CardContent>
@@ -545,7 +569,7 @@ function PedidoFalta({ pedidos, config, base, aoGravar }: { pedidos: PedidoPonto
   const minhas = pedidos.filter((p) => p.tipo === "falta")
 
   const enviar = async () => {
-    if (!inicio || (fim && fim < inicio)) return toast({ title: "Verifique as datas", variant: "destructive" })
+    if (!inicio || (fim && fim < inicio)) return toast({ title: t("Verifique as datas"), variant: "destructive" })
     setAGravar(true)
     try {
       await criarPedido({
@@ -558,7 +582,7 @@ function PedidoFalta({ pedidos, config, base, aoGravar }: { pedidos: PedidoPonto
         horas: Number(horas.replace(",", ".")) || 0,
         observacoes: obs.trim(),
       })
-      toast({ title: "Falta comunicada", description: "Entregue o comprovativo ao encarregado, se tiver." })
+      toast({ title: t("Falta comunicada"), description: t("Entregue o comprovativo ao encarregado, se tiver.") })
       setObs("")
       setHoras("")
       await aoGravar()
@@ -570,20 +594,20 @@ function PedidoFalta({ pedidos, config, base, aoGravar }: { pedidos: PedidoPonto
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-base">Comunicar falta</CardTitle>
-        <CardDescription>Consulta, doenca, licenca parental... O encarregado valida.</CardDescription>
+        <CardTitle className="text-base">{t("Comunicar falta")}</CardTitle>
+        <CardDescription>{t("Consulta, doença, licença parental... O encarregado valida.")}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="space-y-1">
-          <Label>Motivo</Label>
+          <Label>{t("Motivo")}</Label>
           <Select value={motivo} onValueChange={setMotivo}>
-            <SelectTrigger aria-label="Motivo da falta">
+            <SelectTrigger aria-label={t("Motivo da falta")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {MOTIVOS_FALTA.map((m) => (
                 <SelectItem key={m.id} value={m.id}>
-                  {m.nome}
+                  {t(m.nome)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -591,18 +615,18 @@ function PedidoFalta({ pedidos, config, base, aoGravar }: { pedidos: PedidoPonto
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
-            <Label htmlFor="falta-inicio">De</Label>
+            <Label htmlFor="falta-inicio">{t("De")}</Label>
             <Input id="falta-inicio" type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="falta-fim">Ate</Label>
+            <Label htmlFor="falta-fim">{t("Até")}</Label>
             <Input id="falta-fim" type="date" value={fim} min={inicio} onChange={(e) => setFim(e.target.value)} />
           </div>
         </div>
-        <Input inputMode="decimal" placeholder="So parte do dia? Quantas horas (opcional)" value={horas} onChange={(e) => setHoras(e.target.value)} />
-        <Input placeholder="Observacoes (opcional)" value={obs} onChange={(e) => setObs(e.target.value)} />
+        <Input inputMode="decimal" placeholder={t("Só parte do dia? Quantas horas (opcional)")} value={horas} onChange={(e) => setHoras(e.target.value)} />
+        <Input placeholder={t("Observações (opcional)")} value={obs} onChange={(e) => setObs(e.target.value)} />
         <Button className="w-full rounded-full" onClick={enviar} disabled={aGravar}>
-          Comunicar falta
+          {t("Comunicar falta")}
         </Button>
         <ListaPedidos pedidos={minhas} aoGravar={aoGravar} />
       </CardContent>
@@ -620,8 +644,8 @@ function PedidoCorrecao({ pedidos, obras, base, aoGravar }: { pedidos: PedidoPon
   const minhas = pedidos.filter((p) => p.tipo === "correcao")
 
   const enviar = async () => {
-    if (!dia || !hora) return toast({ title: "Indique o dia e a hora", variant: "destructive" })
-    if (!motivo.trim()) return toast({ title: "Explique o que aconteceu", variant: "destructive" })
+    if (!dia || !hora) return toast({ title: t("Indique o dia e a hora"), variant: "destructive" })
+    if (!motivo.trim()) return toast({ title: t("Explique o que aconteceu"), variant: "destructive" })
     const obra = obras.find((o) => o.id === obraId)
     setAGravar(true)
     try {
@@ -631,7 +655,7 @@ function PedidoCorrecao({ pedidos, obras, base, aoGravar }: { pedidos: PedidoPon
         correcao: { dia, hora, tipo, orcamentoId: obra?.id || "", orcamentoNumero: obra?.numero || "" },
         observacoes: motivo.trim(),
       })
-      toast({ title: "Pedido de correcao enviado" })
+      toast({ title: t("Pedido de correção enviado") })
       setHora("")
       setMotivo("")
       await aoGravar()
@@ -643,39 +667,39 @@ function PedidoCorrecao({ pedidos, obras, base, aoGravar }: { pedidos: PedidoPon
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-base">Esqueceu-se de picar?</CardTitle>
-        <CardDescription>As picagens nao se apagam. Peca a correcao e o encarregado aprova.</CardDescription>
+        <CardTitle className="text-base">{t("Esqueceu-se de picar?")}</CardTitle>
+        <CardDescription>{t("As picagens não se apagam. Peça a correção e o encarregado aprova.")}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="grid grid-cols-3 gap-2">
           <div className="col-span-1 space-y-1">
-            <Label>Picagem</Label>
+            <Label>{t("Picagem")}</Label>
             <Select value={tipo} onValueChange={(v) => setTipo(v as TipoPicagem)}>
-              <SelectTrigger aria-label="Tipo de picagem">
+              <SelectTrigger aria-label={t("Tipo de picagem")}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {(Object.keys(NOMES_PICAGEM) as TipoPicagem[]).map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {NOMES_PICAGEM[t]}
+                {(Object.keys(NOMES_PICAGEM) as TipoPicagem[]).map((tp) => (
+                  <SelectItem key={tp} value={tp}>
+                    {t(NOMES_PICAGEM[tp])}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-1">
-            <Label htmlFor="corr-dia">Dia</Label>
+            <Label htmlFor="corr-dia">{t("Dia")}</Label>
             <Input id="corr-dia" type="date" value={dia} onChange={(e) => setDia(e.target.value)} />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="corr-hora">Hora</Label>
+            <Label htmlFor="corr-hora">{t("Hora")}</Label>
             <Input id="corr-hora" type="time" value={hora} onChange={(e) => setHora(e.target.value)} />
           </div>
         </div>
         {tipo === "entrada" && (
           <Select value={obraId} onValueChange={setObraId}>
-            <SelectTrigger aria-label="Obra da correcao">
-              <SelectValue placeholder="Obra" />
+            <SelectTrigger aria-label={t("Obra da correção")}>
+              <SelectValue placeholder={t("Obra")} />
             </SelectTrigger>
             <SelectContent>
               {obras.map((o) => (
@@ -686,9 +710,9 @@ function PedidoCorrecao({ pedidos, obras, base, aoGravar }: { pedidos: PedidoPon
             </SelectContent>
           </Select>
         )}
-        <Textarea placeholder="O que aconteceu? (ex.: esqueci-me de picar a saida)" value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={2} />
+        <Textarea placeholder={t("O que aconteceu? (ex.: esqueci-me de picar a saída)")} value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={2} />
         <Button className="w-full rounded-full" onClick={enviar} disabled={aGravar}>
-          Pedir correcao
+          {t("Pedir correção")}
         </Button>
         <ListaPedidos pedidos={minhas} aoGravar={aoGravar} />
       </CardContent>
@@ -702,18 +726,18 @@ function MudarPin({ aberto, aoFechar, aoMudar }: { aberto: boolean; aoFechar: ()
   const [repetir, setRepetir] = useState("")
   const [aGravar, setAGravar] = useState(false)
   const gravar = async () => {
-    if (!pinValido(novo)) return toast({ title: "O PIN novo tem de ter 4 a 6 digitos", variant: "destructive" })
-    if (novo !== repetir) return toast({ title: "Os PINs novos nao coincidem", variant: "destructive" })
+    if (!pinValido(novo)) return toast({ title: t("O PIN novo tem de ter 4 a 6 dígitos"), variant: "destructive" })
+    if (novo !== repetir) return toast({ title: t("Os PINs novos não coincidem"), variant: "destructive" })
     setAGravar(true)
     try {
       await aoMudar(atual, novo)
-      toast({ title: "PIN alterado" })
+      toast({ title: t("PIN alterado") })
       setAtual("")
       setNovo("")
       setRepetir("")
       aoFechar()
     } catch {
-      toast({ title: "PIN atual errado", variant: "destructive" })
+      toast({ title: t("PIN atual errado"), variant: "destructive" })
     } finally {
       setAGravar(false)
     }
@@ -728,15 +752,15 @@ function MudarPin({ aberto, aoFechar, aoMudar }: { aberto: boolean; aoFechar: ()
     <Dialog open={aberto} onOpenChange={(a) => !a && aoFechar()}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Mudar PIN</DialogTitle>
-          <DialogDescription>4 a 6 digitos. Nao o partilhe com colegas.</DialogDescription>
+          <DialogTitle>{t("Mudar PIN")}</DialogTitle>
+          <DialogDescription>{t("4 a 6 dígitos. Não o partilhe com colegas.")}</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
-          {campo("pin-atual", "PIN atual", atual, setAtual)}
-          {campo("pin-novo", "PIN novo", novo, setNovo)}
-          {campo("pin-repetir", "Repetir PIN novo", repetir, setRepetir)}
+          {campo("pin-atual", t("PIN atual"), atual, setAtual)}
+          {campo("pin-novo", t("PIN novo"), novo, setNovo)}
+          {campo("pin-repetir", t("Repetir PIN novo"), repetir, setRepetir)}
           <Button className="w-full rounded-full" onClick={gravar} disabled={aGravar}>
-            Gravar
+            {t("Guardar")}
           </Button>
         </div>
       </DialogContent>

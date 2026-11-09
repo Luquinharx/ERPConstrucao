@@ -12,6 +12,8 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { useAuth } from "@/hooks/use-auth"
 import { FirebaseService } from "@/lib/firebase-service"
 import { codigoEtiqueta } from "@/lib/etiquetas"
+import { t } from "@/lib/i18n"
+import { nomeUnidade } from "@/lib/produto-calculos"
 import type { Material } from "@/lib/types"
 import { matchesSearch } from "@/lib/utils"
 
@@ -66,37 +68,43 @@ export default function EtiquetasPage() {
       `}</style>
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <div>
-          <h1 className="text-3xl font-bold">Etiquetas</h1>
-          <p className="mt-2 text-muted-foreground">QR para colar nos produtos e equipamentos. Le-se com a camera em Bipar.</p>
+          <h1 className="text-3xl font-bold">{t("Etiquetas")}</h1>
+          <p className="mt-2 text-muted-foreground">
+            {t("QR para colar nos produtos e equipamentos. Lê-se com a câmara em \"Ler código de barras\".")}
+          </p>
         </div>
         <Button onClick={() => window.print()} disabled={etiquetas.length === 0} className="rounded-full">
           <Printer className="mr-2 h-4 w-4" />
-          Imprimir {etiquetas.length} etiqueta(s)
+          {etiquetas.length === 1
+            ? t("Imprimir {n} etiqueta", { n: etiquetas.length })
+            : t("Imprimir {n} etiquetas", { n: etiquetas.length })}
         </Button>
       </div>
 
       <Card className="print:hidden">
         <CardHeader>
-          <CardTitle className="text-lg">Produtos com controlo de estoque</CardTitle>
-          <CardDescription>Indique quantas etiquetas quer de cada um. As do mesmo produto têm o mesmo QR: imprima as que precisar para as prateleiras.</CardDescription>
+          <CardTitle className="text-lg">{t("Produtos com controlo de stock")}</CardTitle>
+          <CardDescription>
+            {t("Indique quantas etiquetas quer de cada um. As do mesmo produto têm o mesmo QR: imprima as que precisar para as prateleiras.")}
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <Input placeholder="Procurar produto..." value={busca} onChange={(e) => setBusca(e.target.value)} />
+          <Input placeholder={t("Pesquisar produto...")} value={busca} onChange={(e) => setBusca(e.target.value)} />
           <div className="grid gap-2 sm:grid-cols-2">
             {visiveis.map((p) => (
               <div key={p.id} className="flex items-center justify-between gap-3 rounded-lg border p-2">
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium">{p.nome}</div>
                   <div className="text-xs text-muted-foreground">
-                    {p.codigo || "sem codigo"}
-                    {p.tipoItem === "equipamento" ? " · equipamento" : ""}
+                    {p.codigo || t("sem código")}
+                    {p.tipoItem === "equipamento" ? " · " + t("equipamento") : ""}
                   </div>
                 </div>
                 <CampoNumerico
                   tamanho="sm"
                   min={0}
                   decimais={0}
-                  aria-label={`Etiquetas ${p.nome}`}
+                  aria-label={t("Etiquetas de {produto}", { produto: p.nome })}
                   value={copias[p.id!] || 0}
                   onChange={(n) => setCopias({ ...copias, [p.id!]: Math.round(n) })}
                   className="w-20"
@@ -114,7 +122,7 @@ export default function EtiquetasPage() {
             <div className="min-w-0 text-[11px] leading-tight">
               <div className="font-semibold">{p.nome}</div>
               <div>{p.codigo || ""}</div>
-              <div className="text-[9px] text-gray-500">{p.unidade}</div>
+              <div className="text-[9px] text-gray-500">{nomeUnidade(p.unidade)}</div>
             </div>
           </div>
         ))}

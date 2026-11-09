@@ -24,6 +24,7 @@ import { linhasNovoAuto, percentMedido, somarDias, valorAuto, valorLinhaAuto } f
 import { resumoDeValores } from "@/lib/orcamento-calculos"
 import type { AutoMedicao, LinhaAuto } from "@/lib/types"
 import { formatCurrency, formatDate, formatNumber2, hojeLocal, round2 } from "@/lib/utils"
+import { t } from "@/lib/i18n"
 
 /**
  * Autos de medicao: cada um certifica o que se executou no periodo, a preco
@@ -58,8 +59,8 @@ export default function AutosPage() {
   const valorRascunho = useMemo(() => (rascunho ? valorAuto(rascunho.linhas) : 0), [rascunho])
 
   if (carregando || aCarregar) return <LoadingSpinner size="lg" />
-  if (!pode("orcamentos.ver")) return <SemAcesso area="Autos de medicao" />
-  if (!orcamento) return <p>Proposta nao encontrada.</p>
+  if (!pode("orcamentos.ver")) return <SemAcesso area={t("Autos de medição")} />
+  if (!orcamento) return <p>{t("Proposta não encontrada.")}</p>
 
   const novo = () =>
     // Os anteriores contam todos, mesmo em rascunho: nao se mede duas vezes o mesmo
@@ -75,9 +76,9 @@ export default function AutosPage() {
   const gravar = async () => {
     if (!user || !rascunho || !orcamento.id) return
     const linhas = rascunho.linhas.filter((l) => l.quantidade > 0)
-    if (linhas.length === 0) return toast({ title: "Meca pelo menos um item", variant: "destructive" })
+    if (linhas.length === 0) return toast({ title: t("Meça pelo menos um item"), variant: "destructive" })
     const excede = linhas.find((l) => l.quantidade + l.quantidadeAnterior > l.quantidadeContratual + 0.001)
-    if (excede) return toast({ title: `"${excede.nome}" passa da quantidade contratual`, description: "Trabalhos a mais pedem uma revisao da proposta.", variant: "destructive" })
+    if (excede) return toast({ title: t("“{nome}” passa da quantidade contratual", { nome: excede.nome }), description: t("Trabalhos a mais pedem uma revisão da proposta."), variant: "destructive" })
     setAGravar(true)
     try {
       await criar("autosMedicao", {
@@ -92,11 +93,11 @@ export default function AutosPage() {
         observacoes: rascunho.observacoes.trim(),
         userId: user.uid,
       })
-      toast({ title: "Auto gravado em rascunho" })
+      toast({ title: t("Auto guardado em rascunho") })
       setRascunho(null)
       await carregar()
     } catch {
-      toast({ title: "Nao foi possivel gravar o auto", variant: "destructive" })
+      toast({ title: t("Não foi possível guardar o auto"), variant: "destructive" })
     } finally {
       setAGravar(false)
     }
@@ -105,7 +106,7 @@ export default function AutosPage() {
   const aprovar = async (auto: AutoMedicao) => {
     if (!user || !auto.id) return
     const comIVA = round2(auto.valor * (1 + (auto.taxaIVA || 0) / 100))
-    if (!confirm(`Aprovar o auto n.o ${auto.numero}? Cria uma conta a receber de ${formatCurrency(comIVA)} (com IVA).`)) return
+    if (!confirm(t("Aprovar o auto n.º {numero}? Cria uma conta a receber de {valor} (com IVA).", { numero: auto.numero, valor: formatCurrency(comIVA) }))) return
     try {
       await aprovarComConta(
         "autosMedicao",
@@ -113,7 +114,7 @@ export default function AutosPage() {
         { estado: "aprovado" },
         {
           tipo: "receber",
-          descricao: `Auto de medicao n.o ${auto.numero}`,
+          descricao: t("Auto de medição n.º {numero}", { numero: auto.numero }),
           valor: comIVA,
           vencimento: somarDias(auto.data, 30),
           estado: "pendente",
@@ -124,31 +125,31 @@ export default function AutosPage() {
           userId: user.uid,
         },
       )
-      toast({ title: `Auto n.o ${auto.numero} aprovado`, description: "Conta a receber criada, vence a 30 dias." })
+      toast({ title: t("Auto n.º {numero} aprovado", { numero: auto.numero }), description: t("Conta a receber criada, vence a 30 dias.") })
       await carregar()
     } catch {
-      toast({ title: "Nao foi possivel aprovar", variant: "destructive" })
+      toast({ title: t("Não foi possível aprovar"), variant: "destructive" })
     }
   }
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <CabecalhoObra orcamento={orcamento} subtitulo="autos de medicao" />
+      <CabecalhoObra orcamento={orcamento} subtitulo={t("autos de medição")} />
 
       <div className="grid gap-4 sm:grid-cols-3" data-testid="resumo-autos">
         <Card>
-          <CardHeader className="pb-1"><CardDescription>Valor contratual (sem IVA)</CardDescription></CardHeader>
+          <CardHeader className="pb-1"><CardDescription>{t("Valor contratual (sem IVA)")}</CardDescription></CardHeader>
           <CardContent className="text-2xl font-bold tabular-nums">{formatCurrency(base)}</CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-1"><CardDescription>Medido e aprovado</CardDescription></CardHeader>
+          <CardHeader className="pb-1"><CardDescription>{t("Medido e aprovado")}</CardDescription></CardHeader>
           <CardContent>
             <div className="text-2xl font-bold tabular-nums" data-testid="medido">{formatCurrency(medido)}</div>
-            <p className="text-sm text-muted-foreground">{formatNumber2(percentMedido(orcamento, aprovados))}% da obra</p>
+            <p className="text-sm text-muted-foreground">{t("{percent}% da obra", { percent: formatNumber2(percentMedido(orcamento, aprovados)) })}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-1"><CardDescription>Saldo por medir</CardDescription></CardHeader>
+          <CardHeader className="pb-1"><CardDescription>{t("Saldo por medir")}</CardDescription></CardHeader>
           <CardContent className="text-2xl font-bold tabular-nums">{formatCurrency(round2(base - medido))}</CardContent>
         </Card>
       </div>
@@ -157,13 +158,13 @@ export default function AutosPage() {
         <Card>
           <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
             <div>
-              <CardTitle className="text-lg">Autos da obra</CardTitle>
-              <CardDescription>Aprovar um auto cria a conta a receber com o IVA da proposta.</CardDescription>
+              <CardTitle className="text-lg">{t("Autos da obra")}</CardTitle>
+              <CardDescription>{t("Aprovar um auto cria a conta a receber com o IVA da proposta.")}</CardDescription>
             </div>
             {podeLancar && (
               <Button onClick={novo} className="rounded-full">
                 <Plus className="mr-2 h-4 w-4" />
-                Novo auto
+                {t("Novo auto")}
               </Button>
             )}
           </CardHeader>
@@ -171,10 +172,10 @@ export default function AutosPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>N.o</TableHead>
-                  <TableHead>Data</TableHead>
-                  <TableHead className="text-right">Valor s/ IVA</TableHead>
-                  <TableHead>Estado</TableHead>
+                  <TableHead>{t("N.º")}</TableHead>
+                  <TableHead>{t("Data")}</TableHead>
+                  <TableHead className="text-right">{t("Valor s/ IVA")}</TableHead>
+                  <TableHead>{t("Estado")}</TableHead>
                   <TableHead />
                 </TableRow>
               </TableHeader>
@@ -182,7 +183,7 @@ export default function AutosPage() {
                 {autos.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
-                      Ainda nao ha autos nesta obra.
+                      {t("Ainda não há autos nesta obra.")}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -193,23 +194,23 @@ export default function AutosPage() {
                       <TableCell className="text-right tabular-nums">{formatCurrency(a.valor)}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={a.estado === "aprovado" ? "border-emerald-500/40 text-emerald-700" : ""}>
-                          {a.estado === "aprovado" ? "Aprovado" : "Rascunho"}
+                          {a.estado === "aprovado" ? t("Aprovado") : t("Rascunho")}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right whitespace-nowrap">
                         {a.estado === "rascunho" && podeAprovar && (
                           <Button size="sm" variant="outline" className="rounded-full" onClick={() => aprovar(a)}>
                             <Check className="mr-1 h-3 w-3" />
-                            Aprovar
+                            {t("Aprovar")}
                           </Button>
                         )}
                         {a.estado === "rascunho" && podeLancar && (
                           <Button
                             size="icon"
                             variant="ghost"
-                            title="Apagar rascunho"
+                            title={t("Eliminar rascunho")}
                             onClick={async () => {
-                              if (!a.id || !confirm("Apagar este auto em rascunho?")) return
+                              if (!a.id || !confirm(t("Eliminar este auto em rascunho?"))) return
                               await apagar("autosMedicao", a.id)
                               await carregar()
                             }}
@@ -231,13 +232,13 @@ export default function AutosPage() {
         <Card data-testid="novo-auto">
           <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3 space-y-0">
             <div>
-              <CardTitle className="text-lg">Novo auto de medicao</CardTitle>
-              <CardDescription>Indique o executado neste periodo. Precos contratuais, sem IVA.</CardDescription>
+              <CardTitle className="text-lg">{t("Novo auto de medição")}</CardTitle>
+              <CardDescription>{t("Indique o executado neste período. Preços contratuais, sem IVA.")}</CardDescription>
             </div>
             <div className="flex items-center gap-2">
               <Input type="date" value={rascunho.data} onChange={(e) => setRascunho({ ...rascunho, data: e.target.value })} className="w-40" />
               <Button type="button" variant="outline" size="sm" className="rounded-full" onClick={medirRestante}>
-                Medir o que falta
+                {t("Medir o que falta")}
               </Button>
             </div>
           </CardHeader>
@@ -245,12 +246,12 @@ export default function AutosPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Item</TableHead>
-                  <TableHead className="text-right">Contratual</TableHead>
-                  <TableHead className="text-right">Ja medido</TableHead>
-                  <TableHead className="text-right w-40">Este auto</TableHead>
-                  <TableHead className="text-right">Preco unit.</TableHead>
-                  <TableHead className="text-right">Valor</TableHead>
+                  <TableHead>{t("Item")}</TableHead>
+                  <TableHead className="text-right">{t("Contratual")}</TableHead>
+                  <TableHead className="text-right">{t("Já medido")}</TableHead>
+                  <TableHead className="text-right w-40">{t("Este auto")}</TableHead>
+                  <TableHead className="text-right">{t("Preço unit.")}</TableHead>
+                  <TableHead className="text-right">{t("Valor")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -260,7 +261,7 @@ export default function AutosPage() {
                     <TableCell className="text-right tabular-nums">{formatNumber2(l.quantidadeContratual)} {l.unidade}</TableCell>
                     <TableCell className="text-right tabular-nums">{formatNumber2(l.quantidadeAnterior)}</TableCell>
                     <TableCell className="text-right">
-                      <CampoNumerico tamanho="sm" min={0} aria-label={`Medir ${l.nome}`} value={l.quantidade} onChange={(q) => alterarLinha(l.itemId, q)} />
+                      <CampoNumerico tamanho="sm" min={0} aria-label={t("Medir {nome}", { nome: l.nome })} value={l.quantidade} onChange={(q) => alterarLinha(l.itemId, q)} />
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{formatCurrency(l.precoUnitario)}</TableCell>
                     <TableCell className="text-right tabular-nums">{formatCurrency(valorLinhaAuto(l))}</TableCell>
@@ -269,16 +270,16 @@ export default function AutosPage() {
               </TableBody>
               <TableFooter>
                 <TableRow>
-                  <TableCell colSpan={5}>Valor do auto (sem IVA)</TableCell>
+                  <TableCell colSpan={5}>{t("Valor do auto (sem IVA)")}</TableCell>
                   <TableCell className="text-right tabular-nums" data-testid="valor-auto">{formatCurrency(valorRascunho)}</TableCell>
                 </TableRow>
               </TableFooter>
             </Table>
             <div className="flex justify-end gap-2 px-4 pb-4 sm:px-0 sm:pb-0">
-              <Button variant="outline" onClick={() => setRascunho(null)}>Cancelar</Button>
+              <Button variant="outline" onClick={() => setRascunho(null)}>{t("Cancelar")}</Button>
               <Button onClick={gravar} disabled={aGravar} className="rounded-full">
                 {aGravar && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Gravar auto
+                {t("Guardar auto")}
               </Button>
             </div>
           </CardContent>

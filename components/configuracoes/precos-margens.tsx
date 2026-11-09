@@ -14,6 +14,7 @@ import { toast } from "@/hooks/use-toast"
 import { ESTRUTURA_PADRAO, especialidadesDe, margemSobreVenda } from "@/lib/precificacao"
 import type { Especialidade } from "@/lib/types"
 import { formatNumber2, round2 } from "@/lib/utils"
+import { t } from "@/lib/i18n"
 
 /**
  * Parametros de preco da folha de obra: estrutura (FI) e margem por
@@ -41,7 +42,7 @@ export function PrecosMargens() {
 
   const gravar = async () => {
     if (especialidades.some((e) => !e.nome.trim())) {
-      toast({ title: "Todas as especialidades precisam de nome", variant: "destructive" })
+      toast({ title: t("Todas as especialidades precisam de nome"), variant: "destructive" })
       return
     }
     setAGravar(true)
@@ -51,9 +52,9 @@ export function PrecosMargens() {
         especialidades: especialidades.map((e) => ({ ...e, nome: e.nome.trim(), margem: round2(e.margem) })),
         custoFixoHora: round2(custoFixoHora),
       })
-      toast({ title: "Precos e margens gravados" })
+      toast({ title: t("Preços e margens guardados") })
     } catch {
-      toast({ title: "Nao foi possivel gravar", variant: "destructive" })
+      toast({ title: t("Não foi possível guardar"), variant: "destructive" })
     } finally {
       setAGravar(false)
     }
@@ -62,46 +63,49 @@ export function PrecosMargens() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Precos e margens</CardTitle>
+        <CardTitle>{t("Preços e margens")}</CardTitle>
         <CardDescription>
-          Como na folha de obra: preco = custo x (1 + estrutura + margem da especialidade). Ex.: estrutura 15% e
-          construcao civil 15% dao um preco de custo x 1,30.
+          {t(
+            "Como na folha de obra: preço = custo x (1 + estrutura + margem da especialidade). Ex.: estrutura 15% e construção civil 15% dão um preço de custo x 1,30.",
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label>Estrutura (custos fixos da empresa)</Label>
+            <Label>{t("Estrutura (custos fixos da empresa)")}</Label>
             <CampoNumerico
               min={0}
               sufixo="%"
               disabled={!podeGerir}
-              aria-label="Estrutura"
+              aria-label={t("Estrutura")}
               value={estrutura}
               onChange={setEstrutura}
               className="rounded-full"
             />
-            <p className="text-xs text-muted-foreground">O "FI Estrutura" da folha: soma-se a todas as especialidades.</p>
+            <p className="text-xs text-muted-foreground">
+              {t("O \"FI Estrutura\" da folha: soma-se a todas as especialidades.")}
+            </p>
           </div>
           <div className="space-y-2">
-            <Label>Custo fixo por hora de mao de obra</Label>
+            <Label>{t("Custo fixo por hora de mão de obra")}</Label>
             <CampoNumerico
               min={0}
               sufixo="EUR/h"
               disabled={!podeGerir}
-              aria-label="Custo fixo por hora"
+              aria-label={t("Custo fixo por hora")}
               value={custoFixoHora}
               onChange={setCustoFixoHora}
               className="rounded-full"
             />
             <p className="text-xs text-muted-foreground">
-              Opcional. Cada hora registada no livro de ponto carrega este valor no apuramento da obra.
+              {t("Opcional. Cada hora registada no livro de ponto carrega este valor no apuramento da obra.")}
             </p>
           </div>
         </div>
 
         <div className="space-y-2">
-          <Label>Especialidades</Label>
+          <Label>{t("Especialidades")}</Label>
           {especialidades.map((e) => {
             const fator = 1 + (estrutura + e.margem) / 100
             return (
@@ -109,7 +113,7 @@ export function PrecosMargens() {
                 <Input
                   value={e.nome}
                   disabled={!podeGerir}
-                  aria-label="Nome da especialidade"
+                  aria-label={t("Nome da especialidade")}
                   onChange={(ev) => alterar(e.id, { nome: ev.target.value })}
                 />
                 <CampoNumerico
@@ -117,19 +121,22 @@ export function PrecosMargens() {
                   min={0}
                   sufixo="%"
                   disabled={!podeGerir}
-                  aria-label={`Margem ${e.nome}`}
+                  aria-label={t("Margem {nome}", { nome: e.nome })}
                   value={e.margem}
                   onChange={(margem) => alterar(e.id, { margem })}
                 />
                 <span className="hidden text-xs text-muted-foreground sm:block">
-                  custo x {formatNumber2(fator)} · {formatNumber2(margemSobreVenda(100, 100 * fator))}% da venda
+                  {t("custo x {fator} · {margem}% da venda", {
+                    fator: formatNumber2(fator),
+                    margem: formatNumber2(margemSobreVenda(100, 100 * fator)),
+                  })}
                 </span>
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
                   disabled={!podeGerir || especialidades.length <= 1}
-                  title="Remover"
+                  title={t("Remover")}
                   onClick={() => setEspecialidades((atual) => atual.filter((x) => x.id !== e.id))}
                 >
                   <X className="h-4 w-4" />
@@ -148,14 +155,14 @@ export function PrecosMargens() {
             }
           >
             <Plus className="mr-1 h-3 w-3" />
-            Especialidade
+            {t("Especialidade")}
           </Button>
         </div>
 
         <div className="flex justify-end">
           <Button type="button" onClick={gravar} disabled={!podeGerir || aGravar} className="rounded-full">
             {aGravar && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Gravar precos e margens
+            {t("Guardar preços e margens")}
           </Button>
         </div>
       </CardContent>

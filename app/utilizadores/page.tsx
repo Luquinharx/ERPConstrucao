@@ -33,7 +33,8 @@ import {
   type Permissao,
 } from "@/lib/permissoes"
 import type { UtilizadorSistema } from "@/lib/types"
-import { matchesSearch } from "@/lib/utils"
+import { formatDate, matchesSearch } from "@/lib/utils"
+import { t } from "@/lib/i18n"
 import { SemAcesso } from "@/components/sem-acesso"
 
 export default function UtilizadoresPage() {
@@ -55,8 +56,8 @@ export default function UtilizadoresPage() {
       setUtilizadores(await getUtilizadores())
     } catch (error) {
       toast({
-        title: "Erro ao carregar utilizadores",
-        description: "Nao foi possivel obter a lista.",
+        title: t("Erro ao carregar utilizadores"),
+        description: t("Não foi possível obter a lista."),
         variant: "destructive",
       })
     } finally {
@@ -80,15 +81,15 @@ export default function UtilizadoresPage() {
         ativo: emEdicao.ativo,
       })
       toast({
-        title: "Utilizador atualizado",
-        description: `${emEdicao.email} passou a ${getCargo(emEdicao.cargo).nome}.`,
+        title: t("Utilizador atualizado"),
+        description: t("{email} passou a {cargo}.", { email: emEdicao.email, cargo: t(getCargo(emEdicao.cargo).nome) }),
       })
       setEmEdicao(null)
       await carregar()
       // Se o utilizador se alterou a si proprio, as permissoes tem de refletir ja
       if (emEdicao.id === user?.uid) await recarregar()
     } catch (error) {
-      toast({ title: "Erro ao guardar", description: "Tente novamente.", variant: "destructive" })
+      toast({ title: t("Erro ao guardar"), description: t("Tente novamente."), variant: "destructive" })
     } finally {
       setGuardando(false)
     }
@@ -107,13 +108,13 @@ export default function UtilizadoresPage() {
     try {
       await apagarUtilizador(aApagar.id)
       toast({
-        title: "Perfil removido",
-        description: aApagar.email + " deixou de ter permissoes no sistema.",
+        title: t("Perfil removido"),
+        description: t("{email} deixou de ter permissões no sistema.", { email: aApagar.email }),
       })
       setAApagar(null)
       await carregar()
     } catch (error) {
-      toast({ title: "Erro ao remover", description: "Tente novamente.", variant: "destructive" })
+      toast({ title: t("Erro ao remover"), description: t("Tente novamente."), variant: "destructive" })
     }
   }
 
@@ -137,7 +138,7 @@ export default function UtilizadoresPage() {
   }
 
   const filtrados = utilizadores.filter((item) =>
-    matchesSearch(searchTerm, [item.email, item.nome, getCargo(item.cargo).nome]),
+    matchesSearch(searchTerm, [item.email, item.nome, t(getCargo(item.cargo).nome)]),
   )
 
   if (carregando) {
@@ -149,16 +150,16 @@ export default function UtilizadoresPage() {
   }
 
   if (!podeGerir) {
-    return <SemAcesso area="Utilizadores e cargos" requisito="a permissao de gerir utilizadores" />
+    return <SemAcesso area={t("Utilizadores e cargos")} requisito={t("a permissão de gerir utilizadores")} />
   }
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-wrap justify-between items-center gap-3">
         <div>
-          <h1 className="text-3xl font-bold">Utilizadores e cargos</h1>
+          <h1 className="text-3xl font-bold">{t("Utilizadores e cargos")}</h1>
           <p className="text-muted-foreground mt-2">
-            Quem entra no sistema e o que cada um pode fazer em cada ecra.
+            {t("Quem entra no sistema e o que cada um pode fazer em cada ecrã.")}
           </p>
         </div>
       </div>
@@ -168,22 +169,24 @@ export default function UtilizadoresPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5" />
-            Cargos
+            {t("Cargos")}
           </CardTitle>
           <CardDescription>
-            Cada cargo e um conjunto de permissoes. Mexer numa permissao a mao passa o utilizador a personalizado.
+            {t("Cada cargo é um conjunto de permissões. Mexer numa permissão à mão passa o utilizador a personalizado.")}
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           {CARGOS.filter((cargo) => cargo.id !== "personalizado").map((cargo) => (
             <div key={cargo.id} className="rounded-lg border p-3">
               <div className="flex items-center justify-between gap-2">
-                <span className="font-medium">{cargo.nome}</span>
+                <span className="font-medium">{t(cargo.nome)}</span>
                 <Badge variant="secondary" className="text-xs">
-                  {cargo.permissoes.length} permissoes
+                  {cargo.permissoes.length === 1
+                    ? t("{n} permissão", { n: cargo.permissoes.length })
+                    : t("{n} permissões", { n: cargo.permissoes.length })}
                 </Badge>
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">{cargo.descricao}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{t(cargo.descricao)}</p>
             </div>
           ))}
         </CardContent>
@@ -193,7 +196,7 @@ export default function UtilizadoresPage() {
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
         onClear={clearSearch}
-        placeholder="Procurar por email, nome ou cargo..."
+        placeholder={t("Pesquisar por email, nome ou cargo...")}
         resultCount={filtrados.length}
         totalCount={utilizadores.length}
       />
@@ -202,10 +205,10 @@ export default function UtilizadoresPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
-            Contas
+            {t("Contas")}
           </CardTitle>
           <CardDescription>
-            As contas aparecem aqui no primeiro acesso. Quem se regista entra como Consulta ate receber um cargo.
+            {t("As contas aparecem aqui no primeiro acesso. Quem se regista entra como Consulta até receber um cargo.")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -217,19 +220,21 @@ export default function UtilizadoresPage() {
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{item.nome || item.email}</span>
-                  <Badge variant="outline">{getCargo(item.cargo).nome}</Badge>
-                  {!item.ativo && <Badge variant="destructive">Desativado</Badge>}
+                  <Badge variant="outline">{t(getCargo(item.cargo).nome)}</Badge>
+                  {!item.ativo && <Badge variant="destructive">{t("Desativado")}</Badge>}
                   {item.id === user?.uid && (
                     <Badge variant="secondary" className="text-xs">
-                      Voce
+                      {t("Você")}
                     </Badge>
                   )}
                 </div>
                 <p className="truncate text-sm text-muted-foreground">{item.email}</p>
                 <p className="text-xs text-muted-foreground">
-                  {(item.permissoes || []).length} permissoes
+                  {(item.permissoes || []).length === 1
+                    ? t("{n} permissão", { n: 1 })
+                    : t("{n} permissões", { n: (item.permissoes || []).length })}
                   {item.ultimoAcesso && (
-                    <> · ultimo acesso em {new Date(item.ultimoAcesso).toLocaleDateString("pt-PT")}</>
+                    <> · {t("último acesso a {data}", { data: formatDate(new Date(item.ultimoAcesso)) })}</>
                   )}
                 </p>
               </div>
@@ -237,7 +242,7 @@ export default function UtilizadoresPage() {
               <div className="flex items-center gap-2">
                 <Button variant="outline" className="rounded-full" onClick={() => setEmEdicao({ ...item })}>
                   <UserCog className="mr-2 h-4 w-4" />
-                  Gerir
+                  {t("Gerir")}
                 </Button>
                 {/* A propria conta nao se remove: ficaria sem quem gere utilizadores */}
                 {item.id !== user?.uid && (
@@ -246,7 +251,7 @@ export default function UtilizadoresPage() {
                     size="icon"
                     className="rounded-full text-muted-foreground hover:text-destructive"
                     onClick={() => setAApagar(item)}
-                    aria-label={"Remover o perfil de " + item.email}
+                    aria-label={t("Remover o perfil de {email}", { email: item.email })}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -256,7 +261,7 @@ export default function UtilizadoresPage() {
           ))}
 
           {filtrados.length === 0 && (
-            <p className="py-8 text-center text-muted-foreground">Nenhum utilizador encontrado.</p>
+            <p className="py-8 text-center text-muted-foreground">{t("Nenhum utilizador encontrado.")}</p>
           )}
         </CardContent>
       </Card>
@@ -265,7 +270,7 @@ export default function UtilizadoresPage() {
       <Dialog open={!!emEdicao} onOpenChange={(aberto) => !aberto && setEmEdicao(null)}>
         <DialogContent className="sm:max-w-[720px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Gerir utilizador</DialogTitle>
+            <DialogTitle>{t("Gerir utilizador")}</DialogTitle>
             <DialogDescription>{emEdicao?.email}</DialogDescription>
           </DialogHeader>
 
@@ -273,17 +278,17 @@ export default function UtilizadoresPage() {
             <div className="space-y-5">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="nome">Nome</Label>
+                  <Label htmlFor="nome">{t("Nome")}</Label>
                   <Input
                     id="nome"
                     value={emEdicao.nome || ""}
                     onChange={(e) => setEmEdicao({ ...emEdicao, nome: e.target.value })}
-                    placeholder="Nome da pessoa"
+                    placeholder={t("Nome da pessoa")}
                     className="rounded-full"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="cargo">Cargo</Label>
+                  <Label htmlFor="cargo">{t("Cargo")}</Label>
                   <Select value={emEdicao.cargo} onValueChange={trocarCargo}>
                     <SelectTrigger className="rounded-full">
                       <SelectValue />
@@ -291,20 +296,20 @@ export default function UtilizadoresPage() {
                     <SelectContent>
                       {CARGOS.map((cargo) => (
                         <SelectItem key={cargo.id} value={cargo.id}>
-                          {cargo.nome}
+                          {t(cargo.nome)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-muted-foreground">{getCargo(emEdicao.cargo).descricao}</p>
+                  <p className="text-xs text-muted-foreground">{t(getCargo(emEdicao.cargo).descricao)}</p>
                 </div>
               </div>
 
               <label className="flex items-center justify-between rounded-lg border p-3">
                 <span>
-                  <span className="font-medium">Conta ativa</span>
+                  <span className="font-medium">{t("Conta ativa")}</span>
                   <span className="block text-xs text-muted-foreground">
-                    Desativada, a pessoa continua a poder entrar mas nao ve nem faz nada.
+                    {t("Desativada, a pessoa continua a poder entrar mas não vê nem faz nada.")}
                   </span>
                 </span>
                 <Switch
@@ -315,17 +320,16 @@ export default function UtilizadoresPage() {
 
               {emEdicao.id === user?.uid && (
                 <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-xs">
-                  Esta a alterar a sua propria conta. Se retirar a permissao de gerir utilizadores, deixa de poder
-                  voltar a este ecra.
+                  {t("Está a alterar a sua própria conta. Se retirar a permissão de gerir utilizadores, deixa de poder voltar a este ecrã.")}
                 </div>
               )}
 
               <div className="space-y-4">
-                <div className="text-sm font-medium">Permissoes</div>
+                <div className="text-sm font-medium">{t("Permissões")}</div>
                 {CATALOGO_PERMISSOES.map((grupo) => (
                   <div key={grupo.grupo} className="rounded-lg border p-3">
                     <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-primary">
-                      {grupo.grupo}
+                      {t(grupo.grupo)}
                     </div>
                     <div className="grid gap-2 sm:grid-cols-2">
                       {grupo.itens.map((item) => (
@@ -336,9 +340,9 @@ export default function UtilizadoresPage() {
                             className="mt-0.5"
                           />
                           <span>
-                            {item.nome}
+                            {t(item.nome)}
                             {item.ajuda && (
-                              <span className="block text-xs text-muted-foreground">{item.ajuda}</span>
+                              <span className="block text-xs text-muted-foreground">{t(item.ajuda)}</span>
                             )}
                           </span>
                         </label>
@@ -350,10 +354,10 @@ export default function UtilizadoresPage() {
 
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" onClick={() => setEmEdicao(null)}>
-                  Cancelar
+                  {t("Cancelar")}
                 </Button>
                 <Button onClick={guardarAlteracoes} disabled={guardando} className="rounded-full min-w-[120px]">
-                  {guardando ? <Loader2 className="h-4 w-4 animate-spin" /> : "Guardar"}
+                  {guardando ? <Loader2 className="h-4 w-4 animate-spin" /> : t("Guardar")}
                 </Button>
               </div>
             </div>
@@ -364,28 +368,26 @@ export default function UtilizadoresPage() {
       <Dialog open={!!aApagar} onOpenChange={(aberto) => !aberto && setAApagar(null)}>
         <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
-            <DialogTitle>Remover perfil</DialogTitle>
+            <DialogTitle>{t("Remover perfil")}</DialogTitle>
             <DialogDescription>{aApagar?.email}</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3 text-sm">
             <p>
-              Esta pessoa deixa de ter permissoes no sistema. O perfil sai desta lista e todas as suas permissoes sao
-              apagadas.
+              {t("Esta pessoa deixa de ter permissões no sistema. O perfil sai desta lista e todas as suas permissões são eliminadas.")}
             </p>
             <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-xs">
-              A conta continua a existir no Firebase Auth. Se voltar a entrar, reaparece aqui como Consulta. Para a
-              impedir de entrar, apague tambem a conta na consola do Firebase.
+              {t("A conta de acesso continua a existir. Se voltar a entrar, reaparece aqui como Consulta. Para lhe tirar todo o acesso, desative a conta em vez de remover o perfil.")}
             </div>
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" className="rounded-full" onClick={() => setAApagar(null)}>
-              Cancelar
+              {t("Cancelar")}
             </Button>
             <Button variant="destructive" className="rounded-full" onClick={removerPerfil}>
               <Trash2 className="mr-2 h-4 w-4" />
-              Remover perfil
+              {t("Remover perfil")}
             </Button>
           </div>
         </DialogContent>

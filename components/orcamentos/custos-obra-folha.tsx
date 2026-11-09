@@ -17,6 +17,7 @@ import {
 } from "@/lib/custos-obra"
 import type { GrupoCustoObra, LinhaCustoObra } from "@/lib/types"
 import { cn, formatCurrency, formatNumber2 } from "@/lib/utils"
+import { t } from "@/lib/i18n"
 
 interface CustosObraFolhaProps {
   linhas: LinhaCustoObra[]
@@ -54,8 +55,8 @@ export function CustosObraFolha({ linhas, onChange, analise, podeLancar }: Custo
           <section key={grupo.id} className="rounded-lg border overflow-hidden">
             <header className="flex items-center justify-between gap-4 bg-primary px-4 py-2 text-primary-foreground">
               <div className="min-w-0">
-                <h3 className="text-sm font-semibold uppercase tracking-wide">{grupo.nome}</h3>
-                <p className="text-xs opacity-80 truncate">{grupo.ajuda}</p>
+                <h3 className="text-sm font-semibold uppercase tracking-wide">{t(grupo.nome)}</h3>
+                <p className="text-xs opacity-80 truncate">{t(grupo.ajuda)}</p>
               </div>
               {podeLancar && (
                 <Button
@@ -66,7 +67,7 @@ export function CustosObraFolha({ linhas, onChange, analise, podeLancar }: Custo
                   onClick={() => adicionarLinha(grupo.id)}
                 >
                   <Plus className="h-4 w-4 mr-1" />
-                  Linha
+                  {t("Linha")}
                 </Button>
               )}
             </header>
@@ -75,14 +76,14 @@ export function CustosObraFolha({ linhas, onChange, analise, podeLancar }: Custo
               <table className="w-full min-w-[1040px] table-fixed text-sm">
                 <thead className="bg-muted/60 text-xs uppercase text-muted-foreground">
                   <tr>
-                    <th className="px-3 py-2 text-left font-medium">Descricao do item</th>
-                    <th className="px-2 py-2 text-left font-medium w-[180px]">Fornecedor / Loja</th>
-                    <th className="px-2 py-2 text-left font-medium w-[64px]">UN</th>
-                    <th className="px-2 py-2 text-right font-medium w-[96px]">Quantidade</th>
-                    <th className="px-2 py-2 text-right font-medium w-[110px]">V. Un. c/IVA</th>
-                    <th className="px-2 py-2 text-left font-medium w-[140px]">IVA</th>
-                    <th className="px-2 py-2 text-right font-medium w-[110px]">Total s/IVA</th>
-                    <th className="px-2 py-2 text-right font-medium w-[110px]">Total c/IVA</th>
+                    <th className="px-3 py-2 text-left font-medium">{t("Descrição do item")}</th>
+                    <th className="px-2 py-2 text-left font-medium w-[180px]">{t("Fornecedor / Loja")}</th>
+                    <th className="px-2 py-2 text-left font-medium w-[64px]">{t("UN")}</th>
+                    <th className="px-2 py-2 text-right font-medium w-[96px]">{t("Quantidade")}</th>
+                    <th className="px-2 py-2 text-right font-medium w-[110px]">{t("V. Un. c/IVA")}</th>
+                    <th className="px-2 py-2 text-left font-medium w-[140px]">{t("IVA")}</th>
+                    <th className="px-2 py-2 text-right font-medium w-[110px]">{t("Total s/IVA")}</th>
+                    <th className="px-2 py-2 text-right font-medium w-[110px]">{t("Total c/IVA")}</th>
                     <th className="w-[44px]" />
                   </tr>
                 </thead>
@@ -90,7 +91,7 @@ export function CustosObraFolha({ linhas, onChange, analise, podeLancar }: Custo
                   {doGrupo.length === 0 && (
                     <tr>
                       <td colSpan={9} className="px-3 py-6 text-center text-muted-foreground">
-                        Sem custos lancados neste bloco.
+                        {t("Sem custos lançados neste bloco.")}
                       </td>
                     </tr>
                   )}
@@ -102,7 +103,7 @@ export function CustosObraFolha({ linhas, onChange, analise, podeLancar }: Custo
                           <Input
                             value={linha.descricao}
                             disabled={!podeLancar}
-                            placeholder={grupo.exemploDescricao}
+                            placeholder={t(grupo.exemploDescricao)}
                             onChange={(evento) => alterarLinha(linha.id, { descricao: evento.target.value })}
                             className="h-8"
                           />
@@ -111,7 +112,7 @@ export function CustosObraFolha({ linhas, onChange, analise, podeLancar }: Custo
                           <Input
                             value={linha.fornecedor || ""}
                             disabled={!podeLancar}
-                            placeholder={grupo.exemploFornecedor}
+                            placeholder={t(grupo.exemploFornecedor)}
                             onChange={(evento) => alterarLinha(linha.id, { fornecedor: evento.target.value })}
                             className="h-8"
                           />
@@ -155,7 +156,7 @@ export function CustosObraFolha({ linhas, onChange, analise, podeLancar }: Custo
                             <SelectContent>
                               {TAXAS_IVA_CUSTO.map((taxa) => (
                                 <SelectItem key={taxa.valor} value={String(taxa.valor)}>
-                                  {taxa.nome}
+                                  {t(taxa.nome)}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -187,7 +188,7 @@ export function CustosObraFolha({ linhas, onChange, analise, podeLancar }: Custo
                 <tfoot>
                   <tr className="border-t bg-muted/40 font-semibold">
                     <td colSpan={6} className="px-3 py-2 text-right uppercase text-xs tracking-wide">
-                      Total {grupo.nome}
+                      {t("Total {grupo}", { grupo: t(grupo.nome) })}
                     </td>
                     <td className="px-2 py-2 text-right tabular-nums">{formatCurrency(totais.semIVA)}</td>
                     <td className="px-2 py-2 text-right tabular-nums">{formatCurrency(totais.comIVA)}</td>
@@ -201,10 +202,10 @@ export function CustosObraFolha({ linhas, onChange, analise, podeLancar }: Custo
       })}
 
       <div className="flex flex-wrap items-center justify-end gap-x-8 gap-y-2 rounded-lg border bg-muted/40 px-4 py-3">
-        <span className="text-xs font-semibold uppercase tracking-wide">Total da obra</span>
-        <Valor rotulo="Custo (s/IVA)" valor={totalGeral.semIVA} destaque />
-        <Valor rotulo="IVA suportado" valor={totalGeral.iva} />
-        <Valor rotulo="Pago (c/IVA)" valor={totalGeral.comIVA} />
+        <span className="text-xs font-semibold uppercase tracking-wide">{t("Total da obra")}</span>
+        <Valor rotulo={t("Custo (s/IVA)")} valor={totalGeral.semIVA} destaque />
+        <Valor rotulo={t("IVA suportado")} valor={totalGeral.iva} />
+        <Valor rotulo={t("Pago (c/IVA)")} valor={totalGeral.comIVA} />
       </div>
 
       <Analise analise={analise} />
@@ -233,48 +234,50 @@ function Analise({ analise }: { analise: AnaliseCustoObra }) {
   return (
     <section className="rounded-lg border">
       <header className="border-b px-4 py-2">
-        <h3 className="text-sm font-semibold">Analise da obra</h3>
+        <h3 className="text-sm font-semibold">{t("Análise da obra")}</h3>
         <p className="text-xs text-muted-foreground">
-          Margem prevista quando se vendeu, contra a margem que a obra deixou de facto.
+          {t("Margem prevista quando se vendeu, contra a margem que a obra deixou de facto.")}
         </p>
       </header>
 
       <div className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4">
         <Cartao
-          titulo="Vendido (s/IVA)"
+          titulo={t("Vendido (s/IVA)")}
           valor={formatCurrency(analise.baseTributavel)}
-          nota={`IVA cobrado ao cliente: ${formatCurrency(analise.ivaCobrado)}`}
+          nota={t("IVA cobrado ao cliente: {valor}", { valor: formatCurrency(analise.ivaCobrado) })}
         />
         <Cartao
-          titulo="Custo orcado"
+          titulo={t("Custo orçado")}
           valor={formatCurrency(analise.custoOrcado)}
-          nota={`Margem prevista: ${formatCurrency(analise.margemPrevista)} (${formatNumber2(
-            analise.margemPrevistaPercent,
-          )}%)`}
+          nota={t("Margem prevista: {valor} ({percent}%)", {
+            valor: formatCurrency(analise.margemPrevista),
+            percent: formatNumber2(analise.margemPrevistaPercent),
+          })}
         />
         <Cartao
-          titulo="Custo real"
+          titulo={t("Custo real")}
           valor={formatCurrency(analise.custoReal)}
           nota={
             analise.semLancamentos
-              ? "Ainda sem custos lancados"
-              : `Desvio: ${analise.desvioCusto >= 0 ? "+" : ""}${formatCurrency(
-                  analise.desvioCusto,
-                )} (${formatNumber2(analise.desvioCustoPercent)}%)`
+              ? t("Ainda sem custos lançados")
+              : t("Desvio: {valor} ({percent}%)", {
+                  valor: (analise.desvioCusto >= 0 ? "+" : "") + formatCurrency(analise.desvioCusto),
+                  percent: formatNumber2(analise.desvioCustoPercent),
+                })
           }
           tom={analise.semLancamentos ? "neutro" : analise.desvioCusto > 0 ? "mau" : "bom"}
         />
         <Cartao
-          titulo="Margem real"
+          titulo={t("Margem real")}
           valor={`${formatCurrency(analise.margemReal)} (${formatNumber2(analise.margemRealPercent)}%)`}
           nota={
             analise.semLancamentos
-              ? "Lance os custos para saber"
+              ? t("Lance os custos para saber")
               : prejuizo
-                ? "A obra deu prejuizo"
-                : `${perdeuMargem ? "Perdeu" : "Ganhou"} ${formatCurrency(
-                    Math.abs(analise.desvioMargem),
-                  )} face ao previsto`
+                ? t("A obra deu prejuízo")
+                : perdeuMargem
+                  ? t("Perdeu {valor} face ao previsto", { valor: formatCurrency(Math.abs(analise.desvioMargem)) })
+                  : t("Ganhou {valor} face ao previsto", { valor: formatCurrency(Math.abs(analise.desvioMargem)) })
           }
           tom={analise.semLancamentos ? "neutro" : prejuizo || perdeuMargem ? "mau" : "bom"}
           icone={perdeuMargem ? "desce" : "sobe"}
@@ -283,11 +286,14 @@ function Analise({ analise }: { analise: AnaliseCustoObra }) {
 
       <div className="border-t px-4 py-3 text-sm">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <span className="font-medium">Acerto de IVA</span>
+          <span className="font-medium">{t("Acerto de IVA")}</span>
           <span className="text-muted-foreground">
-            Cobrado {formatCurrency(analise.ivaCobrado)} - suportado {formatCurrency(analise.ivaSuportado)} ={" "}
+            {t("Cobrado {cobrado} - suportado {suportado} =", {
+              cobrado: formatCurrency(analise.ivaCobrado),
+              suportado: formatCurrency(analise.ivaSuportado),
+            })}{" "}
             <strong className="text-foreground tabular-nums">{formatCurrency(Math.abs(analise.saldoIVA))}</strong>{" "}
-            {analise.saldoIVA >= 0 ? "a entregar ao Estado" : "a recuperar do Estado"}
+            {analise.saldoIVA >= 0 ? t("a entregar ao Estado") : t("a recuperar do Estado")}
           </span>
         </div>
       </div>

@@ -1,8 +1,7 @@
-import { deleteApp, initializeApp } from "firebase/app"
-import { createUserWithEmailAndPassword, getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
 import {
   Timestamp,
   collection,
+  db,
   doc,
   getDoc,
   getDocs,
@@ -11,10 +10,10 @@ import {
   setDoc,
   where,
   writeBatch,
-} from "firebase/firestore"
-
-import { auth, db, firebaseConfig } from "@/lib/firebase"
+} from "@/lib/db/cliente"
+import { pedirAuth } from "@/hooks/use-auth"
 import { CARGO_TRABALHADOR, PERMISSOES_TRABALHADOR } from "@/lib/permissoes"
+import { t } from "@/lib/i18n"
 import { CONFIG_PONTO_PADRAO, dataHora, diaLocal, emailDePonto, normalizarNumero, novoToken, pinValido, senhaDoPin } from "@/lib/ponto"
 import type {
   AcessoPonto,
@@ -68,28 +67,23 @@ export async function getAcessos(): Promise<AcessoPonto[]> {
 /**
  * Cria (ou substitui) a conta de picagem de um funcionario.
  *
- * A conta e criada numa instancia a parte do Firebase, para o gestor nao
- * perder a sessao. Trocar o PIN cria uma conta nova e desativa a anterior:
- * no browser nao se pode mudar a palavra-passe de outra pessoa.
+ * O servidor cria a conta de login sem mexer na sessao do gestor. Trocar o
+ * PIN cria uma conta nova e desativa a anterior, como antes.
  */
 export async function criarAcessoPonto(funcionario: Funcionario, pin: string): Promise<void> {
-  if (!funcionario.id) throw new Error("Funcionario sem id.")
+  if (!funcionario.id) throw new Error(t("Funcionário sem id."))
   const numero = normalizarNumero(funcionario.numeroFuncionario || "")
-  if (!numero) throw new Error("Indique primeiro o numero do funcionario na ficha dele.")
-  if (!pinValido(pin)) throw new Error("O PIN tem de ter 4 a 6 digitos.")
+  if (!numero) throw new Error(t("Indique primeiro o número do funcionário na ficha dele."))
+  if (!pinValido(pin)) throw new Error(t("O PIN tem de ter 4 a 6 dígitos."))
 
   const anterior = await getDoc(doc(db, "acessosPonto", numero))
   if (anterior.exists() && anterior.data().funcionarioId !== funcionario.id) {
-    throw new Error(`O numero ${numero} ja esta a ser usado por outro funcionario.`)
+    throw new Error(t("O número {numero} já está a ser usado por outro funcionário.", { numero }))
   }
 
-  const secundaria = initializeApp(firebaseConfig, `ponto-${Date.now()}`)
-  try {
-    const authSecundaria = getAuth(secundaria)
+  {
     const email = emailDePonto(numero, novoToken(6))
-    const credenciais = await createUserWithEmailAndPassword(authSecundaria, email, senhaDoPin(pin))
-    const uid = credenciais.user.uid
-    await signOut(authSecundaria)
+    const { uid } = await pedirAuth<{ uid: string }>("conta-ponto", { email, senha: senhaDoPin(pin), nome: funcionario.nome })
 
     const lote = writeBatch(db)
     lote.set(doc(db, "utilizadores", uid), {
@@ -109,8 +103,6 @@ export async function criarAcessoPonto(funcionario: Funcionario, pin: string): P
     }
     lote.set(doc(db, "acessosPonto", numero), { email, uid, funcionarioId: funcionario.id, ativo: true })
     await lote.commit()
-  } finally {
-    await deleteApp(secundaria).catch(() => undefined)
   }
 }
 
@@ -131,16 +123,16 @@ export async function reativarAcessoPonto(acesso: AcessoPonto): Promise<void> {
 /** Login do trabalhador. Mensagens simples: quem pica nao precisa de detalhes. */
 export async function entrarComPin(numero: string, pin: string): Promise<void> {
   const chave = normalizarNumero(numero)
-  if (!chave) throw new Error("Indique o seu numero de funcionario.")
-  if (!pinValido(pin)) throw new Error("O PIN tem 4 a 6 digitos.")
+  if (!chave) throw new Error(t("Indique o seu número de funcionário."))
+  if (!pinValido(pin)) throw new Error(t("O PIN tem 4 a 6 dígitos."))
   const snap = await getDoc(doc(db, "acessosPonto", chave))
-  if (!snap.exists() || snap.data().ativo === false) throw new Error("Numero sem acesso ativo. Fale com o seu encarregado.")
+  if (!snap.exists() || snap.data().ativo === false) throw new Error(t("Número sem acesso ativo. Fale com o seu encarregado."))
   try {
-    await signInWithEmailAndPassword(auth, snap.data().email, senhaDoPin(pin))
+    await pedirAuth("entrar", { email: snap.data().email, senha: senhaDoPin(pin) })
   } catch (e) {
     const codigo = (e as { code?: string }).code || ""
-    if (codigo.includes("too-many-requests")) throw new Error("Muitas tentativas. Espere uns minutos.")
-    throw new Error("PIN errado.")
+    if (codigo.includes("too-many-requests")) throw new Error(t("Muitas tentativas. Espere uns minutos."))
+    throw new Error(t("PIN errado."))
   }
 }
 
@@ -281,7 +273,7 @@ export async function decidirPedido(
       orcamentoId: c.orcamentoId || "",
       orcamentoNumero: c.orcamentoNumero || "",
       origem: "correcao",
-      motivo: pedido.observacoes || "Pedido de correcao",
+      motivo: pedido.observacoes || t("Pedido de correção"),
       pedidoId: pedido.id,
       feitaPor: gestor.email,
       createdAt: serverTimestamp(),

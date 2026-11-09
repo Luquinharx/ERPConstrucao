@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { toast } from "@/hooks/use-toast"
+import { idiomaAtual, m, t } from "@/lib/i18n"
 import {
   CORES_ESTADO,
   NOMES_ESTADO,
@@ -67,7 +68,7 @@ export interface Pessoa {
 }
 
 const rotuloEstado = (d: DiaDePonto) =>
-  d.estado === "a_trabalhar" ? "A trabalhar" : d.estado === "em_pausa" ? "Em pausa" : d.estado === "saiu" ? "Saiu" : "Sem picagem"
+  d.estado === "a_trabalhar" ? t("A trabalhar") : d.estado === "em_pausa" ? t("Em pausa") : d.estado === "saiu" ? t("Saiu") : t("Sem picagem")
 
 // ------------------------------------------------------------ Hoje
 
@@ -99,11 +100,11 @@ export function PainelHoje({
 
   const conta = (f: (l: (typeof linhas)[number]) => boolean) => linhas.filter(f).length
   const resumo: Array<[string, number, string]> = [
-    ["A trabalhar", conta((l) => l.dia.estado === "a_trabalhar"), "text-emerald-700"],
-    ["Em pausa", conta((l) => l.dia.estado === "em_pausa"), "text-amber-700"],
-    ["Ja sairam", conta((l) => l.dia.estado === "saiu"), ""],
-    ["Ferias / falta", conta((l) => !!l.pedido), ""],
-    [`Sem picagem${passouLimite ? "" : ` (depois das ${config.horaLimiteEntrada})`}`, conta((l) => l.emFalta), "text-rose-700"],
+    [t("A trabalhar"), conta((l) => l.dia.estado === "a_trabalhar"), "text-emerald-700"],
+    [t("Em pausa"), conta((l) => l.dia.estado === "em_pausa"), "text-amber-700"],
+    [t("Já saíram"), conta((l) => l.dia.estado === "saiu"), ""],
+    [t("Férias / falta"), conta((l) => !!l.pedido), ""],
+    [passouLimite ? t("Sem picagem") : t("Sem picagem (depois das {hora})", { hora: config.horaLimiteEntrada }), conta((l) => l.emFalta), "text-rose-700"],
   ]
 
   return (
@@ -118,24 +119,30 @@ export function PainelHoje({
           </Card>
         ))}
       </div>
-      {!util && <p className="text-sm text-muted-foreground">Hoje nao e dia util{feriadosPT(agora.getFullYear(), config).get(hoje) ? ` (${feriadosPT(agora.getFullYear(), config).get(hoje)})` : ""}: ninguem fica em falta.</p>}
+      {!util && (
+        <p className="text-sm text-muted-foreground">
+          {feriadosPT(agora.getFullYear(), config).get(hoje)
+            ? t("Hoje não é dia útil ({feriado}): ninguém fica em falta.", { feriado: feriadosPT(agora.getFullYear(), config).get(hoje) })
+            : t("Hoje não é dia útil: ninguém fica em falta.")}
+        </p>
+      )}
       <Card>
         <CardContent className="pt-4">
           <Table data-testid="tabela-hoje">
             <TableHeader>
               <TableRow>
-                <TableHead>Trabalhador</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead>Entrada</TableHead>
-                <TableHead>Obra</TableHead>
-                <TableHead className="text-right">Trabalho</TableHead>
+                <TableHead>{t("Trabalhador")}</TableHead>
+                <TableHead>{t("Estado")}</TableHead>
+                <TableHead>{t("Hora de entrada")}</TableHead>
+                <TableHead>{t("Obra")}</TableHead>
+                <TableHead className="text-right">{t("Trabalho")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {linhas.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
-                    Ninguem com acesso a picagem. Crie os acessos no separador Acessos.
+                    {t("Ninguém com acesso à picagem. Crie os acessos no separador Acessos.")}
                   </TableCell>
                 </TableRow>
               )}
@@ -143,14 +150,14 @@ export function PainelHoje({
                 <TableRow key={p.funcionarioId} className={emFalta ? "bg-rose-50 dark:bg-rose-950/30" : ""}>
                   <TableCell>
                     <div className="font-medium">{p.nome}</div>
-                    <div className="text-xs text-muted-foreground">n.º {p.numero || "-"}</div>
+                    <div className="text-xs text-muted-foreground">{t("n.º {numero}", { numero: p.numero || "-" })}</div>
                   </TableCell>
                   <TableCell className="space-x-1">
                     {/* Uma falta de parte do dia (consulta) nao esconde que esta a trabalhar */}
                     {pedido && (
                       <Badge variant="outline" className={CORES_ESTADO[pedido.estado]}>
-                        {pedido.tipo === "ferias" ? "Ferias" : nomeMotivoFalta(pedido.motivoFalta)}
-                        {pedido.estado === "pendente" ? " (por aprovar)" : ""}
+                        {pedido.tipo === "ferias" ? t("Férias") : nomeMotivoFalta(pedido.motivoFalta)}
+                        {pedido.estado === "pendente" ? ` ${t("(por aprovar)")}` : ""}
                       </Badge>
                     )}
                     {(!pedido || dia.picagens.length > 0) && (
@@ -166,7 +173,7 @@ export function PainelHoje({
                                 : ""
                         }
                       >
-                        {emFalta ? "Em falta" : rotuloEstado(dia)}
+                        {emFalta ? t("Ausente") : rotuloEstado(dia)}
                       </Badge>
                     )}
                   </TableCell>
@@ -198,10 +205,10 @@ export function PainelPedidos({ pedidos, gestor, aoMudar }: { pedidos: PedidoPon
     setADecidir(p.id!)
     try {
       await decidirPedido(p, aprovar, gestor, (resposta[p.id!] || "").trim())
-      toast({ title: aprovar ? "Pedido aprovado" : "Pedido recusado" })
+      toast({ title: aprovar ? t("Pedido aprovado") : t("Pedido recusado") })
       await aoMudar()
     } catch (e) {
-      toast({ title: "Nao foi possivel gravar", description: e instanceof Error ? e.message : String(e), variant: "destructive" })
+      toast({ title: t("Não foi possível guardar"), description: e instanceof Error ? e.message : String(e), variant: "destructive" })
     } finally {
       setADecidir("")
     }
@@ -209,21 +216,27 @@ export function PainelPedidos({ pedidos, gestor, aoMudar }: { pedidos: PedidoPon
 
   const descricao = (p: PedidoPonto) => {
     if (p.tipo === "correcao" && p.correcao)
-      return `Correcao: ${NOMES_PICAGEM[p.correcao.tipo]} as ${p.correcao.hora} de ${formatDate(p.correcao.dia)}${p.correcao.orcamentoNumero ? ` (${p.correcao.orcamentoNumero})` : ""}`
-    const periodo = `${formatDate(p.inicio!)}${p.fim && p.fim !== p.inicio ? ` a ${formatDate(p.fim)}` : ""}`
-    if (p.tipo === "ferias") return `Ferias: ${periodo} · ${p.diasUteis} dia(s) uteis`
-    return `Falta: ${nomeMotivoFalta(p.motivoFalta)} · ${periodo}${p.horas ? ` · ${p.horas} h` : ""}`
+      return (
+        t("Correção: {tipo} às {hora} de {data}", { tipo: t(NOMES_PICAGEM[p.correcao.tipo]), hora: p.correcao.hora, data: formatDate(p.correcao.dia) }) +
+        (p.correcao.orcamentoNumero ? ` (${p.correcao.orcamentoNumero})` : "")
+      )
+    const periodo = p.fim && p.fim !== p.inicio ? t("{inicio} a {fim}", { inicio: formatDate(p.inicio!), fim: formatDate(p.fim) }) : formatDate(p.inicio!)
+    if (p.tipo === "ferias")
+      return p.diasUteis === 1
+        ? t("Férias: {periodo} · {n} dia útil", { periodo, n: p.diasUteis })
+        : t("Férias: {periodo} · {n} dias úteis", { periodo, n: p.diasUteis ?? 0 })
+    return t("Falta: {motivo} · {periodo}", { motivo: nomeMotivoFalta(p.motivoFalta), periodo }) + (p.horas ? ` · ${p.horas} h` : "")
   }
 
   return (
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Por decidir ({pendentes.length})</CardTitle>
-          <CardDescription>Aprovado fica verde na app do trabalhador. Uma correcao aprovada cria a picagem em falta.</CardDescription>
+          <CardTitle className="text-lg">{t("Por decidir ({n})", { n: pendentes.length })}</CardTitle>
+          <CardDescription>{t("Aprovado fica verde na app do trabalhador. Uma correção aprovada cria a picagem em falta.")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2" data-testid="pedidos-pendentes">
-          {pendentes.length === 0 && <p className="py-4 text-center text-sm text-muted-foreground">Nada por decidir.</p>}
+          {pendentes.length === 0 && <p className="py-4 text-center text-sm text-muted-foreground">{t("Nada por decidir.")}</p>}
           {pendentes.map((p) => (
             <div key={p.id} className="flex flex-wrap items-center gap-3 rounded-lg border p-3">
               <div className="min-w-[220px] flex-1">
@@ -232,18 +245,18 @@ export function PainelPedidos({ pedidos, gestor, aoMudar }: { pedidos: PedidoPon
                 {p.observacoes && <div className="text-xs text-muted-foreground">&ldquo;{p.observacoes}&rdquo;</div>}
               </div>
               <Input
-                placeholder="Resposta (opcional)"
+                placeholder={t("Resposta (opcional)")}
                 value={resposta[p.id!] || ""}
                 onChange={(e) => setResposta({ ...resposta, [p.id!]: e.target.value })}
                 className="w-56"
               />
               <Button size="sm" className="rounded-full" disabled={aDecidir === p.id} onClick={() => decidir(p, true)}>
                 <Check className="mr-1 h-3 w-3" />
-                Aprovar
+                {t("Aprovar")}
               </Button>
               <Button size="sm" variant="outline" className="rounded-full" disabled={aDecidir === p.id} onClick={() => decidir(p, false)}>
                 <X className="mr-1 h-3 w-3" />
-                Recusar
+                {t("Recusar")}
               </Button>
             </div>
           ))}
@@ -251,18 +264,17 @@ export function PainelPedidos({ pedidos, gestor, aoMudar }: { pedidos: PedidoPon
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Decididos</CardTitle>
+          <CardTitle className="text-lg">{t("Decididos")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          {outros.length === 0 && <p className="py-4 text-center text-sm text-muted-foreground">Ainda nenhum.</p>}
+          {outros.length === 0 && <p className="py-4 text-center text-sm text-muted-foreground">{t("Ainda nenhum.")}</p>}
           {outros.map((p) => (
             <div key={p.id} className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border p-2 text-sm ${CORES_ESTADO[p.estado]}`}>
               <span>
                 <span className="font-medium">{p.funcionarioNome}</span> · {descricao(p)}
               </span>
               <span className="text-xs">
-                {NOMES_ESTADO[p.estado]}
-                {p.decididoPor ? ` por ${p.decididoPor}` : ""}
+                {p.decididoPor ? t("{estado} por {quem}", { estado: t(NOMES_ESTADO[p.estado]), quem: p.decididoPor }) : t(NOMES_ESTADO[p.estado])}
               </span>
             </div>
           ))}
@@ -317,16 +329,16 @@ export function PainelRegistos({
   const seusPedidos = pedidos.filter((p) => p.funcionarioId === quem)
 
   const exportarCSV = () => {
-    const linhas = [["Trabalhador", "N.º", "Dia", "Entrada", "Saida", "Pausa", "Trabalho (h)", "Obras", "Ocorrencias"]]
+    const linhas = [[t("Trabalhador"), t("N.º"), t("Dia"), t("Hora de entrada"), t("Hora de saída"), t("Pausa"), t("Trabalho (h)"), t("Obras"), t("Ocorrências")]]
     for (const p of pessoas) {
       const pedidosDele = pedidos.filter((x) => x.funcionarioId === p.funcionarioId)
       for (const d of lidosDe(p.funcionarioId)) {
         const pedido = pedidoNoDia(pedidosDele, d.dia)
         if (d.picagens.length === 0 && !pedido) continue
         const ocorrencias = [
-          d.incompleto && d.dia !== hoje ? "Falta picar" : "",
-          d.picagens.some((x) => x.origem === "correcao") ? "Corrigida" : "",
-          pedido ? `${pedido.tipo === "ferias" ? "Ferias" : nomeMotivoFalta(pedido.motivoFalta)} (${NOMES_ESTADO[pedido.estado]})` : "",
+          d.incompleto && d.dia !== hoje ? t("Falta picar") : "",
+          d.picagens.some((x) => x.origem === "correcao") ? t("Corrigida") : "",
+          pedido ? `${pedido.tipo === "ferias" ? t("Férias") : nomeMotivoFalta(pedido.motivoFalta)} (${t(NOMES_ESTADO[pedido.estado])})` : "",
         ].filter(Boolean)
         linhas.push([
           p.nome,
@@ -335,7 +347,7 @@ export function PainelRegistos({
           formatarHora(d.primeiraEntrada),
           formatarHora(d.ultimaSaida),
           formatarMinutos(d.minutosPausa),
-          String(round2(d.minutosTrabalho / 60)).replace(".", ","),
+          idiomaAtual() === "en" ? String(round2(d.minutosTrabalho / 60)) : String(round2(d.minutosTrabalho / 60)).replace(".", ","),
           [...new Set(d.segmentos.map((s) => s.orcamentoNumero).filter(Boolean))].join(" "),
           ocorrencias.join(" / "),
         ])
@@ -345,7 +357,7 @@ export function PainelRegistos({
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }))
     const a = document.createElement("a")
     a.href = url
-    a.download = `registo-tempos-${mes}.csv`
+    a.download = t("registo-tempos-{mes}.csv", { mes })
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -370,21 +382,23 @@ export function PainelRegistos({
             custoFixoHora: round2(custoFixoHora),
             estado: "pendente",
             userId: gestor.uid,
-            observacoes: "Vindo das picagens",
+            observacoes: t("Vindo das picagens"),
           })
         }
       }
     }
-    if (linhas.length === 0) return toast({ title: "Nada para enviar", description: "Nao ha dias fechados com obra neste mes." })
+    if (linhas.length === 0) return toast({ title: t("Nada para enviar"), description: t("Não há dias fechados com obra neste mês.") })
     setAEnviar(true)
     try {
       const r = await enviarParaLivroDePonto(linhas)
       toast({
-        title: `${r.criados} registo(s) enviados para o Livro de ponto`,
-        description: `${r.ignorados ? `${r.ignorados} ja estavam aprovados e nao mudaram. ` : ""}Ficam pendentes ate serem aprovados.`,
+        title: r.criados === 1 ? t("{n} registo enviado para o Livro de ponto", { n: r.criados }) : t("{n} registos enviados para o Livro de ponto", { n: r.criados }),
+        description: r.ignorados
+          ? t("{n} já estavam aprovados e não mudaram. Ficam pendentes até serem aprovados.", { n: r.ignorados })
+          : t("Ficam pendentes até serem aprovados."),
       })
     } catch (e) {
-      toast({ title: "Nao foi possivel enviar", description: e instanceof Error ? e.message : String(e), variant: "destructive" })
+      toast({ title: t("Não foi possível enviar"), description: e instanceof Error ? e.message : String(e), variant: "destructive" })
     } finally {
       setAEnviar(false)
     }
@@ -395,25 +409,25 @@ export function PainelRegistos({
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <CardTitle className="text-lg">Registo de tempos</CardTitle>
+            <CardTitle className="text-lg">{t("Registo de tempos")}</CardTitle>
             <CardDescription>
-              Art. 202.º do Codigo do Trabalho: inicio, fim e intervalos de cada dia. As picagens nao se apagam: corrige-se ou anula-se, com motivo.
+              {t("Art. 202.º do Código do Trabalho: início, fim e intervalos de cada dia. As picagens não se apagam: corrige-se ou anula-se, com motivo.")}
             </CardDescription>
           </div>
           <div className="flex flex-wrap gap-2 print:hidden">
-            <Input type="month" value={mes} onChange={(e) => e.target.value && setMes(e.target.value)} className="w-40" aria-label="Mes dos registos" />
+            <Input type="month" value={mes} onChange={(e) => e.target.value && setMes(e.target.value)} className="w-40" aria-label={t("Mês dos registos")} />
             <Button variant="outline" className="rounded-full" onClick={exportarCSV}>
               <Download className="mr-2 h-4 w-4" />
-              Exportar mes (CSV)
+              {t("Exportar mês (CSV)")}
             </Button>
             <Button variant="outline" className="rounded-full" onClick={() => window.print()}>
               <Printer className="mr-2 h-4 w-4" />
-              Imprimir
+              {t("Imprimir")}
             </Button>
             {podeEnviarHoras && (
               <Button className="rounded-full" onClick={enviarHoras} disabled={aEnviar}>
                 <Send className="mr-2 h-4 w-4" />
-                Enviar horas para o Livro de ponto
+                {t("Enviar horas para o Livro de ponto")}
               </Button>
             )}
           </div>
@@ -422,35 +436,35 @@ export function PainelRegistos({
       <CardContent className="space-y-3">
         <div className="flex flex-wrap items-center gap-3 print:hidden">
           <Select value={quem} onValueChange={setQuem}>
-            <SelectTrigger className="w-72" aria-label="Trabalhador">
-              <SelectValue placeholder="Trabalhador" />
+            <SelectTrigger className="w-72" aria-label={t("Trabalhador")}>
+              <SelectValue placeholder={t("Trabalhador")} />
             </SelectTrigger>
             <SelectContent>
               {pessoas.map((p) => (
                 <SelectItem key={p.funcionarioId} value={p.funcionarioId}>
                   {p.nome}
-                  {p.numero ? ` (n.º ${p.numero})` : ""}
+                  {p.numero ? ` ${t("(n.º {numero})", { numero: p.numero })}` : ""}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
           <span className="text-sm">
-            Total do mes: <strong>{formatarMinutos(total)}</strong>
+            {t("Total do mês:")} <strong>{formatarMinutos(total)}</strong>
           </span>
         </div>
         <div className="hidden print:block">
-          <strong>{pessoa?.nome}</strong> · n.º {pessoa?.numero} · {mes} · total {formatarMinutos(total)}
+          <strong>{pessoa?.nome}</strong> · {t("n.º {numero}", { numero: pessoa?.numero })} · {mes} · {t("total {tempo}", { tempo: formatarMinutos(total) })}
         </div>
         <Table data-testid="tabela-registos">
           <TableHeader>
             <TableRow>
-              <TableHead>Dia</TableHead>
-              <TableHead>Entrada</TableHead>
-              <TableHead>Saida</TableHead>
-              <TableHead>Pausa</TableHead>
-              <TableHead>Trabalho</TableHead>
-              <TableHead>Obras</TableHead>
-              <TableHead>Ocorrencias</TableHead>
+              <TableHead>{t("Dia")}</TableHead>
+              <TableHead>{t("Hora de entrada")}</TableHead>
+              <TableHead>{t("Hora de saída")}</TableHead>
+              <TableHead>{t("Pausa")}</TableHead>
+              <TableHead>{t("Trabalho")}</TableHead>
+              <TableHead>{t("Obras")}</TableHead>
+              <TableHead>{t("Ocorrências")}</TableHead>
               <TableHead className="print:hidden" />
             </TableRow>
           </TableHeader>
@@ -471,18 +485,18 @@ export function PainelRegistos({
                     <TableCell className="tabular-nums font-medium">{formatarMinutos(d.minutosTrabalho)}</TableCell>
                     <TableCell className="text-xs">{[...new Set(d.segmentos.map((s) => s.orcamentoNumero).filter(Boolean))].join(", ") || "-"}</TableCell>
                     <TableCell className="space-x-1 text-xs">
-                      {d.incompleto && d.dia !== hoje && <Badge variant="outline" className="border-rose-300 text-rose-700">Falta picar</Badge>}
-                      {d.picagens.some((p) => p.origem === "correcao") && <Badge variant="outline">Corrigida</Badge>}
+                      {d.incompleto && d.dia !== hoje && <Badge variant="outline" className="border-rose-300 text-rose-700">{t("Falta picar")}</Badge>}
+                      {d.picagens.some((p) => p.origem === "correcao") && <Badge variant="outline">{t("Corrigida")}</Badge>}
                       {pedido && (
                         <Badge variant="outline" className={CORES_ESTADO[pedido.estado]}>
-                          {pedido.tipo === "ferias" ? "Ferias" : nomeMotivoFalta(pedido.motivoFalta)}
+                          {pedido.tipo === "ferias" ? t("Férias") : nomeMotivoFalta(pedido.motivoFalta)}
                         </Badge>
                       )}
-                      {util && d.picagens.length === 0 && !pedido && d.dia !== hoje && <Badge variant="outline" className="border-rose-300 text-rose-700">Sem registo</Badge>}
+                      {util && d.picagens.length === 0 && !pedido && d.dia !== hoje && <Badge variant="outline" className="border-rose-300 text-rose-700">{t("Sem registo")}</Badge>}
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-right print:hidden">
                       <Button size="sm" variant="ghost" onClick={() => setAberto(aberto === d.dia ? "" : d.dia)}>
-                        {aberto === d.dia ? "Fechar" : "Detalhe"}
+                        {aberto === d.dia ? t("Fechar") : t("Detalhe")}
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -494,11 +508,13 @@ export function PainelRegistos({
                             <li key={p.id} className={`flex items-center justify-between gap-2 ${anuladas.has(p.id) ? "line-through opacity-60" : ""}`}>
                               <span>
                                 <span className="tabular-nums font-medium">{formatarHora(p.hora)}</span> ·{" "}
-                                {p.origem === "anulacao" ? `Anulacao (${p.motivo})` : NOMES_PICAGEM[p.tipo]}
+                                {p.origem === "anulacao" ? t("Anulação ({motivo})", { motivo: p.motivo }) : t(NOMES_PICAGEM[p.tipo])}
                                 {p.orcamentoNumero ? ` · ${p.orcamentoNumero}` : ""}
                                 <span className="text-xs text-muted-foreground">
-                                  {p.origem === "correcao" ? ` · correcao de ${p.feitaPor}: ${p.motivo}` : ""}
-                                  {p.origem === "app" ? ` · app${p.metodo === "qr" ? " (QR)" : p.metodo === "gps" ? ` (GPS a ${p.gps?.distancia ?? "?"} m)` : ""}` : ""}
+                                  {p.origem === "correcao" ? ` · ${t("correção de {quem}: {motivo}", { quem: p.feitaPor, motivo: p.motivo })}` : ""}
+                                  {p.origem === "app"
+                                    ? ` · ${p.metodo === "qr" ? t("app (QR)") : p.metodo === "gps" ? t("app (GPS a {distancia} m)", { distancia: p.gps?.distancia ?? "?" }) : t("app")}`
+                                    : ""}
                                 </span>
                               </span>
                               {p.origem !== "anulacao" && !anuladas.has(p.id) && (
@@ -507,14 +523,14 @@ export function PainelRegistos({
                                   variant="ghost"
                                   className="text-destructive"
                                   onClick={async () => {
-                                    const motivo = prompt("Motivo da anulacao (fica no registo):")
+                                    const motivo = prompt(t("Motivo da anulação (fica no registo):"))
                                     if (!motivo?.trim()) return
                                     await anularPicagem(p, motivo.trim(), gestor)
                                     await aoMudar()
                                   }}
                                 >
                                   <Ban className="mr-1 h-3 w-3" />
-                                  Anular
+                                  {t("Anular")}
                                 </Button>
                               )}
                             </li>
@@ -522,7 +538,7 @@ export function PainelRegistos({
                         </ul>
                         <Button size="sm" variant="outline" className="mt-2 rounded-full" onClick={() => setCorrigir({ dia: d.dia })}>
                           <Plus className="mr-1 h-3 w-3" />
-                          Acrescentar picagem
+                          {t("Acrescentar picagem")}
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -568,8 +584,8 @@ function DialogCorrecao({
   const [obraId, setObraId] = useState("")
   const [motivo, setMotivo] = useState("")
   const gravar = async () => {
-    if (!dia || !pessoa || !hora || !motivo.trim()) return toast({ title: "Indique a hora e o motivo", variant: "destructive" })
-    if (!uidTrabalhador) return toast({ title: "Este trabalhador ainda nao tem acesso a picagem", variant: "destructive" })
+    if (!dia || !pessoa || !hora || !motivo.trim()) return toast({ title: t("Indique a hora e o motivo"), variant: "destructive" })
+    if (!uidTrabalhador) return toast({ title: t("Este trabalhador ainda não tem acesso à picagem"), variant: "destructive" })
     const obra = obras.find((o) => o.id === obraId)
     await corrigirPicagem(
       {
@@ -585,7 +601,7 @@ function DialogCorrecao({
       },
       gestor,
     )
-    toast({ title: "Picagem acrescentada", description: "Fica marcada como correcao, com o seu nome e o motivo." })
+    toast({ title: t("Picagem acrescentada"), description: t("Fica marcada como correção, com o seu nome e o motivo.") })
     setHora("")
     setMotivo("")
     aoFechar()
@@ -595,31 +611,31 @@ function DialogCorrecao({
     <Dialog open={!!dia} onOpenChange={(a) => !a && aoFechar()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Acrescentar picagem</DialogTitle>
+          <DialogTitle>{t("Acrescentar picagem")}</DialogTitle>
           <DialogDescription>
-            {pessoa?.nome} · {dia ? formatDate(dia) : ""}. Fica no registo como correcao sua, com o motivo.
+            {pessoa?.nome} · {dia ? formatDate(dia) : ""}. {t("Fica no registo como correção sua, com o motivo.")}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-2">
             <Select value={tipo} onValueChange={(v) => setTipo(v as TipoPicagem)}>
-              <SelectTrigger aria-label="Tipo">
+              <SelectTrigger aria-label={t("Tipo")}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {(Object.keys(NOMES_PICAGEM) as TipoPicagem[]).map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {NOMES_PICAGEM[t]}
+                {(Object.keys(NOMES_PICAGEM) as TipoPicagem[]).map((tp) => (
+                  <SelectItem key={tp} value={tp}>
+                    {t(NOMES_PICAGEM[tp])}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <Input type="time" value={hora} onChange={(e) => setHora(e.target.value)} aria-label="Hora" />
+            <Input type="time" value={hora} onChange={(e) => setHora(e.target.value)} aria-label={t("Hora")} />
           </div>
           {tipo === "entrada" && (
             <Select value={obraId} onValueChange={setObraId}>
-              <SelectTrigger aria-label="Obra">
-                <SelectValue placeholder="Obra" />
+              <SelectTrigger aria-label={t("Obra")}>
+                <SelectValue placeholder={t("Obra")} />
               </SelectTrigger>
               <SelectContent>
                 {obras.map((o) => (
@@ -630,9 +646,9 @@ function DialogCorrecao({
               </SelectContent>
             </Select>
           )}
-          <Input placeholder="Motivo (obrigatorio)" value={motivo} onChange={(e) => setMotivo(e.target.value)} />
+          <Input placeholder={t("Motivo (obrigatório)")} value={motivo} onChange={(e) => setMotivo(e.target.value)} />
           <Button className="w-full rounded-full" onClick={gravar}>
-            Gravar
+            {t("Guardar")}
           </Button>
         </div>
       </DialogContent>
@@ -653,12 +669,12 @@ export function PainelAcessos({ pessoas, podeCriar, aoMudar }: { pessoas: Pessoa
     setAGravar(true)
     try {
       await criarAcessoPonto(alvo.funcionario, pin)
-      toast({ title: "Acesso criado", description: `${alvo.nome}: n.º ${normalizarNumero(alvo.numero)} + PIN ${pin}` })
+      toast({ title: t("Acesso criado"), description: t("{nome}: n.º {numero} + PIN {pin}", { nome: alvo.nome, numero: normalizarNumero(alvo.numero), pin }) })
       setAlvo(null)
       setPin("")
       await aoMudar()
     } catch (e) {
-      toast({ title: "Nao foi possivel criar o acesso", description: e instanceof Error ? e.message : String(e), variant: "destructive" })
+      toast({ title: t("Não foi possível criar o acesso"), description: e instanceof Error ? e.message : String(e), variant: "destructive" })
     } finally {
       setAGravar(false)
     }
@@ -667,15 +683,15 @@ export function PainelAcessos({ pessoas, podeCriar, aoMudar }: { pessoas: Pessoa
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Acessos a picagem</CardTitle>
+        <CardTitle className="text-lg">{t("Acessos à picagem")}</CardTitle>
         <CardDescription>
-          Cada trabalhador entra com o n.º de funcionario e um PIN de 4 a 6 digitos. So ve as suas picagens e pedidos. Link para enviar:{" "}
+          {t("Cada trabalhador entra com o n.º de funcionário e um PIN de 4 a 6 dígitos. Só vê as suas picagens e pedidos. Link para enviar:")}{" "}
           <button
             type="button"
             className="inline-flex items-center gap-1 font-medium text-primary underline"
             onClick={() => {
               void navigator.clipboard?.writeText(link)
-              toast({ title: "Link copiado", description: link })
+              toast({ title: t("Link copiado"), description: link })
             }}
           >
             {link}
@@ -687,9 +703,9 @@ export function PainelAcessos({ pessoas, podeCriar, aoMudar }: { pessoas: Pessoa
         <Table data-testid="tabela-acessos">
           <TableHeader>
             <TableRow>
-              <TableHead>Funcionario</TableHead>
-              <TableHead>N.º</TableHead>
-              <TableHead>Acesso</TableHead>
+              <TableHead>{t("Funcionário")}</TableHead>
+              <TableHead>{t("N.º")}</TableHead>
+              <TableHead>{t("Acesso")}</TableHead>
               <TableHead />
             </TableRow>
           </TableHeader>
@@ -697,14 +713,14 @@ export function PainelAcessos({ pessoas, podeCriar, aoMudar }: { pessoas: Pessoa
             {pessoas.map((p) => (
               <TableRow key={p.funcionarioId} data-testid="linha-acesso">
                 <TableCell className="font-medium">{p.nome}</TableCell>
-                <TableCell>{p.numero || <span className="text-xs text-rose-700">sem numero na ficha</span>}</TableCell>
+                <TableCell>{p.numero || <span className="text-xs text-rose-700">{t("sem número na ficha")}</span>}</TableCell>
                 <TableCell>
                   {p.acesso ? (
                     <Badge variant="outline" className={p.acesso.ativo ? "border-emerald-400 text-emerald-700" : "text-muted-foreground"}>
-                      {p.acesso.ativo ? "Ativo" : "Desativado"}
+                      {p.acesso.ativo ? t("Ativo") : t("Desativado")}
                     </Badge>
                   ) : (
-                    <span className="text-xs text-muted-foreground">Sem acesso</span>
+                    <span className="text-xs text-muted-foreground">{t("Sem acesso")}</span>
                   )}
                 </TableCell>
                 <TableCell className="space-x-1 whitespace-nowrap text-right">
@@ -720,7 +736,7 @@ export function PainelAcessos({ pessoas, podeCriar, aoMudar }: { pessoas: Pessoa
                       }}
                     >
                       <KeyRound className="mr-1 h-3 w-3" />
-                      {p.acesso ? "Novo PIN" : "Criar acesso"}
+                      {p.acesso ? t("Novo PIN") : t("Criar acesso")}
                     </Button>
                   )}
                   {p.acesso && (
@@ -733,7 +749,7 @@ export function PainelAcessos({ pessoas, podeCriar, aoMudar }: { pessoas: Pessoa
                         await aoMudar()
                       }}
                     >
-                      {p.acesso.ativo ? "Desativar" : "Reativar"}
+                      {p.acesso.ativo ? t("Desativar") : t("Reativar")}
                     </Button>
                   )}
                 </TableCell>
@@ -741,22 +757,29 @@ export function PainelAcessos({ pessoas, podeCriar, aoMudar }: { pessoas: Pessoa
             ))}
           </TableBody>
         </Table>
-        {!podeCriar && <p className="mt-3 text-xs text-muted-foreground">Para criar acessos e preciso poder ver os funcionarios.</p>}
+        {!podeCriar && <p className="mt-3 text-xs text-muted-foreground">{t("Para criar acessos é preciso poder ver os funcionários.")}</p>}
       </CardContent>
       <Dialog open={!!alvo} onOpenChange={(a) => !a && setAlvo(null)}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>{alvo?.acesso ? "Novo PIN" : "Criar acesso"}</DialogTitle>
+            <DialogTitle>{alvo?.acesso ? t("Novo PIN") : t("Criar acesso")}</DialogTitle>
             <DialogDescription>
-              {alvo?.nome} entra com o n.º <strong>{alvo ? normalizarNumero(alvo.numero) : ""}</strong> e este PIN. Pode muda-lo depois na app.
-              {alvo?.acesso ? " O PIN antigo deixa de funcionar." : ""}
+              {t("{nome} entra com o n.º {numero} e este PIN. Pode mudá-lo depois na app.", { nome: alvo?.nome })
+                .split("{numero}")
+                .map((parte, i) => (
+                  <Fragment key={i}>
+                    {i > 0 && <strong>{alvo ? normalizarNumero(alvo.numero) : ""}</strong>}
+                    {parte}
+                  </Fragment>
+                ))}
+              {alvo?.acesso ? ` ${t("O PIN antigo deixa de funcionar.")}` : ""}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
-            <Label htmlFor="novo-pin">PIN (4 a 6 digitos)</Label>
+            <Label htmlFor="novo-pin">{t("PIN (4 a 6 dígitos)")}</Label>
             <Input id="novo-pin" inputMode="numeric" maxLength={6} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} className="text-center text-2xl tracking-[0.4em]" />
             <Button className="w-full rounded-full" onClick={gravar} disabled={aGravar}>
-              {aGravar ? "A criar..." : "Gravar"}
+              {aGravar ? t("A criar...") : t("Guardar")}
             </Button>
           </div>
         </DialogContent>
@@ -808,26 +831,27 @@ export function PainelObras({
       })
       await aoMudar()
     } catch (e) {
-      toast({ title: "Nao foi possivel gravar", description: e instanceof Error ? e.message : String(e), variant: "destructive" })
+      toast({ title: t("Não foi possível guardar"), description: e instanceof Error ? e.message : String(e), variant: "destructive" })
     }
   }
 
   const imprimirQR = async (o: ObraPonto) => {
     const url = await QRCode.toDataURL(codigoQRObra(o.id!, o.tokenQR), { margin: 1, width: 600 })
     const janela = window.open("", "_blank", "width=700,height=900")
-    if (!janela) return toast({ title: "Desbloqueie os popups para imprimir", variant: "destructive" })
-    janela.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>QR ${o.numero}</title>
+    if (!janela) return toast({ title: t("Desbloqueie os popups para imprimir"), variant: "destructive" })
+    const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    janela.document.write(`<!doctype html><html lang="${idiomaAtual()}"><head><meta charset="utf-8"><title>QR ${o.numero}</title>
       <style>body{font-family:Arial,sans-serif;text-align:center;padding:30px}h1{font-size:34px;margin:0}h2{font-weight:normal;margin:6px 0 20px}img{width:420px;height:420px}p{font-size:18px}</style></head>
-      <body><h1>Picagem de ponto</h1><h2>${o.numero} · ${o.nome.replace(/</g, "&lt;")}</h2><img src="${url}" alt="QR"/><p>Abra a app, toque em <b>Entrar a ler o QR da obra</b> e aponte a camera.</p></body></html>`)
+      <body><h1>${esc(t("Picagem de ponto"))}</h1><h2>${o.numero} · ${o.nome.replace(/</g, "&lt;")}</h2><img src="${url}" alt="QR"/><p>${esc(t("Abra a app, toque em «{botao}» e aponte a câmara.", { botao: t("Entrar a ler o QR da obra") }))}</p></body></html>`)
     janela.document.close()
     setTimeout(() => janela.print(), 400)
   }
 
   const usarLocalAtual = (id: string, base: { candidata?: ObraCandidata; ponto?: ObraPonto }) => {
-    if (!navigator.geolocation) return toast({ title: "Sem localizacao neste aparelho", variant: "destructive" })
+    if (!navigator.geolocation) return toast({ title: t("Sem localização neste aparelho"), variant: "destructive" })
     navigator.geolocation.getCurrentPosition(
       (p) => void guardar(id, base, { local: { lat: p.coords.latitude, lng: p.coords.longitude } }),
-      () => toast({ title: "Autorize a localizacao no browser", variant: "destructive" }),
+      () => toast({ title: t("Autorize a localização no browser"), variant: "destructive" }),
       { enableHighAccuracy: true, timeout: 15000 },
     )
   }
@@ -835,20 +859,20 @@ export function PainelObras({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Obras onde se pode picar</CardTitle>
+        <CardTitle className="text-lg">{t("Obras onde se pode picar")}</CardTitle>
         <CardDescription>
-          Validacao atual: <strong>{NOMES_VALIDACAO[config.validacao]}</strong>. Para o QR, imprima e afixe na obra. Para o GPS, defina o local: no sitio com
-          &ldquo;Usar a minha localizacao&rdquo;, ou cole as coordenadas do Google Maps.
+          {t("Validação atual:")} <strong>{t(NOMES_VALIDACAO[config.validacao])}</strong>.{" "}
+          {t("Para o QR, imprima e afixe na obra. Para o GPS, defina o local: no sítio com «Usar a minha localização», ou cole as coordenadas do Google Maps.")}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <Table data-testid="tabela-obras-ponto">
           <TableHeader>
             <TableRow>
-              <TableHead>Obra</TableHead>
-              <TableHead>Pode picar</TableHead>
-              <TableHead>Local (GPS)</TableHead>
-              <TableHead>Raio</TableHead>
+              <TableHead>{t("Obra")}</TableHead>
+              <TableHead>{t("Pode picar")}</TableHead>
+              <TableHead>{t("Local (GPS)")}</TableHead>
+              <TableHead>{t("Raio")}</TableHead>
               <TableHead>QR</TableHead>
             </TableRow>
           </TableHeader>
@@ -856,7 +880,7 @@ export function PainelObras({
             {lista.length === 0 && (
               <TableRow>
                 <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
-                  Ainda nao ha obras adjudicadas.
+                  {t("Ainda não há obras adjudicadas.")}
                 </TableCell>
               </TableRow>
             )}
@@ -872,7 +896,7 @@ export function PainelObras({
                     <Switch
                       checked={!!o?.ativa}
                       onCheckedChange={(ativa) => void guardar(id, base, { ativa })}
-                      aria-label={`Pode picar em ${base.candidata?.numero || o?.numero}`}
+                      aria-label={t("Pode picar em {obra}", { obra: base.candidata?.numero || o?.numero })}
                     />
                   </TableCell>
                   <TableCell className="min-w-[260px]">
@@ -888,7 +912,7 @@ export function PainelObras({
                     )}
                     <div className="flex gap-1">
                       <Input
-                        placeholder="38.72, -9.13 ou link do Maps"
+                        placeholder={t("38.72, -9.13 ou link do Maps")}
                         value={coords[id] || ""}
                         onChange={(e) => setCoords({ ...coords, [id]: e.target.value })}
                         className="h-8 text-xs"
@@ -899,14 +923,14 @@ export function PainelObras({
                         className="h-8"
                         onClick={() => {
                           const c = lerCoordenadas(coords[id] || "")
-                          if (!c) return toast({ title: "Coordenadas invalidas", description: "Ex.: 38.7223, -9.1393", variant: "destructive" })
+                          if (!c) return toast({ title: t("Coordenadas inválidas"), description: t("Ex.: 38.7223, -9.1393"), variant: "destructive" })
                           void guardar(id, base, { local: c })
                           setCoords({ ...coords, [id]: "" })
                         }}
                       >
                         OK
                       </Button>
-                      <Button size="sm" variant="ghost" className="h-8" title="Usar a minha localizacao" onClick={() => usarLocalAtual(id, base)}>
+                      <Button size="sm" variant="ghost" className="h-8" title={t("Usar a minha localização")} onClick={() => usarLocalAtual(id, base)}>
                         <LocateFixed className="h-4 w-4" />
                       </Button>
                     </div>
@@ -923,7 +947,7 @@ export function PainelObras({
                         if (raio !== (o?.raio || 0)) void guardar(id, base, { raio: raio || undefined })
                       }}
                       className="h-8 w-24 text-xs"
-                      aria-label="Raio em metros"
+                      aria-label={t("Raio em metros")}
                     />
                   </TableCell>
                   <TableCell className="whitespace-nowrap">
@@ -931,17 +955,17 @@ export function PainelObras({
                       <>
                         <Button size="sm" variant="outline" className="rounded-full" onClick={() => imprimirQR(o)}>
                           <QrCode className="mr-1 h-3 w-3" />
-                          Imprimir
+                          {t("Imprimir")}
                         </Button>
                         <Button
                           size="sm"
                           variant="ghost"
-                          title="Gerar QR novo (o antigo deixa de valer)"
+                          title={t("Gerar QR novo (o antigo deixa de valer)")}
                           onClick={() => {
-                            if (confirm("Gerar um QR novo? O QR afixado deixa de funcionar.")) void guardar(id, base, { tokenQR: novoToken() })
+                            if (confirm(t("Gerar um QR novo? O QR afixado deixa de funcionar."))) void guardar(id, base, { tokenQR: novoToken() })
                           }}
                         >
-                          Novo QR
+                          {t("Novo QR")}
                         </Button>
                       </>
                     )}
@@ -959,10 +983,10 @@ export function PainelObras({
 // ------------------------------------------------------------ Configuracao
 
 export const NOMES_VALIDACAO: Record<ConfigPonto["validacao"], string> = {
-  livre: "Livre (escolhe a obra na lista)",
-  qr: "So QR afixado na obra",
-  gps: "So GPS (perto da obra)",
-  qr_ou_gps: "QR ou GPS",
+  livre: m("Livre (escolhe a obra na lista)"),
+  qr: m("Só QR afixado na obra"),
+  gps: m("Só GPS (perto da obra)"),
+  qr_ou_gps: m("QR ou GPS"),
 }
 
 export function PainelConfig({ config, aoMudar }: { config: ConfigPonto; aoMudar: () => Promise<void> }) {
@@ -970,7 +994,7 @@ export function PainelConfig({ config, aoMudar }: { config: ConfigPonto; aoMudar
   const [municipal, setMunicipal] = useState(() => (config.feriadoMunicipal ? `${config.feriadoMunicipal.slice(3)}/${config.feriadoMunicipal.slice(0, 2)}` : ""))
   const gravar = async () => {
     const feriadoMunicipal = municipal.trim() ? lerDiaMes(municipal) : ""
-    if (municipal.trim() && !feriadoMunicipal) return toast({ title: "Feriado municipal invalido", description: "Escreva dia/mes, ex.: 13/06.", variant: "destructive" })
+    if (municipal.trim() && !feriadoMunicipal) return toast({ title: t("Feriado municipal inválido"), description: t("Escreva dia/mês, ex.: 13/06."), variant: "destructive" })
     try {
       await guardarConfigPonto({
         ...c,
@@ -981,81 +1005,81 @@ export function PainelConfig({ config, aoMudar }: { config: ConfigPonto; aoMudar
         diasFerias: Math.max(0, Number(c.diasFerias) || 22),
         horasDia: Math.max(1, Number(c.horasDia) || 8),
       })
-      toast({ title: "Configuracao gravada" })
+      toast({ title: t("Configuração guardada") })
       await aoMudar()
     } catch (e) {
-      toast({ title: "Nao foi possivel gravar", description: e instanceof Error ? e.message : String(e), variant: "destructive" })
+      toast({ title: t("Não foi possível guardar"), description: e instanceof Error ? e.message : String(e), variant: "destructive" })
     }
   }
   return (
     <Card className="max-w-2xl">
       <CardHeader>
-        <CardTitle className="text-lg">Configuracao do ponto</CardTitle>
-        <CardDescription>Vale para toda a empresa.</CardDescription>
+        <CardTitle className="text-lg">{t("Configuração do ponto")}</CardTitle>
+        <CardDescription>{t("Vale para toda a empresa.")}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-1">
-          <Label>Como se confirma o local da entrada</Label>
+          <Label>{t("Como se confirma o local da entrada")}</Label>
           <Select value={c.validacao} onValueChange={(v) => setC({ ...c, validacao: v as ConfigPonto["validacao"] })}>
-            <SelectTrigger aria-label="Validacao do local">
+            <SelectTrigger aria-label={t("Validação do local")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {(Object.keys(NOMES_VALIDACAO) as ConfigPonto["validacao"][]).map((v) => (
                 <SelectItem key={v} value={v}>
-                  {NOMES_VALIDACAO[v]}
+                  {t(NOMES_VALIDACAO[v])}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground">
-            O GPS so e lido no momento da picagem, nunca a seguir. Informe os trabalhadores (RGPD). Sem local definido na obra, o GPS nao deixa entrar.
+            {t("O GPS só é lido no momento da picagem, nunca a seguir. Informe os trabalhadores (RGPD). Sem local definido na obra, o GPS não deixa entrar.")}
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1">
-            <Label htmlFor="raio">Raio do GPS (m)</Label>
+            <Label htmlFor="raio">{t("Raio do GPS (m)")}</Label>
             <Input id="raio" type="number" min={50} step={50} value={c.raioMetros} onChange={(e) => setC({ ...c, raioMetros: Number(e.target.value) })} />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="limite">Em falta se nao picou ate</Label>
+            <Label htmlFor="limite">{t("Em falta se não picou até")}</Label>
             <Input id="limite" type="time" value={c.horaLimiteEntrada} onChange={(e) => setC({ ...c, horaLimiteEntrada: e.target.value })} />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="dias-ferias">Dias de ferias por ano</Label>
+            <Label htmlFor="dias-ferias">{t("Dias de férias por ano")}</Label>
             <Input id="dias-ferias" type="number" min={0} value={c.diasFerias} onChange={(e) => setC({ ...c, diasFerias: Number(e.target.value) })} />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="horas-dia">Horas de trabalho por dia</Label>
+            <Label htmlFor="horas-dia">{t("Horas de trabalho por dia")}</Label>
             <Input id="horas-dia" type="number" min={1} step={0.5} value={c.horasDia} onChange={(e) => setC({ ...c, horasDia: Number(e.target.value) })} />
           </div>
         </div>
         <div className="space-y-3 rounded-lg border p-3">
           <div>
-            <Label>Feriados que a empresa da</Label>
+            <Label>{t("Feriados que a empresa dá")}</Label>
             <p className="text-xs text-muted-foreground">
-              Facultativos (art. 235.º CT): so contam se estiverem no contrato coletivo ou nos contratos. Nao contam como dias de ferias e aparecem no mapa.
+              {t("Facultativos (art. 235.º CT): só contam se estiverem no contrato coletivo ou nos contratos. Não contam como dias de férias e aparecem no mapa.")}
             </p>
           </div>
           <div className="flex items-center gap-2">
             <Switch id="carnaval" checked={!!c.carnaval} onCheckedChange={(v) => setC({ ...c, carnaval: v })} />
             <Label htmlFor="carnaval" className="font-normal">
-              Terca-feira de Carnaval
+              {t("Terça-feira de Carnaval")}
             </Label>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
-              <Label htmlFor="municipal-dia">Feriado municipal (dia/mes)</Label>
-              <Input id="municipal-dia" placeholder="ex.: 13/06" value={municipal} onChange={(e) => setMunicipal(e.target.value)} />
+              <Label htmlFor="municipal-dia">{t("Feriado municipal (dia/mês)")}</Label>
+              <Input id="municipal-dia" placeholder={t("ex.: 13/06")} value={municipal} onChange={(e) => setMunicipal(e.target.value)} />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="municipal-nome">Nome</Label>
-              <Input id="municipal-nome" placeholder="ex.: Santo Antonio (Lisboa)" value={c.nomeFeriadoMunicipal || ""} onChange={(e) => setC({ ...c, nomeFeriadoMunicipal: e.target.value })} />
+              <Label htmlFor="municipal-nome">{t("Nome")}</Label>
+              <Input id="municipal-nome" placeholder={t("ex.: Santo António (Lisboa)")} value={c.nomeFeriadoMunicipal || ""} onChange={(e) => setC({ ...c, nomeFeriadoMunicipal: e.target.value })} />
             </div>
           </div>
         </div>
         <Button className="rounded-full" onClick={gravar}>
-          Gravar
+          {t("Guardar")}
         </Button>
       </CardContent>
     </Card>

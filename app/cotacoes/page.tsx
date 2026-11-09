@@ -15,6 +15,7 @@ import { usePermissoes } from "@/hooks/use-permissoes"
 import { toast } from "@/hooks/use-toast"
 import { apagar, atualizar, criar, listar } from "@/lib/firebase-service"
 import { maisBarato, totalFornecedor } from "@/lib/cotacoes"
+import { t } from "@/lib/i18n"
 import type { Cotacao } from "@/lib/types"
 import { formatCurrency } from "@/lib/utils"
 
@@ -46,7 +47,7 @@ export default function CotacoesPage() {
   const nova = async () => {
     if (!user) return
     const dados = {
-      titulo: "Nova cotacao",
+      titulo: t("Nova cotação"),
       itens: [{ id: uid(), descricao: "", unidade: "un", quantidade: 1 }],
       fornecedores: [{ id: uid(), nome: "", precos: {} }],
       estado: "aberta",
@@ -61,7 +62,7 @@ export default function CotacoesPage() {
     if (!c.id) return
     const { id, createdAt, ...resto } = c
     await atualizar("cotacoes", id, resto as Record<string, unknown>)
-    toast({ title: "Cotacao gravada" })
+    toast({ title: t("Cotação guardada") })
     await carregar()
   }
 
@@ -74,30 +75,32 @@ export default function CotacoesPage() {
     return (
       <div className="space-y-6 animate-fade-in">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <Input value={c.titulo} onChange={(e) => set({ titulo: e.target.value })} className="max-w-md text-lg font-semibold" aria-label="Titulo da cotacao" />
+          <Input value={c.titulo} onChange={(e) => set({ titulo: e.target.value })} className="max-w-md text-lg font-semibold" aria-label={t("Título da cotação")} />
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setAberta(null)}>Voltar</Button>
-            {podeGerir && <Button onClick={() => gravar(c)} className="rounded-full">Gravar</Button>}
+            <Button variant="outline" onClick={() => setAberta(null)}>{t("Voltar")}</Button>
+            {podeGerir && <Button onClick={() => gravar(c)} className="rounded-full">{t("Guardar")}</Button>}
           </div>
         </div>
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Mapa comparativo</CardTitle>
-            <CardDescription>Preco unitario sem IVA de cada fornecedor. O mais barato (com resposta a tudo) fica destacado.</CardDescription>
+            <CardTitle className="text-lg">{t("Mapa comparativo")}</CardTitle>
+            <CardDescription>
+              {t("Preço unitário sem IVA de cada fornecedor. O mais barato (com resposta a tudo) fica destacado.")}
+            </CardDescription>
           </CardHeader>
           <CardContent className="overflow-x-auto">
             <Table data-testid="mapa-comparativo">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="min-w-56">Item</TableHead>
-                  <TableHead className="w-24">Qtd.</TableHead>
+                  <TableHead className="min-w-56">{t("Item")}</TableHead>
+                  <TableHead className="w-24">{t("Qtd.")}</TableHead>
                   {c.fornecedores.map((f) => (
                     <TableHead key={f.id} className={`min-w-40 ${f.id === barato ? "bg-emerald-500/10" : ""}`}>
                       <div className="flex items-center gap-1">
                         <Input
                           value={f.nome}
-                          placeholder="Fornecedor"
-                          aria-label="Nome do fornecedor"
+                          placeholder={t("Fornecedor")}
+                          aria-label={t("Nome do fornecedor")}
                           className="h-8"
                           onChange={(e) => set({ fornecedores: c.fornecedores.map((x) => (x.id === f.id ? { ...x, nome: e.target.value } : x)) })}
                         />
@@ -110,7 +113,7 @@ export default function CotacoesPage() {
                   <TableHead>
                     <Button size="sm" variant="outline" onClick={() => set({ fornecedores: [...c.fornecedores, { id: uid(), nome: "", precos: {} }] })}>
                       <Plus className="mr-1 h-3 w-3" />
-                      Fornecedor
+                      {t("Fornecedor")}
                     </Button>
                   </TableHead>
                 </TableRow>
@@ -122,8 +125,8 @@ export default function CotacoesPage() {
                       <div className="flex items-center gap-1">
                         <Input
                           value={i.descricao}
-                          placeholder="Material ou servico"
-                          aria-label="Item"
+                          placeholder={t("Material ou serviço")}
+                          aria-label={t("Item")}
                           className="h-8"
                           onChange={(e) => set({ itens: c.itens.map((x) => (x.id === i.id ? { ...x, descricao: e.target.value } : x)) })}
                         />
@@ -133,7 +136,7 @@ export default function CotacoesPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <CampoNumerico tamanho="sm" min={0} aria-label="Quantidade" value={i.quantidade} onChange={(quantidade) => set({ itens: c.itens.map((x) => (x.id === i.id ? { ...x, quantidade } : x)) })} />
+                      <CampoNumerico tamanho="sm" min={0} aria-label={t("Quantidade")} value={i.quantidade} onChange={(quantidade) => set({ itens: c.itens.map((x) => (x.id === i.id ? { ...x, quantidade } : x)) })} />
                     </TableCell>
                     {c.fornecedores.map((f) => (
                       <TableCell key={f.id} className={f.id === barato ? "bg-emerald-500/10" : ""}>
@@ -141,7 +144,7 @@ export default function CotacoesPage() {
                           tamanho="sm"
                           min={0}
                           sufixo="EUR"
-                          aria-label={`Preco ${f.nome || "fornecedor"} ${i.descricao}`}
+                          aria-label={t("Preço de {fornecedor} para {item}", { fornecedor: f.nome || t("fornecedor"), item: i.descricao })}
                           value={f.precos[i.id] || 0}
                           onChange={(preco) => set({ fornecedores: c.fornecedores.map((x) => (x.id === f.id ? { ...x, precos: { ...x.precos, [i.id]: preco } } : x)) })}
                         />
@@ -156,7 +159,7 @@ export default function CotacoesPage() {
                   <TableCell colSpan={2}>
                     <Button size="sm" variant="outline" onClick={() => set({ itens: [...c.itens, { id: uid(), descricao: "", unidade: "un", quantidade: 1 }] })}>
                       <Plus className="mr-1 h-3 w-3" />
-                      Item
+                      {t("Item")}
                     </Button>
                   </TableCell>
                   {c.fornecedores.map((f) => (
@@ -170,7 +173,7 @@ export default function CotacoesPage() {
                           onClick={() => set({ adjudicadoA: f.id, estado: "adjudicada" })}
                         >
                           <Award className="mr-1 h-3 w-3" />
-                          {c.adjudicadoA === f.id ? "Adjudicado" : "Adjudicar"}
+                          {c.adjudicadoA === f.id ? t("Adjudicado") : t("Adjudicar")}
                         </Button>
                       )}
                     </TableCell>
@@ -189,18 +192,18 @@ export default function CotacoesPage() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold">Cotacoes</h1>
-          <p className="mt-2 text-muted-foreground">Pede-se o mesmo a varios fornecedores e comparam-se as respostas.</p>
+          <h1 className="text-3xl font-bold">{t("Cotações")}</h1>
+          <p className="mt-2 text-muted-foreground">{t("Pede-se o mesmo a vários fornecedores e comparam-se as respostas.")}</p>
         </div>
         {podeGerir && (
           <Button onClick={nova} className="rounded-full">
             <Plus className="mr-2 h-4 w-4" />
-            Nova cotacao
+            {t("Nova cotação")}
           </Button>
         )}
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {cotacoes.length === 0 && <Card><CardContent className="py-10 text-center text-muted-foreground">Sem cotacoes.</CardContent></Card>}
+        {cotacoes.length === 0 && <Card><CardContent className="py-10 text-center text-muted-foreground">{t("Sem cotações.")}</CardContent></Card>}
         {cotacoes.map((c) => {
           const vencedor = c.fornecedores.find((f) => f.id === c.adjudicadoA)
           return (
@@ -208,19 +211,24 @@ export default function CotacoesPage() {
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between gap-2">
                   <CardTitle className="text-base">{c.titulo}</CardTitle>
-                  <Badge variant="outline">{c.estado === "adjudicada" ? "Adjudicada" : "Aberta"}</Badge>
+                  <Badge variant="outline">{c.estado === "adjudicada" ? t("Adjudicada") : t("Aberta")}</Badge>
                 </div>
-                <CardDescription>{c.itens.length} item(s) · {c.fornecedores.length} fornecedor(es)</CardDescription>
+                <CardDescription>
+                  {c.itens.length === 1 ? t("{n} item", { n: c.itens.length }) : t("{n} itens", { n: c.itens.length })} ·{" "}
+                  {c.fornecedores.length === 1
+                    ? t("{n} fornecedor", { n: c.fornecedores.length })
+                    : t("{n} fornecedores", { n: c.fornecedores.length })}
+                </CardDescription>
               </CardHeader>
               <CardContent className="flex items-center justify-between text-sm">
-                <span>{vencedor ? `${vencedor.nome}: ${formatCurrency(totalFornecedor(c, vencedor.id))}` : "Por decidir"}</span>
+                <span>{vencedor ? `${vencedor.nome}: ${formatCurrency(totalFornecedor(c, vencedor.id))}` : t("Por decidir")}</span>
                 {podeGerir && (
                   <Button
                     size="icon"
                     variant="ghost"
                     onClick={async (e) => {
                       e.stopPropagation()
-                      if (!c.id || !confirm("Apagar esta cotacao?")) return
+                      if (!c.id || !confirm(t("Eliminar esta cotação?"))) return
                       await apagar("cotacoes", c.id)
                       await carregar()
                     }}

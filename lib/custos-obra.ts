@@ -1,5 +1,6 @@
 import type { GrupoCustoObra, LinhaCustoObra, Orcamento } from "@/lib/types"
 import { round2 } from "@/lib/utils"
+import { m } from "@/lib/i18n"
 
 /**
  * Custos reais da obra.
@@ -39,30 +40,30 @@ export interface DefinicaoGrupoCusto {
 export const GRUPOS_CUSTO_OBRA: DefinicaoGrupoCusto[] = [
   {
     id: "materiais",
-    nome: "Materiais Obra",
-    ajuda: "Compras de material. Uma linha por fatura chega.",
+    nome: m("Materiais da obra"),
+    ajuda: m("Compras de material. Uma linha por fatura chega."),
     unidadePadrao: "un",
     taxaPadrao: 23,
-    exemploDescricao: "Ex.: Compras 03/08 ou Aspirador de po",
-    exemploFornecedor: "Ex.: Leroy Merlin",
+    exemploDescricao: m("Ex.: Compras 03/08 ou Aspirador de pó"),
+    exemploFornecedor: m("Ex.: Leroy Merlin"),
   },
   {
     id: "mao_obra",
-    nome: "Mao de Obra",
-    ajuda: "Horas gastas na obra, proprias ou subcontratadas.",
+    nome: m("Mão de obra"),
+    ajuda: m("Horas gastas na obra, próprias ou subcontratadas."),
     unidadePadrao: "h",
     taxaPadrao: 0,
-    exemploDescricao: "Ex.: Wilson - pintura",
-    exemploFornecedor: "Ex.: interno ou subempreiteiro",
+    exemploDescricao: m("Ex.: Wilson - pintura"),
+    exemploFornecedor: m("Ex.: interno ou subempreiteiro"),
   },
   {
     id: "global",
-    nome: "Custos Obra",
-    ajuda: "Deslocacao, portagens, refeicoes, vazadouro e o resto que a obra arrastou.",
+    nome: m("Custos da obra"),
+    ajuda: m("Deslocação, portagens, refeições, vazadouro e o resto que a obra arrastou."),
     unidadePadrao: "vg",
     taxaPadrao: 23,
-    exemploDescricao: "Ex.: Portagens, Vazadouro",
-    exemploFornecedor: "Ex.: Via Verde",
+    exemploDescricao: m("Ex.: Portagens, Vazadouro"),
+    exemploFornecedor: m("Ex.: Via Verde"),
   },
 ]
 
@@ -73,7 +74,7 @@ export const GRUPOS_CUSTO_OBRA: DefinicaoGrupoCusto[] = [
 export const TAXAS_IVA_CUSTO = [
   { valor: 23, nome: "23%" },
   { valor: 6, nome: "6%" },
-  { valor: 0, nome: "0% isento" },
+  { valor: 0, nome: m("0% isento") },
 ]
 
 export function getGrupoCusto(id: GrupoCustoObra): DefinicaoGrupoCusto {

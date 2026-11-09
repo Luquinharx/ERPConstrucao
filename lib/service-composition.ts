@@ -1,5 +1,6 @@
 import type { Servico, ServicoComposicaoItem, ServicoGrupoComposicao } from "./types"
 import { round2 } from "./utils"
+import { m, t } from "./i18n"
 
 /**
  * Grupos da composicao de preco, no mesmo formato das folhas de calculo usadas
@@ -14,38 +15,38 @@ export const GRUPOS_COMPOSICAO: Array<{
 }> = [
   {
     id: "mao_obra",
-    nome: "Mao de obra",
-    descricao: "Horas de oficial, ajudante e restante equipa (custo real/hora; a margem entra no orcamento)",
+    nome: m("Mão de obra"),
+    descricao: m("Horas de oficial, ajudante e restante equipa (custo real/hora; a margem entra no orçamento)"),
     cor: "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30",
   },
   {
     id: "materiais",
-    nome: "Materiais",
-    descricao: "Material consumido na execucao",
+    nome: m("Materiais"),
+    descricao: m("Material consumido na execução"),
     cor: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
   },
   {
     id: "aluguel",
-    nome: "Aluguel",
-    descricao: "Equipamento alugado (martelo, andaime, plataforma)",
+    nome: m("Aluguer"),
+    descricao: m("Equipamento alugado (martelo, andaime, plataforma)"),
     cor: "bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30",
   },
   {
     id: "vazadouro",
-    nome: "Vazadouro",
-    descricao: "Descarga de entulho e transporte de lixo",
+    nome: m("Vazadouro"),
+    descricao: m("Descarga de entulho e transporte de lixo"),
     cor: "bg-stone-500/15 text-stone-700 dark:text-stone-300 border-stone-500/30",
   },
   {
     id: "transporte",
-    nome: "Transporte",
-    descricao: "Deslocacao de equipa e material ate a obra",
+    nome: m("Transporte"),
+    descricao: m("Deslocação de equipa e material até à obra"),
     cor: "bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30",
   },
   {
     id: "extras",
-    nome: "Extras - Diversos",
-    descricao: "Acessorios e custos avulsos",
+    nome: m("Extras - Diversos"),
+    descricao: m("Acessórios e custos avulsos"),
     cor: "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30",
   },
 ]
@@ -135,7 +136,7 @@ export function migrarComposicaoLegada(servico: Servico): {
       id: `transporte-legado-${servico.id || "novo"}`,
       grupo: "transporte",
       materialId: "",
-      nome: "Transporte",
+      nome: t("Transporte"),
       unidade: "vg",
       quantidadePadrao: 1,
       quantidadePontual: 1,

@@ -17,22 +17,23 @@ import { apagar, atualizar, criar } from "@/lib/firebase-service"
 import { diasAte } from "@/lib/obra"
 import type { Conta, TipoConta } from "@/lib/types"
 import { formatCurrency, formatDate, hojeLocal, round2 } from "@/lib/utils"
+import { m, t } from "@/lib/i18n"
 
 const ORIGENS: Record<Conta["origem"], string> = {
-  adjudicacao: "Adjudicacao",
-  auto: "Auto de medicao",
-  fatura: "Fatura de fornecedor",
-  manual: "Manual",
+  adjudicacao: m("Adjudicação"),
+  auto: m("Auto de medição"),
+  fatura: m("Fatura de fornecedor"),
+  manual: m("Manual"),
 }
 
 function EstadoConta({ conta }: { conta: Conta }) {
   if (conta.estado === "pago") {
-    return <Badge variant="outline" className="border-emerald-500/40 text-emerald-700">{conta.tipo === "receber" ? "Recebido" : "Pago"}</Badge>
+    return <Badge variant="outline" className="border-emerald-500/40 text-emerald-700">{conta.tipo === "receber" ? t("Recebido") : t("Pago")}</Badge>
   }
   const dias = diasAte(conta.vencimento)
-  if (dias < 0) return <Badge variant="outline" className="border-rose-500/40 text-rose-700">Vencida ha {-dias} d</Badge>
-  if (dias <= 5) return <Badge variant="outline" className="border-amber-500/40 text-amber-700">Vence em {dias} d</Badge>
-  return <Badge variant="outline">Pendente</Badge>
+  if (dias < 0) return <Badge variant="outline" className="border-rose-500/40 text-rose-700">{t("Vencida há {n} d", { n: -dias })}</Badge>
+  if (dias <= 5) return <Badge variant="outline" className="border-amber-500/40 text-amber-700">{t("Vence em {n} d", { n: dias })}</Badge>
+  return <Badge variant="outline">{t("Pendente")}</Badge>
 }
 
 interface TabelaContasProps {
@@ -51,13 +52,13 @@ export function TabelaContas({ contas, podeGerir, onAlterado, obra, mostrarObra 
   const marcar = async (conta: Conta, pago: boolean) => {
     if (!conta.id) return
     await atualizar("contas", conta.id, pago ? { estado: "pago", dataPagamento: hojeLocal() } : { estado: "pendente", dataPagamento: "" })
-    toast({ title: pago ? (conta.tipo === "receber" ? "Marcada como recebida" : "Marcada como paga") : "Voltou a pendente" })
+    toast({ title: pago ? (conta.tipo === "receber" ? t("Marcada como recebida") : t("Marcada como paga")) : t("Voltou a pendente") })
     onAlterado()
   }
 
   const gravarNova = async () => {
     if (!user || !nova) return
-    if (!nova.descricao.trim() || nova.valor <= 0) return toast({ title: "Indique descricao e valor", variant: "destructive" })
+    if (!nova.descricao.trim() || nova.valor <= 0) return toast({ title: t("Indique a descrição e o valor"), variant: "destructive" })
     await criar("contas", {
       tipo: nova.tipo,
       descricao: nova.descricao.trim(),
@@ -85,19 +86,19 @@ export function TabelaContas({ contas, podeGerir, onAlterado, obra, mostrarObra 
             onClick={() => setNova({ tipo: "receber", descricao: "", entidade: "", valor: 0, vencimento: hojeLocal() })}
           >
             <Plus className="mr-2 h-4 w-4" />
-            Conta manual
+            {t("Conta manual")}
           </Button>
         </div>
       )}
       <Table data-testid="tabela-contas">
         <TableHeader>
           <TableRow>
-            <TableHead>Vencimento</TableHead>
-            <TableHead>Descricao</TableHead>
-            {mostrarObra && <TableHead>Obra</TableHead>}
-            <TableHead>Origem</TableHead>
-            <TableHead className="text-right">Valor</TableHead>
-            <TableHead>Estado</TableHead>
+            <TableHead>{t("Vencimento")}</TableHead>
+            <TableHead>{t("Descrição")}</TableHead>
+            {mostrarObra && <TableHead>{t("Obra")}</TableHead>}
+            <TableHead>{t("Origem")}</TableHead>
+            <TableHead className="text-right">{t("Valor")}</TableHead>
+            <TableHead>{t("Estado")}</TableHead>
             <TableHead />
           </TableRow>
         </TableHeader>
@@ -105,7 +106,7 @@ export function TabelaContas({ contas, podeGerir, onAlterado, obra, mostrarObra 
           {ordenadas.length === 0 ? (
             <TableRow>
               <TableCell colSpan={mostrarObra ? 7 : 6} className="py-8 text-center text-muted-foreground">
-                Sem contas.
+                {t("Sem contas.")}
               </TableCell>
             </TableRow>
           ) : (
@@ -115,12 +116,12 @@ export function TabelaContas({ contas, podeGerir, onAlterado, obra, mostrarObra 
                 <TableCell>
                   <div className="font-medium">{c.descricao}</div>
                   <div className="text-xs text-muted-foreground">
-                    {c.tipo === "receber" ? "A receber" : "A pagar"}
+                    {c.tipo === "receber" ? t("A receber") : t("A pagar")}
                     {c.entidade ? ` · ${c.entidade}` : ""}
                   </div>
                 </TableCell>
                 {mostrarObra && <TableCell className="whitespace-nowrap">{c.orcamentoNumero || "-"}</TableCell>}
-                <TableCell className="text-sm text-muted-foreground">{ORIGENS[c.origem]}</TableCell>
+                <TableCell className="text-sm text-muted-foreground">{ORIGENS[c.origem] ? t(ORIGENS[c.origem]) : ""}</TableCell>
                 <TableCell className={`text-right tabular-nums ${c.tipo === "pagar" ? "text-rose-700" : ""}`}>
                   {c.tipo === "pagar" ? "-" : "+"}
                   {formatCurrency(c.valor)}
@@ -131,10 +132,10 @@ export function TabelaContas({ contas, podeGerir, onAlterado, obra, mostrarObra 
                     (c.estado === "pendente" ? (
                       <Button size="sm" variant="outline" className="rounded-full" onClick={() => marcar(c, true)}>
                         <Check className="mr-1 h-3 w-3" />
-                        {c.tipo === "receber" ? "Recebido" : "Pago"}
+                        {c.tipo === "receber" ? t("Recebido") : t("Pago")}
                       </Button>
                     ) : (
-                      <Button size="icon" variant="ghost" title="Voltar a pendente" onClick={() => marcar(c, false)}>
+                      <Button size="icon" variant="ghost" title={t("Voltar a pendente")} onClick={() => marcar(c, false)}>
                         <Undo2 className="h-4 w-4" />
                       </Button>
                     ))}
@@ -142,9 +143,9 @@ export function TabelaContas({ contas, podeGerir, onAlterado, obra, mostrarObra 
                     <Button
                       size="icon"
                       variant="ghost"
-                      title="Apagar"
+                      title={t("Eliminar")}
                       onClick={async () => {
-                        if (!c.id || !confirm("Apagar esta conta?")) return
+                        if (!c.id || !confirm(t("Eliminar esta conta?"))) return
                         await apagar("contas", c.id)
                         onAlterado()
                       }}
@@ -162,39 +163,39 @@ export function TabelaContas({ contas, podeGerir, onAlterado, obra, mostrarObra 
       <Dialog open={!!nova} onOpenChange={(a) => !a && setNova(null)}>
         <DialogContent className="sm:max-w-[460px]">
           <DialogHeader>
-            <DialogTitle>Conta manual</DialogTitle>
-            <DialogDescription>Para o que nao nasce de uma adjudicacao, auto ou fatura.</DialogDescription>
+            <DialogTitle>{t("Conta manual")}</DialogTitle>
+            <DialogDescription>{t("Para o que não nasce de uma adjudicação, auto ou fatura.")}</DialogDescription>
           </DialogHeader>
           {nova && (
             <div className="space-y-3">
               <Select value={nova.tipo} onValueChange={(tipo) => setNova({ ...nova, tipo: tipo as TipoConta })}>
-                <SelectTrigger aria-label="Tipo de conta"><SelectValue /></SelectTrigger>
+                <SelectTrigger aria-label={t("Tipo de conta")}><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="receber">A receber</SelectItem>
-                  <SelectItem value="pagar">A pagar</SelectItem>
+                  <SelectItem value="receber">{t("A receber")}</SelectItem>
+                  <SelectItem value="pagar">{t("A pagar")}</SelectItem>
                 </SelectContent>
               </Select>
               <div className="space-y-1">
-                <Label>Descricao</Label>
+                <Label>{t("Descrição")}</Label>
                 <Input value={nova.descricao} onChange={(e) => setNova({ ...nova, descricao: e.target.value })} />
               </div>
               <div className="space-y-1">
-                <Label>{nova.tipo === "receber" ? "Cliente" : "Fornecedor"}</Label>
+                <Label>{nova.tipo === "receber" ? t("Cliente") : t("Fornecedor")}</Label>
                 <Input value={nova.entidade} onChange={(e) => setNova({ ...nova, entidade: e.target.value })} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label>Valor (c/ IVA)</Label>
+                  <Label>{t("Valor (c/ IVA)")}</Label>
                   <CampoNumerico min={0} sufixo="EUR" value={nova.valor} onChange={(valor) => setNova({ ...nova, valor })} />
                 </div>
                 <div className="space-y-1">
-                  <Label>Vencimento</Label>
+                  <Label>{t("Vencimento")}</Label>
                   <Input type="date" value={nova.vencimento} onChange={(e) => setNova({ ...nova, vencimento: e.target.value })} />
                 </div>
               </div>
               <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setNova(null)}>Cancelar</Button>
-                <Button onClick={gravarNova} className="rounded-full">Gravar</Button>
+                <Button variant="outline" onClick={() => setNova(null)}>{t("Cancelar")}</Button>
+                <Button onClick={gravarNova} className="rounded-full">{t("Guardar")}</Button>
               </div>
             </div>
           )}

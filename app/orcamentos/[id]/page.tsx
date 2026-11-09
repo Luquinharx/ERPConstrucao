@@ -17,6 +17,7 @@ import { toast } from "@/hooks/use-toast"
 import { FirebaseService, getFuncoes } from "@/lib/firebase-service"
 import { getFase, podeEditar } from "@/lib/orcamento-fases"
 import { numeroCompleto } from "@/lib/numeracao"
+import { t } from "@/lib/i18n"
 import type { Cliente, FuncaoMaoObra, Funcionario, Material, Orcamento, Servico } from "@/lib/types"
 
 /**
@@ -69,8 +70,8 @@ export default function EditarOrcamentoPage() {
     } catch (error) {
       console.error("Erro ao carregar dados:", error)
       toast({
-        title: "Erro ao carregar dados",
-        description: "Nao foi possivel carregar os dados necessarios.",
+        title: t("Erro ao carregar dados"),
+        description: t("Não foi possível carregar os dados necessários."),
         variant: "destructive",
       })
     } finally {
@@ -99,20 +100,25 @@ export default function EditarOrcamentoPage() {
 
   const permissaoNecessaria = ehNovo ? "orcamentos.criar" : "orcamentos.editar"
   if (!pode(permissaoNecessaria)) {
-    return <SemAcesso area="Orcamentos" requisito={ehNovo ? "a permissao de criar propostas" : "a permissao de editar propostas"} />
+    return (
+      <SemAcesso
+        area={t("Orçamentos")}
+        requisito={ehNovo ? t("a permissão de criar propostas") : t("a permissão de editar propostas")}
+      />
+    )
   }
 
   if (!ehNovo && !orcamento) {
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-          <h2 className="text-lg font-medium">Proposta nao encontrada</h2>
+          <h2 className="text-lg font-medium">{t("Proposta não encontrada")}</h2>
           <p className="mt-1 text-muted-foreground">
-            Pode ter sido apagada, ou o endereco estar errado.
+            {t("Pode ter sido eliminada, ou o endereço estar errado.")}
           </p>
           <Button onClick={voltar} className="mt-4 rounded-full">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Voltar aos orcamentos
+            {t("Voltar aos orçamentos")}
           </Button>
         </CardContent>
       </Card>
@@ -131,15 +137,16 @@ export default function EditarOrcamentoPage() {
         <CardContent className="flex flex-col items-center justify-center py-12 text-center">
           <Lock className="mb-3 h-10 w-10 text-muted-foreground" />
           <h2 className="text-lg font-medium">
-            {numeroCompleto(orcamento, configuracao)} esta em {fase.nome}
+            {t("{numero} está em {fase}", { numero: numeroCompleto(orcamento, configuracao), fase: t(fase.nome) })}
           </h2>
           <p className="mt-1 max-w-md text-muted-foreground">
-            Nesta fase a proposta ja nao se edita. Para a alterar, crie uma revisao a partir da lista. Os custos reais
-            da obra continuam a poder ser lancados pelo botao proprio.
+            {t(
+              "Nesta fase a proposta já não se edita. Para a alterar, crie uma revisão a partir da lista. Os custos reais da obra continuam a poder ser lançados pelo botão próprio.",
+            )}
           </p>
           <Button onClick={voltar} className="mt-4 rounded-full">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Voltar aos orcamentos
+            {t("Voltar aos orçamentos")}
           </Button>
         </CardContent>
       </Card>
@@ -150,21 +157,21 @@ export default function EditarOrcamentoPage() {
     <div className="space-y-4 animate-fade-in">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="icon" onClick={voltar} className="rounded-full" title="Voltar aos orcamentos">
+          <Button variant="outline" size="icon" onClick={voltar} className="rounded-full" title={t("Voltar aos orçamentos")}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
             <h1 className="text-2xl font-bold">
-              {orcamento ? numeroCompleto(orcamento, configuracao) : "Novo Orcamento"}
+              {orcamento ? numeroCompleto(orcamento, configuracao) : t("Novo orçamento")}
             </h1>
             <p className="text-sm text-muted-foreground">
-              {orcamento ? orcamento.cliente.nome : "Preencha as abas e grave no fim."}
+              {orcamento ? orcamento.cliente.nome : t("Preencha os separadores e guarde no fim.")}
             </p>
           </div>
         </div>
         {orcamento && (
           <Badge variant="outline" className={getFase(orcamento.status).cor}>
-            {getFase(orcamento.status).nome}
+            {t(getFase(orcamento.status).nome)}
           </Badge>
         )}
       </div>

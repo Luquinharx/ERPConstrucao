@@ -3,6 +3,7 @@
 import * as React from "react"
 
 import { cn, round2 } from "@/lib/utils"
+import { localeIntl } from "@/lib/i18n"
 
 /**
  * Le um numero escrito a portuguesa ou a inglesa: "1234,56", "1234.56" ou "1.234,56".
@@ -34,7 +35,7 @@ export function parseNumeroPt(texto: string): number | null {
  */
 function formatar(valor: number, decimais: number): string {
   if (!Number.isFinite(valor)) return ""
-  return new Intl.NumberFormat("pt-PT", {
+  return new Intl.NumberFormat(localeIntl(), {
     minimumFractionDigits: Math.min(decimais, 2),
     maximumFractionDigits: decimais,
     useGrouping: false,

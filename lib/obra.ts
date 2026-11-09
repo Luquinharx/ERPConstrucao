@@ -1,6 +1,7 @@
 import { calculateItemTotal, resumoDeValores } from "@/lib/orcamento-calculos"
 import type { AutoMedicao, Conta, LinhaAuto, Orcamento, RegistoHoras } from "@/lib/types"
 import { hojeLocal, round2 } from "@/lib/utils"
+import { t } from "@/lib/i18n"
 
 /**
  * Regras da obra depois da adjudicacao: parcelas, autos de medicao, contas.
@@ -26,8 +27,8 @@ export function somarDias(iso: string, dias: number): string {
 /** Plano como o da folha: 50% na adjudicacao e 50% no fim. */
 export function planoPadrao(dataAdjudicacao: string): ParcelaPlano[] {
   return [
-    { descricao: "1.a fatura - adjudicacao", percent: 50, vencimento: dataAdjudicacao },
-    { descricao: "2.a fatura - conclusao", percent: 50, vencimento: somarDias(dataAdjudicacao, 30) },
+    { descricao: t("1.ª fatura - adjudicação"), percent: 50, vencimento: dataAdjudicacao },
+    { descricao: t("2.ª fatura - conclusão"), percent: 50, vencimento: somarDias(dataAdjudicacao, 30) },
   ]
 }
 
@@ -46,7 +47,7 @@ export function contasDaAdjudicacao(
   const contas: Array<Omit<Conta, "id" | "createdAt">> = []
   const comum = { ...base, tipo: "receber" as const, origem: "adjudicacao" as const }
   if (sinal > 0) {
-    contas.push({ ...comum, descricao: "Sinal", valor: round2(sinal), vencimento: dataAdjudicacao, estado: "pago", dataPagamento: dataAdjudicacao })
+    contas.push({ ...comum, descricao: t("Sinal"), valor: round2(sinal), vencimento: dataAdjudicacao, estado: "pago", dataPagamento: dataAdjudicacao })
   }
   const remanescente = round2(valor - sinal)
   let acumulado = 0
@@ -86,7 +87,7 @@ export function linhasNovoAuto(orcamento: Orcamento, autosAnteriores: AutoMedica
     return {
       itemId: item.id,
       nome: item.nome || item.descricao,
-      unidade: item.valorFixo ? "vg" : item.unidade,
+      unidade: item.valorFixo ? t("vg") : item.unidade,
       quantidadeContratual,
       precoUnitario: quantidadeContratual > 0 ? round2((totalItem * fator) / quantidadeContratual) : 0,
       totalContratual: round2(totalItem * fator),

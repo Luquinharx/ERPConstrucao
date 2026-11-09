@@ -14,6 +14,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { EcraDeAcesso } from "@/components/layout/ecra-de-acesso"
 import { useAuth } from "@/hooks/use-auth"
 import { mensagemDeErroAuth } from "@/lib/auth-mensagens"
+import { t } from "@/lib/i18n"
 
 export default function RegisterPage() {
   const [nome, setNome] = useState("")
@@ -34,17 +35,17 @@ export default function RegisterPage() {
     evento.preventDefault()
     setErro("")
 
-    if (!nome.trim()) return setErro("Indique o seu nome.")
-    if (!email.trim()) return setErro("Indique o email.")
-    if (palavraPasse.length < 6) return setErro("A palavra-passe tem de ter pelo menos 6 caracteres.")
-    if (palavraPasse !== confirmacao) return setErro("As palavras-passe nao coincidem.")
+    if (!nome.trim()) return setErro(t("Indique o seu nome."))
+    if (!email.trim()) return setErro(t("Indique o email."))
+    if (palavraPasse.length < 6) return setErro(t("A palavra-passe tem de ter pelo menos 6 caracteres."))
+    if (palavraPasse !== confirmacao) return setErro(t("As palavras-passe não coincidem."))
 
     setACriar(true)
     try {
       await register(email.trim(), palavraPasse, nome.trim())
       router.push("/dashboard")
     } catch (error) {
-      setErro(mensagemDeErroAuth(error, "Nao foi possivel criar a conta. Tente de novo."))
+      setErro(mensagemDeErroAuth(error, t("Não foi possível criar a conta. Tente de novo.")))
     } finally {
       setACriar(false)
     }
@@ -52,14 +53,14 @@ export default function RegisterPage() {
 
   return (
     <EcraDeAcesso
-      titulo="Criar conta"
-      descricao="Crie o seu acesso ao sistema."
-      voltar={{ href: "/login", texto: "Voltar ao login" }}
+      titulo={t("Criar conta")}
+      descricao={t("Crie o seu acesso ao sistema.")}
+      voltar={{ href: "/login", texto: t("Voltar ao login") }}
       rodape={
         <p className="text-center text-sm text-muted-foreground">
-          Ja tem conta?{" "}
+          {t("Já tem conta?")}{" "}
           <Link href="/login" className="font-medium text-primary hover:underline">
-            Entrar
+            {t("Entrar")}
           </Link>
         </p>
       }
@@ -76,19 +77,29 @@ export default function RegisterPage() {
         <Alert>
           <Info className="h-4 w-4" />
           <AlertDescription className="text-xs">
-            As contas novas entram em modo de <strong>consulta</strong>. Quem administra o sistema atribui depois o
-            cargo e as permissoes em Utilizadores e cargos.
+            {(() => {
+              const [antes, depois] = t(
+                "As contas novas entram em modo de {consulta}. Quem administra o sistema atribui depois o cargo e as permissões em Utilizadores e cargos.",
+              ).split("{consulta}")
+              return (
+                <>
+                  {antes}
+                  <strong>{t("consulta")}</strong>
+                  {depois}
+                </>
+              )
+            })()}
           </AlertDescription>
         </Alert>
 
         <div className="space-y-2">
-          <Label htmlFor="nome">Nome</Label>
+          <Label htmlFor="nome">{t("Nome")}</Label>
           <div className="relative">
             <User className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               id="nome"
               autoComplete="name"
-              placeholder="Nome completo"
+              placeholder={t("Nome completo")}
               value={nome}
               onChange={(e) => setNome(e.target.value)}
               className="rounded-full pl-11"
@@ -99,14 +110,14 @@ export default function RegisterPage() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">{t("Email")}</Label>
           <div className="relative">
             <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               id="email"
               type="email"
               autoComplete="email"
-              placeholder="nome@empresa.pt"
+              placeholder={t("nome@empresa.pt")}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="rounded-full pl-11"
@@ -118,14 +129,14 @@ export default function RegisterPage() {
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="palavra-passe">Palavra-passe</Label>
+            <Label htmlFor="palavra-passe">{t("Palavra-passe")}</Label>
             <div className="relative">
               <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 id="palavra-passe"
                 type={visivel ? "text" : "password"}
                 autoComplete="new-password"
-                placeholder="Min. 6 caracteres"
+                placeholder={t("Mín. 6 caracteres")}
                 value={palavraPasse}
                 onChange={(e) => setPalavraPasse(e.target.value)}
                 className="rounded-full pl-11 pr-12"
@@ -137,7 +148,7 @@ export default function RegisterPage() {
                 onClick={() => setVisivel(!visivel)}
                 disabled={aCriar}
                 className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
-                aria-label={visivel ? "Esconder palavra-passe" : "Mostrar palavra-passe"}
+                aria-label={visivel ? t("Esconder palavra-passe") : t("Mostrar palavra-passe")}
               >
                 {visivel ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -145,14 +156,14 @@ export default function RegisterPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="confirmacao">Confirmar</Label>
+            <Label htmlFor="confirmacao">{t("Confirmar")}</Label>
             <div className="relative">
               <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 id="confirmacao"
                 type={visivel ? "text" : "password"}
                 autoComplete="new-password"
-                placeholder="Repita a palavra-passe"
+                placeholder={t("Repita a palavra-passe")}
                 value={confirmacao}
                 onChange={(e) => setConfirmacao(e.target.value)}
                 className="rounded-full pl-11"
@@ -167,10 +178,10 @@ export default function RegisterPage() {
           {aCriar ? (
             <>
               <LoadingSpinner size="sm" className="mr-2" />
-              A criar conta...
+              {t("A criar conta...")}
             </>
           ) : (
-            "Criar conta"
+            t("Criar conta")
           )}
         </Button>
       </form>

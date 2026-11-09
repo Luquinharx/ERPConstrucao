@@ -6,6 +6,7 @@ import type {
   Especialidade,
   TipoMedicao,
 } from "@/lib/types"
+import { m, t } from "@/lib/i18n"
 import { round2 } from "@/lib/utils"
 
 /**
@@ -22,12 +23,12 @@ import { round2 } from "@/lib/utils"
  */
 
 export const ESPECIALIDADES_PADRAO: Especialidade[] = [
-  { id: "civil", nome: "Construcao civil", margem: 15 },
-  { id: "aguas", nome: "Aguas", margem: 25 },
-  { id: "gas", nome: "Gas", margem: 25 },
-  { id: "eletricidade", nome: "Eletricidade", margem: 25 },
-  { id: "avac", nome: "AVAC", margem: 25 },
-  { id: "scie", nome: "SCIE", margem: 25 },
+  { id: "civil", nome: m("Construção civil"), margem: 15 },
+  { id: "aguas", nome: m("Águas"), margem: 25 },
+  { id: "gas", nome: m("Gás"), margem: 25 },
+  { id: "eletricidade", nome: m("Eletricidade"), margem: 25 },
+  { id: "avac", nome: m("AVAC"), margem: 25 },
+  { id: "scie", nome: m("SCIE"), margem: 25 },
 ]
 
 export const ESTRUTURA_PADRAO = 15
@@ -74,10 +75,10 @@ export function margemSobreVenda(custo: number, venda: number): number {
 // ------------------------------------------------------------ Medicoes
 
 export const MEDICOES: Record<TipoMedicao, { nome: string; unidade: string }> = {
-  pavimento: { nome: "Pavimento", unidade: "m2" },
-  teto: { nome: "Teto", unidade: "m2" },
-  paredes: { nome: "Paredes (sem aberturas)", unidade: "m2" },
-  perimetro: { nome: "Perimetro (rodape, sancas)", unidade: "ml" },
+  pavimento: { nome: m("Pavimento"), unidade: "m2" },
+  teto: { nome: m("Teto"), unidade: "m2" },
+  paredes: { nome: m("Paredes (sem aberturas)"), unidade: "m2" },
+  perimetro: { nome: m("Perímetro (rodapé, sancas)"), unidade: "ml" },
 }
 
 /** Quantidades de um comodo a partir das dimensoes, como o "Quadro de areas" da folha. */
@@ -103,31 +104,31 @@ export function temDimensoes(d?: DimensoesAmbiente | null): boolean {
 
 /** Taxas de IVA por regiao fiscal: normal, intermedia, reduzida. */
 export const TAXAS_REGIAO: Record<ContextoFiscal["regiao"], { nome: string; normal: number; intermedia: number; reduzida: number }> = {
-  continente: { nome: "Continente", normal: 23, intermedia: 13, reduzida: 6 },
-  madeira: { nome: "Madeira", normal: 22, intermedia: 12, reduzida: 5 },
-  acores: { nome: "Acores", normal: 16, intermedia: 9, reduzida: 4 },
+  continente: { nome: m("Continente"), normal: 23, intermedia: 13, reduzida: 6 },
+  madeira: { nome: m("Madeira"), normal: 22, intermedia: 12, reduzida: 5 },
+  acores: { nome: m("Açores"), normal: 16, intermedia: 9, reduzida: 4 },
 }
 
 export const TIPOS_OBRA: Record<NonNullable<ContextoFiscal["tipoObra"]>, string> = {
-  construcao_nova: "Construcao nova",
-  reabilitacao_aru: "Reabilitacao urbana em ARU",
-  remodelacao_habitacao: "Remodelacao / reparacao de habitacao",
-  manutencao: "Manutencao",
-  obra_publica: "Obra publica",
+  construcao_nova: m("Construção nova"),
+  reabilitacao_aru: m("Reabilitação urbana em ARU"),
+  remodelacao_habitacao: m("Remodelação / reparação de habitação"),
+  manutencao: m("Manutenção"),
+  obra_publica: m("Obra pública"),
 }
 
 export const TIPOS_CLIENTE: Record<NonNullable<ContextoFiscal["tipoCliente"]>, string> = {
-  particular: "Particular",
-  empresa: "Empresa",
-  construtor: "Construtor (sujeito passivo do setor)",
-  publica: "Entidade publica",
+  particular: m("Particular"),
+  empresa: m("Empresa"),
+  construtor: m("Construtor (sujeito passivo do setor)"),
+  publica: m("Entidade pública"),
 }
 
 export const TIPOS_OPERACAO: Record<NonNullable<ContextoFiscal["tipoOperacao"]>, string> = {
-  empreitada: "Empreitada",
-  subempreitada: "Subempreitada",
-  servicos: "Servicos",
-  materiais: "So materiais",
+  empreitada: m("Empreitada"),
+  subempreitada: m("Subempreitada"),
+  servicos: m("Serviços"),
+  materiais: m("Só materiais"),
 }
 
 export interface SugestaoIVA {
@@ -152,32 +153,34 @@ export function sugerirIVA(contexto: Partial<ContextoFiscal> | undefined, pesoMa
   if (c.tipoOperacao === "subempreitada" || (c.tipoCliente === "construtor" && servicoConstrucao)) {
     return {
       taxa: 0,
-      regime: "Autoliquidacao",
-      fundamento: "IVA devido pelo adquirente - art. 2.o, n.o 1, al. j) do CIVA (servicos de construcao civil a sujeito passivo).",
+      regime: t("Autoliquidação"),
+      fundamento: t("IVA devido pelo adquirente - art. 2.º, n.º 1, al. j) do CIVA (serviços de construção civil a sujeito passivo)."),
     }
   }
   if (c.tipoObra === "reabilitacao_aru" && c.tipoOperacao === "empreitada") {
     return {
       taxa: regiao.reduzida,
-      regime: "IVA reduzido",
-      fundamento: "Empreitada de reabilitacao urbana em ARU - verba 2.23 da Lista I anexa ao CIVA.",
+      regime: t("IVA reduzido"),
+      fundamento: t("Empreitada de reabilitação urbana em ARU - verba 2.23 da Lista I anexa ao CIVA."),
     }
   }
   if (c.tipoObra === "remodelacao_habitacao" && c.tipoOperacao === "empreitada") {
     const acima = pesoMateriais !== undefined && pesoMateriais > 0.2
     return {
       taxa: acima ? regiao.normal : regiao.reduzida,
-      regime: acima ? "IVA normal" : "IVA reduzido",
-      fundamento: "Empreitada de beneficiacao/remodelacao de imovel de habitacao - verba 2.27 da Lista I anexa ao CIVA.",
+      regime: acima ? t("IVA normal") : t("IVA reduzido"),
+      fundamento: t("Empreitada de beneficiação/remodelação de imóvel de habitação - verba 2.27 da Lista I anexa ao CIVA."),
       aviso: acima
-        ? `Os materiais pesam ${Math.round(pesoMateriais! * 100)}% (> 20%): a verba 2.27 nao se aplica a parte dos materiais. Confirme com o contabilista.`
-        : "So vale se os materiais nao passarem de 20% do valor global da empreitada.",
+        ? t("Os materiais pesam {percentagem}% (> 20%): a verba 2.27 não se aplica à parte dos materiais. Confirme com o contabilista.", {
+            percentagem: Math.round(pesoMateriais! * 100),
+          })
+        : t("Só vale se os materiais não passarem de 20% do valor global da empreitada."),
     }
   }
   return {
     taxa: regiao.normal,
-    regime: "IVA normal",
-    fundamento: `Taxa normal (${regiao.nome}) - art. 18.o do CIVA.`,
+    regime: t("IVA normal"),
+    fundamento: t("Taxa normal ({regiao}) - art. 18.º do CIVA.", { regiao: t(regiao.nome) }),
   }
 }
 

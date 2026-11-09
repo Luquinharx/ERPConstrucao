@@ -5,12 +5,13 @@ import { Camera, CameraOff } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { toast } from "@/hooks/use-toast"
+import { t } from "@/lib/i18n"
 
 /**
  * Leitor de QR pela camera (o mesmo do Estoque > Bipar). Le uma vez e
  * desliga: na picagem so interessa o QR da obra.
  */
-export function LeitorQR({ onLer, rotulo = "Ler QR da obra" }: { onLer: (texto: string) => void; rotulo?: string }) {
+export function LeitorQR({ onLer, rotulo }: { onLer: (texto: string) => void; rotulo?: string }) {
   const [ligado, setLigado] = useState(false)
   const leitor = useRef<{ stop: () => Promise<void>; clear: () => void } | null>(null)
   const idElemento = useRef(`leitor-qr-${Math.random().toString(36).slice(2, 8)}`)
@@ -44,8 +45,8 @@ export function LeitorQR({ onLer, rotulo = "Ler QR da obra" }: { onLer: (texto: 
       setLigado(false)
       console.error(erro)
       toast({
-        title: "Nao foi possivel abrir a camera",
-        description: "Autorize a camera no browser. A camera so funciona em HTTPS.",
+        title: t("Não foi possível abrir a câmara"),
+        description: t("Autorize a câmara no browser. A câmara só funciona em HTTPS."),
         variant: "destructive",
       })
     }
@@ -57,7 +58,7 @@ export function LeitorQR({ onLer, rotulo = "Ler QR da obra" }: { onLer: (texto: 
       <div id={idElemento.current} className={ligado ? "overflow-hidden rounded-lg" : "hidden"} />
       <Button type="button" variant={ligado ? "outline" : "secondary"} className="w-full rounded-full" onClick={ligado ? parar : ligar}>
         {ligado ? <CameraOff className="mr-2 h-4 w-4" /> : <Camera className="mr-2 h-4 w-4" />}
-        {ligado ? "Fechar camera" : rotulo}
+        {ligado ? t("Fechar câmara") : rotulo || t("Ler QR da obra")}
       </Button>
     </div>
   )

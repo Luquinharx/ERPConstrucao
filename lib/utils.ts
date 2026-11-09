@@ -1,5 +1,7 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { idiomaAtual, localeIntl } from "./i18n"
+import { ptBR, pt, enGB } from "date-fns/locale"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -20,16 +22,17 @@ export function toFixed2(value: number | string | null | undefined): string {
   return round2(value).toFixed(2)
 }
 
-/** Numero formatado em pt-PT sempre com 2 casas decimais (sem simbolo de moeda). */
+/** Número no formato do idioma escolhido, sempre com 2 casas decimais (sem símbolo de moeda). */
 export function formatNumber2(value: number | string | null | undefined): string {
-  return new Intl.NumberFormat("pt-PT", {
+  return new Intl.NumberFormat(localeIntl(), {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(round2(value))
 }
 
+/** Valor em euros, no formato do idioma escolhido (1 234,56 € · € 1.234,56 · €1,234.56). */
 export function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("pt-PT", {
+  return new Intl.NumberFormat(localeIntl(), {
     style: "currency",
     currency: "EUR",
     minimumFractionDigits: 2,
@@ -59,7 +62,18 @@ export function formatDate(date: string | Date): string {
   // (ex.: Brasil) aparecia o dia anterior. Data sem hora = data local.
   const soData = typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date)
   const d = soData ? new Date(`${date}T00:00:00`) : typeof date === "string" ? new Date(date) : date
-  return d.toLocaleDateString("pt-PT")
+  return d.toLocaleDateString(localeIntl())
+}
+
+/** Locale do date-fns para o idioma escolhido (format(data, "...", { locale: localeDateFns() })). */
+export function localeDateFns() {
+  const i = idiomaAtual()
+  return i === "pt-BR" ? ptBR : i === "en" ? enGB : pt
+}
+
+/** Data e hora no formato do idioma escolhido. */
+export function formatDateTime(date: Date, opcoes: Intl.DateTimeFormatOptions = { dateStyle: "short", timeStyle: "short" }): string {
+  return new Intl.DateTimeFormat(localeIntl(), opcoes).format(date)
 }
 
 export function generateUniqueId(): string {

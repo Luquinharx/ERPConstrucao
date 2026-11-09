@@ -19,6 +19,7 @@ import { contasDaAdjudicacao, planoPadrao, type ParcelaPlano } from "@/lib/obra"
 import { resumoDeValores } from "@/lib/orcamento-calculos"
 import type { Orcamento, StatusOrcamento } from "@/lib/types"
 import { formatCurrency, formatNumber2, hojeLocal, round2 } from "@/lib/utils"
+import { t } from "@/lib/i18n"
 
 interface AdjudicacaoDialogProps {
   orcamento: Orcamento | null
@@ -73,10 +74,13 @@ export function AdjudicacaoDialog({ orcamento, orcamentos, onOpenChange, onAdjud
 
   const confirmar = async () => {
     if (!user || !orcamento.id) return
-    if (valor <= 0) return toast({ title: "Indique o valor adjudicado", variant: "destructive" })
-    if (sinal > valor) return toast({ title: "O sinal nao pode passar do valor adjudicado", variant: "destructive" })
+    if (valor <= 0) return toast({ title: t("Indique o valor adjudicado"), variant: "destructive" })
+    if (sinal > valor) return toast({ title: t("O sinal não pode ultrapassar o valor adjudicado"), variant: "destructive" })
     if (plano === "parcelas" && Math.abs(somaPercent - 100) > 0.01)
-      return toast({ title: `As parcelas somam ${formatNumber2(somaPercent)}%: tem de ser 100%`, variant: "destructive" })
+      return toast({
+        title: t("As parcelas somam {percentagem}%: têm de somar 100%", { percentagem: formatNumber2(somaPercent) }),
+        variant: "destructive",
+      })
 
     const alteracoes: Partial<Orcamento> = {
       status: "aceite" as StatusOrcamento,
@@ -87,7 +91,7 @@ export function AdjudicacaoDialog({ orcamento, orcamentos, onOpenChange, onAdjud
           estado: "aceite" as StatusOrcamento,
           data: new Date(),
           utilizador: user.email || user.uid,
-          nota: `Adjudicada por ${formatCurrency(valor)}${notas.trim() ? ` - ${notas.trim()}` : ""}`,
+          nota: t("Adjudicada por {valor}", { valor: formatCurrency(valor) }) + (notas.trim() ? ` - ${notas.trim()}` : ""),
         },
       ],
     }
@@ -115,15 +119,24 @@ export function AdjudicacaoDialog({ orcamento, orcamentos, onOpenChange, onAdjud
     setAGravar(true)
     try {
       await gravarAdjudicacao(orcamento.id, alteracoes, contas)
+      const passou = passarAObra && !jaEObra
+      const n = contas.length
       toast({
-        title: "Proposta adjudicada",
-        description: `${contas.length} conta(s) a receber criada(s)${passarAObra && !jaEObra ? " e passou a obra" : ""}.`,
+        title: t("Proposta adjudicada"),
+        description:
+          n === 1
+            ? passou
+              ? t("{n} conta a receber criada e passou a obra.", { n })
+              : t("{n} conta a receber criada.", { n })
+            : passou
+              ? t("{n} contas a receber criadas e passou a obra.", { n })
+              : t("{n} contas a receber criadas.", { n }),
       })
       onAdjudicado()
       onOpenChange(false)
     } catch (error) {
       console.error("Erro ao adjudicar:", error)
-      toast({ title: "Nao foi possivel adjudicar", variant: "destructive" })
+      toast({ title: t("Não foi possível adjudicar"), variant: "destructive" })
     } finally {
       setAGravar(false)
     }
@@ -133,35 +146,35 @@ export function AdjudicacaoDialog({ orcamento, orcamentos, onOpenChange, onAdjud
     <Dialog open={!!orcamento} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[620px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Adjudicar {numeroCompleto(orcamento, configuracao)}</DialogTitle>
+          <DialogTitle>{t("Adjudicar {numero}", { numero: numeroCompleto(orcamento, configuracao) })}</DialogTitle>
           <DialogDescription>
-            {orcamento.cliente.nome} aceitou. Registe o valor, o sinal e como se fatura o resto.
+            {t("{cliente} aceitou. Registe o valor, o sinal e como se fatura o resto.", { cliente: orcamento.cliente.nome })}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5">
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-1">
-              <Label>Data da adjudicacao</Label>
+              <Label>{t("Data da adjudicação")}</Label>
               <Input type="date" value={data} onChange={(e) => setData(e.target.value)} className="rounded-full" />
             </div>
             <div className="space-y-1">
-              <Label>Valor adjudicado (c/ IVA)</Label>
-              <CampoNumerico min={0} sufixo="EUR" value={valor} onChange={setValor} aria-label="Valor adjudicado" className="rounded-full" />
+              <Label>{t("Valor adjudicado (c/ IVA)")}</Label>
+              <CampoNumerico min={0} sufixo="EUR" value={valor} onChange={setValor} aria-label={t("Valor adjudicado")} className="rounded-full" />
             </div>
             <div className="space-y-1">
-              <Label>Sinal ja recebido</Label>
-              <CampoNumerico min={0} sufixo="EUR" value={sinal} onChange={setSinal} aria-label="Sinal" className="rounded-full" />
+              <Label>{t("Sinal já recebido")}</Label>
+              <CampoNumerico min={0} sufixo="EUR" value={sinal} onChange={setSinal} aria-label={t("Sinal")} className="rounded-full" />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label>Como se fatura o remanescente ({formatCurrency(round2(valor - sinal))})</Label>
+            <Label>{t("Como se fatura o remanescente ({valor})", { valor: formatCurrency(round2(valor - sinal)) })}</Label>
             <div className="grid gap-2 sm:grid-cols-2">
               {(
                 [
-                  ["parcelas", "Parcelas com data", "Ex.: 50% na adjudicacao e 50% na conclusao."],
-                  ["autos", "Por autos de medicao", "Fatura-se o que for medido em cada auto."],
+                  ["parcelas", t("Parcelas com data"), t("Ex.: 50% na adjudicação e 50% na conclusão.")],
+                  ["autos", t("Por autos de medição"), t("Fatura-se o que for medido em cada auto.")],
                 ] as const
               ).map(([id, titulo, ajuda]) => (
                 <button
@@ -183,11 +196,11 @@ export function AdjudicacaoDialog({ orcamento, orcamentos, onOpenChange, onAdjud
                 <div key={i} className="grid grid-cols-[1fr_90px_150px_auto] items-center gap-2">
                   <Input
                     value={p.descricao}
-                    aria-label="Descricao da parcela"
+                    aria-label={t("Descrição da parcela")}
                     onChange={(e) => alterarParcela(i, { descricao: e.target.value })}
                   />
-                  <CampoNumerico tamanho="sm" min={0} max={100} sufixo="%" aria-label="Percentagem" value={p.percent} onChange={(percent) => alterarParcela(i, { percent })} />
-                  <Input type="date" value={p.vencimento} aria-label="Vencimento" onChange={(e) => alterarParcela(i, { vencimento: e.target.value })} />
+                  <CampoNumerico tamanho="sm" min={0} max={100} sufixo="%" aria-label={t("Percentagem")} value={p.percent} onChange={(percent) => alterarParcela(i, { percent })} />
+                  <Input type="date" value={p.vencimento} aria-label={t("Vencimento")} onChange={(e) => alterarParcela(i, { vencimento: e.target.value })} />
                   <Button type="button" variant="ghost" size="icon" disabled={parcelas.length <= 1} onClick={() => setParcelas((a) => a.filter((_, j) => j !== i))}>
                     <X className="h-4 w-4" />
                   </Button>
@@ -199,13 +212,13 @@ export function AdjudicacaoDialog({ orcamento, orcamentos, onOpenChange, onAdjud
                   variant="outline"
                   size="sm"
                   className="rounded-full"
-                  onClick={() => setParcelas((a) => [...a, { descricao: `${a.length + 1}.a fatura`, percent: 0, vencimento: data }])}
+                  onClick={() => setParcelas((a) => [...a, { descricao: t("{n}.ª fatura", { n: a.length + 1 }), percent: 0, vencimento: data }])}
                 >
                   <Plus className="mr-1 h-3 w-3" />
-                  Parcela
+                  {t("Parcela")}
                 </Button>
                 <span className={`text-xs ${Math.abs(somaPercent - 100) > 0.01 ? "text-destructive font-medium" : "text-muted-foreground"}`}>
-                  Soma: {formatNumber2(somaPercent)}%
+                  {t("Soma: {percentagem}%", { percentagem: formatNumber2(somaPercent) })}
                 </span>
               </div>
             </div>
@@ -214,43 +227,43 @@ export function AdjudicacaoDialog({ orcamento, orcamentos, onOpenChange, onAdjud
           {!jaEObra && (
             <label className="flex items-center gap-2 text-sm">
               <Checkbox checked={passarAObra} onCheckedChange={(v) => setPassarAObra(v === true)} />
-              Passar ja a obra (o numero passa de concurso a obra)
+              {t("Passar já a obra (o número passa de concurso a obra)")}
             </label>
           )}
 
           <div className="space-y-1">
-            <Label>Notas (opcional)</Label>
+            <Label>{t("Notas (opcional)")}</Label>
             <Textarea value={notas} onChange={(e) => setNotas(e.target.value)} rows={2} />
           </div>
 
           <div className="rounded-lg bg-muted p-3 text-sm space-y-1" data-testid="previa-contas">
-            <div className="font-medium">Contas a receber que vao ser criadas</div>
+            <div className="font-medium">{t("Contas a receber que vão ser criadas")}</div>
             {previa.length === 0 ? (
-              <div className="text-xs text-muted-foreground">Nenhuma: o remanescente fatura-se pelos autos de medicao.</div>
+              <div className="text-xs text-muted-foreground">{t("Nenhuma: o remanescente fatura-se pelos autos de medição.")}</div>
             ) : (
               previa.map((c, i) => (
                 <div key={i} className="flex justify-between gap-2">
                   <span>
                     {c.descricao} · {c.vencimento.split("-").reverse().join("/")}
-                    {c.estado === "pago" && " · ja recebido"}
+                    {c.estado === "pago" && ` · ${t("já recebido")}`}
                   </span>
                   <span className="tabular-nums">{formatCurrency(c.valor)}</span>
                 </div>
               ))
             )}
             <p className="pt-1 text-xs text-muted-foreground">
-              O financeiro avisa 5 dias antes de cada vencimento.
+              {t("O financeiro avisa 5 dias antes de cada vencimento.")}
             </p>
           </div>
         </div>
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
+            {t("Cancelar")}
           </Button>
           <Button type="button" onClick={confirmar} disabled={aGravar} className="rounded-full">
             {aGravar && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Confirmar adjudicacao
+            {t("Confirmar adjudicação")}
           </Button>
         </div>
       </DialogContent>

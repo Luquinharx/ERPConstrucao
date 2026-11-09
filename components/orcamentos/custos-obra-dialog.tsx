@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast"
 import { updateOrcamento } from "@/lib/firebase-service"
 import { analisarCustoObra, prepararParaGravar, valoresVendidosDoOrcamento } from "@/lib/custos-obra"
 import type { LinhaCustoObra, Orcamento } from "@/lib/types"
+import { t } from "@/lib/i18n"
 
 interface CustosObraDialogProps {
   orcamento: Orcamento | null
@@ -67,15 +68,18 @@ export function CustosObraDialog({
       setLinhas(limpas)
       onGuardado?.(orcamento.id, limpas)
       toast({
-        title: "Custos da obra guardados",
-        description: `${limpas.length} ${limpas.length === 1 ? "linha lancada" : "linhas lancadas"}.`,
+        title: t("Custos da obra guardados"),
+        description:
+          limpas.length === 1
+            ? t("{n} linha lançada.", { n: limpas.length })
+            : t("{n} linhas lançadas.", { n: limpas.length }),
       })
       onOpenChange(false)
     } catch (erro) {
       console.error("Erro ao guardar custos da obra:", erro)
       toast({
-        title: "Nao foi possivel guardar",
-        description: "Verifique a ligacao e tente novamente.",
+        title: t("Não foi possível guardar"),
+        description: t("Verifique a ligação e tente novamente."),
         variant: "destructive",
       })
     } finally {
@@ -89,11 +93,11 @@ export function CustosObraDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[1100px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Custos reais da obra - {orcamento.numero}</DialogTitle>
+          <DialogTitle>{t("Custos reais da obra - {numero}", { numero: orcamento.numero })}</DialogTitle>
           <DialogDescription>
-            Lance aqui o que a obra gastou de facto. Escreva o valor da fatura (com IVA) e escolha a
-            taxa: o custo sem IVA e o IVA suportado sao calculados. Nao e preciso discriminar a fatura
-            linha a linha - uma linha com o total do documento chega.
+            {t(
+              "Lance aqui o que a obra gastou de facto. Escreva o valor da fatura (com IVA) e escolha a taxa: o custo sem IVA e o IVA suportado são calculados. Não é preciso discriminar a fatura linha a linha - uma linha com o total do documento chega.",
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -101,12 +105,12 @@ export function CustosObraDialog({
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Fechar
+            {t("Fechar")}
           </Button>
           {podeLancar && (
             <Button type="button" onClick={() => void guardar()} disabled={aGravar}>
               {aGravar && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Guardar custos
+              {t("Guardar custos")}
             </Button>
           )}
         </div>

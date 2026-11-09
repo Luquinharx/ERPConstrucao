@@ -14,6 +14,7 @@ import { usePermissoes } from "@/hooks/use-permissoes"
 import { toast } from "@/hooks/use-toast"
 import type { GrupoImpostos, IncidenciaImposto, RegraImposto } from "@/lib/types"
 import { formatNumber2, round2 } from "@/lib/utils"
+import { t } from "@/lib/i18n"
 
 const novoId = (prefixo: string) => `${prefixo}-${Date.now()}-${Math.round(Math.random() * 1000)}`
 
@@ -29,7 +30,7 @@ const novaRegra = (parcial: Partial<RegraImposto> = {}): RegraImposto => ({
 const novoGrupo = (): GrupoImpostos => ({
   id: novoId("grupo"),
   nome: "",
-  regras: [novaRegra({ nome: "IVA", percentual: 23, incidencia: "compra", recuperavel: true })],
+  regras: [novaRegra({ nome: t("IVA"), percentual: 23, incidencia: "compra", recuperavel: true })],
 })
 
 /**
@@ -63,7 +64,7 @@ export function GruposImpostos() {
   const gravar = async () => {
     const semNome = grupos.find((g) => !g.nome.trim())
     if (semNome) {
-      toast({ title: "Falta o nome", description: "Todos os grupos precisam de nome.", variant: "destructive" })
+      toast({ title: t("Falta o nome"), description: t("Todos os grupos precisam de nome."), variant: "destructive" })
       return
     }
     setAGravar(true)
@@ -76,16 +77,16 @@ export function GruposImpostos() {
             .filter((r) => r.nome.trim() || r.percentual > 0)
             .map((r) => ({
               id: r.id,
-              nome: r.nome.trim() || "Imposto",
+              nome: r.nome.trim() || t("Imposto"),
               percentual: round2(r.percentual),
               incidencia: r.incidencia,
               recuperavel: r.incidencia === "compra" && !!r.recuperavel,
             })),
         })),
       })
-      toast({ title: "Grupos de impostos gravados" })
+      toast({ title: t("Grupos de impostos guardados") })
     } catch {
-      toast({ title: "Nao foi possivel gravar", variant: "destructive" })
+      toast({ title: t("Não foi possível guardar"), variant: "destructive" })
     } finally {
       setAGravar(false)
     }
@@ -94,16 +95,27 @@ export function GruposImpostos() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Grupos de impostos</CardTitle>
+        <CardTitle>{t("Grupos de impostos")}</CardTitle>
         <CardDescription>
-          Cada produto escolhe um grupo. Impostos de <strong>compra</strong> entram no custo, exceto os recuperaveis
-          (ex.: IVA dedutivel), que so geram credito. Impostos de <strong>venda</strong> entram no preco: preco = custo
-          x (1 + margem) / (1 - % venda). O IVA cobrado ao cliente continua a ser somado no orcamento.
+          {/* A frase traduz-se inteira; {compra} e {venda} marcam as palavras a negrito */}
+          {t(
+            "Cada produto escolhe um grupo. Impostos de {compra} entram no custo, exceto os recuperáveis (ex.: IVA dedutível), que só geram crédito. Impostos de {venda} entram no preço: preço = custo x (1 + margem) / (1 - % venda). O IVA cobrado ao cliente continua a ser somado no orçamento.",
+          )
+            .split(/(\{compra\}|\{venda\})/)
+            .map((parte, i) =>
+              parte === "{compra}" ? (
+                <strong key={i}>{t("compra")}</strong>
+              ) : parte === "{venda}" ? (
+                <strong key={i}>{t("venda")}</strong>
+              ) : (
+                parte
+              ),
+            )}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {grupos.length === 0 && (
-          <p className="text-sm text-muted-foreground">Nenhum grupo. Crie, por exemplo, &quot;Material - IVA 23%&quot;.</p>
+          <p className="text-sm text-muted-foreground">{t("Nenhum grupo. Crie, por exemplo, \"Material - IVA 23%\".")}</p>
         )}
 
         {grupos.map((grupo) => {
@@ -119,8 +131,8 @@ export function GruposImpostos() {
                 <Input
                   value={grupo.nome}
                   onChange={(e) => alterarGrupo(grupo.id, { nome: e.target.value })}
-                  placeholder="Nome do grupo"
-                  aria-label="Nome do grupo"
+                  placeholder={t("Nome do grupo")}
+                  aria-label={t("Nome do grupo")}
                   disabled={!podeGerir}
                   className="font-medium"
                 />
@@ -129,10 +141,17 @@ export function GruposImpostos() {
                   variant="ghost"
                   size="icon"
                   disabled={!podeGerir}
-                  title="Apagar grupo"
+                  title={t("Eliminar grupo")}
                   onClick={() => {
                     // Produtos deste grupo ficam sem impostos ate escolherem outro
-                    if (!confirm(`Apagar o grupo "${grupo.nome || "sem nome"}"? Os produtos que o usam ficam sem impostos.`)) return
+                    if (
+                      !confirm(
+                        t("Eliminar o grupo \"{nome}\"? Os produtos que o usam ficam sem impostos.", {
+                          nome: grupo.nome || t("sem nome"),
+                        }),
+                      )
+                    )
+                      return
                     setGrupos((atual) => atual.filter((g) => g.id !== grupo.id))
                   }}
                   className="text-destructive"
@@ -150,8 +169,8 @@ export function GruposImpostos() {
                     <Input
                       value={regra.nome}
                       onChange={(e) => alterarRegra(grupo, regra.id, { nome: e.target.value })}
-                      placeholder="Imposto"
-                      aria-label="Nome do imposto"
+                      placeholder={t("Imposto")}
+                      aria-label={t("Nome do imposto")}
                       disabled={!podeGerir}
                       className="h-8"
                     />
@@ -160,12 +179,12 @@ export function GruposImpostos() {
                       disabled={!podeGerir}
                       onValueChange={(v) => alterarRegra(grupo, regra.id, { incidencia: v as IncidenciaImposto })}
                     >
-                      <SelectTrigger className="h-8" aria-label="Incidencia">
+                      <SelectTrigger className="h-8" aria-label={t("Incidência")}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="compra">Compra</SelectItem>
-                        <SelectItem value="venda">Venda</SelectItem>
+                        <SelectItem value="compra">{t("Compra")}</SelectItem>
+                        <SelectItem value="venda">{t("Venda")}</SelectItem>
                       </SelectContent>
                     </Select>
                     <CampoNumerico
@@ -173,7 +192,7 @@ export function GruposImpostos() {
                       min={0}
                       max={99}
                       sufixo="%"
-                      aria-label="Percentagem"
+                      aria-label={t("Percentagem")}
                       disabled={!podeGerir}
                       value={regra.percentual}
                       onChange={(percentual) => alterarRegra(grupo, regra.id, { percentual })}
@@ -184,7 +203,7 @@ export function GruposImpostos() {
                         disabled={!podeGerir || regra.incidencia === "venda"}
                         onCheckedChange={(v) => alterarRegra(grupo, regra.id, { recuperavel: v === true })}
                       />
-                      Recuperavel
+                      {t("Recuperável")}
                     </label>
                     <Button
                       type="button"
@@ -192,7 +211,7 @@ export function GruposImpostos() {
                       size="icon"
                       disabled={!podeGerir}
                       className="h-8 w-8"
-                      title="Remover imposto"
+                      title={t("Remover imposto")}
                       onClick={() => alterarGrupo(grupo.id, { regras: grupo.regras.filter((r) => r.id !== regra.id) })}
                     >
                       <X className="h-4 w-4" />
@@ -211,10 +230,13 @@ export function GruposImpostos() {
                   onClick={() => alterarGrupo(grupo.id, { regras: [...grupo.regras, novaRegra()] })}
                 >
                   <Plus className="mr-1 h-3 w-3" />
-                  Imposto
+                  {t("Imposto")}
                 </Button>
                 <span className="text-xs text-muted-foreground">
-                  No custo: {formatNumber2(compra)}% da compra · Na venda: {formatNumber2(venda)}% do preco
+                  {t("No custo: {compra}% da compra · Na venda: {venda}% do preço", {
+                    compra: formatNumber2(compra),
+                    venda: formatNumber2(venda),
+                  })}
                 </span>
               </div>
             </div>
@@ -230,11 +252,11 @@ export function GruposImpostos() {
             onClick={() => setGrupos((atual) => [...atual, novoGrupo()])}
           >
             <Plus className="mr-2 h-4 w-4" />
-            Novo grupo
+            {t("Novo grupo")}
           </Button>
           <Button type="button" onClick={gravar} disabled={!podeGerir || aGravar} className="rounded-full">
             {aGravar && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Gravar grupos
+            {t("Guardar grupos")}
           </Button>
         </div>
       </CardContent>

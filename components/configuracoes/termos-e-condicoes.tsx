@@ -21,19 +21,19 @@ import { Badge } from "@/components/ui/badge"
 import { Save, FileText, Eye, Edit, Plus, Trash2 } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { toast } from "@/hooks/use-toast"
-import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, where } from "firebase/firestore"
-import { db } from "@/lib/firebase"
+import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, db } from "@/lib/db/cliente"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { ListToolbar } from "@/components/ui/list-toolbar"
 import { useSearchQuery } from "@/hooks/use-search-query"
 import { matchesSearch } from "@/lib/utils"
 import { CONDICOES_GERAIS_MODELO } from "@/lib/condicoes-gerais"
 import { useConfiguracao } from "@/hooks/use-configuracao"
+import { t, m } from "@/lib/i18n"
 
 const TIPO_LABELS: Record<string, string> = {
-  termos: "Termos",
-  regras: "Regras",
-  condicoes: "Condições",
+  termos: m("Termos"),
+  regras: m("Regras"),
+  condicoes: m("Condições"),
 }
 
 interface TermoServico {
@@ -85,9 +85,9 @@ export function TermosECondicoes() {
     setGuardandoNotas(true)
     try {
       await guardar({ notasOrcamento: notas.filter((nota) => nota.trim()) })
-      toast({ title: "Notas guardadas", description: "Passam a sair no rodape das propostas." })
+      toast({ title: t("Notas guardadas"), description: t("Passam a sair no rodapé das propostas.") })
     } catch (error) {
-      toast({ title: "Erro ao guardar notas", description: "Tente novamente.", variant: "destructive" })
+      toast({ title: t("Erro ao guardar as notas"), description: t("Tente novamente."), variant: "destructive" })
     } finally {
       setGuardandoNotas(false)
     }
@@ -96,7 +96,14 @@ export function TermosECondicoes() {
   /** Carrega as Condicoes Gerais da empresa como ponto de partida. */
   const carregarCondicoesGerais = async () => {
     if (!user) return
-    if (!confirm(`Vao ser criados ${CONDICOES_GERAIS_MODELO.length} pontos das Condicoes Gerais. Os termos que ja existem nao sao apagados. Continuar?`)) return
+    if (
+      !confirm(
+        t("Vão ser criados {n} pontos das Condições Gerais. Os termos que já existem não são eliminados. Continuar?", {
+          n: CONDICOES_GERAIS_MODELO.length,
+        }),
+      )
+    )
+      return
 
     setCarregandoModelo(true)
     try {
@@ -114,12 +121,12 @@ export function TermosECondicoes() {
         ),
       )
       toast({
-        title: "Condicoes Gerais carregadas",
-        description: `${CONDICOES_GERAIS_MODELO.length} pontos criados. Edite o que precisar.`,
+        title: t("Condições Gerais carregadas"),
+        description: t("{n} pontos criados. Edite o que precisar.", { n: CONDICOES_GERAIS_MODELO.length }),
       })
       await loadTermos()
     } catch (error) {
-      toast({ title: "Erro ao carregar", description: "Nao foi possivel criar os termos.", variant: "destructive" })
+      toast({ title: t("Erro ao carregar"), description: t("Não foi possível criar os termos."), variant: "destructive" })
     } finally {
       setCarregandoModelo(false)
     }
@@ -153,8 +160,8 @@ export function TermosECondicoes() {
     } catch (error) {
       console.error("Erro ao carregar termos:", error)
       toast({
-        title: "Erro ao carregar termos",
-        description: "Não foi possível carregar os termos de serviço.",
+        title: t("Erro ao carregar os termos"),
+        description: t("Não foi possível carregar os termos de serviço."),
         variant: "destructive",
       })
     } finally {
@@ -174,8 +181,8 @@ export function TermosECondicoes() {
           updatedAt: new Date(),
         })
         toast({
-          title: "Termo atualizado",
-          description: "O termo foi atualizado com sucesso.",
+          title: t("Termo atualizado"),
+          description: t("O termo foi atualizado com sucesso."),
         })
       } else {
         await addDoc(collection(db, "termos_servico"), {
@@ -185,8 +192,8 @@ export function TermosECondicoes() {
           updatedAt: new Date(),
         })
         toast({
-          title: "Termo criado",
-          description: "O termo foi criado com sucesso.",
+          title: t("Termo criado"),
+          description: t("O termo foi criado com sucesso."),
         })
       }
 
@@ -196,8 +203,8 @@ export function TermosECondicoes() {
     } catch (error) {
       console.error("Erro ao salvar termo:", error)
       toast({
-        title: "Erro ao salvar termo",
-        description: "Não foi possível salvar o termo.",
+        title: t("Erro ao guardar o termo"),
+        description: t("Não foi possível guardar o termo."),
         variant: "destructive",
       })
     } finally {
@@ -218,20 +225,20 @@ export function TermosECondicoes() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Tem certeza que deseja excluir este termo?")) return
+    if (!confirm(t("Tem a certeza de que quer eliminar este termo?"))) return
 
     try {
       await deleteDoc(doc(db, "termos_servico", id))
       toast({
-        title: "Termo excluído",
-        description: "O termo foi excluído com sucesso.",
+        title: t("Termo eliminado"),
+        description: t("O termo foi eliminado com sucesso."),
       })
       await loadTermos()
     } catch (error) {
       console.error("Erro ao excluir termo:", error)
       toast({
-        title: "Erro ao excluir termo",
-        description: "Não foi possível excluir o termo.",
+        title: t("Erro ao eliminar o termo"),
+        description: t("Não foi possível eliminar o termo."),
         variant: "destructive",
       })
     }
@@ -252,8 +259,8 @@ export function TermosECondicoes() {
     matchesSearch(searchTerm, [
       termo.titulo,
       termo.conteudo,
-      TIPO_LABELS[termo.tipo],
-      termo.ativo ? "ativo" : "inativo",
+      t(TIPO_LABELS[termo.tipo]),
+      termo.ativo ? t("ativo") : t("inativo"),
     ]),
   )
 
@@ -264,17 +271,17 @@ export function TermosECondicoes() {
    * outra por cima, que era o que fazia sair "1. 1.1 Recursos Humanos".
    */
   const generatePreview = () => {
-    const termosAtivos = termos.filter((t) => t.ativo)
+    const termosAtivos = termos.filter((x) => x.ativo)
     const seccoes = [
-      { titulo: "1. Inclusoes", itens: termosAtivos.filter((t) => t.tipo === "termos") },
-      { titulo: "2. Exclusoes", itens: termosAtivos.filter((t) => t.tipo === "regras") },
-      { titulo: "3. Condicoes gerais", itens: termosAtivos.filter((t) => t.tipo === "condicoes") },
+      { titulo: t("1. Inclusões"), itens: termosAtivos.filter((x) => x.tipo === "termos") },
+      { titulo: t("2. Exclusões"), itens: termosAtivos.filter((x) => x.tipo === "regras") },
+      { titulo: t("3. Condições gerais"), itens: termosAtivos.filter((x) => x.tipo === "condicoes") },
     ].filter((seccao) => seccao.itens.length > 0)
 
     return (
       <div className="space-y-5 bg-white p-6 text-black max-h-[70vh] overflow-y-auto">
         <div className="flex items-center justify-between gap-4 border-b pb-3">
-          <h1 className="text-lg font-bold">Condicoes gerais da {configuracao.nome}</h1>
+          <h1 className="text-lg font-bold">{t("Condições gerais da {empresa}", { empresa: configuracao.nome })}</h1>
           {configuracao.logoUrl && (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={configuracao.logoUrl} alt={configuracao.nome} className="max-h-10 w-auto object-contain" />
@@ -294,7 +301,7 @@ export function TermosECondicoes() {
         ))}
 
         {seccoes.length === 0 && (
-          <p className="text-sm text-gray-500">Nenhum termo ativo. Ative pelo menos um para aparecer na proposta.</p>
+          <p className="text-sm text-gray-500">{t("Nenhum termo ativo. Ative pelo menos um para aparecer na proposta.")}</p>
         )}
       </div>
     )
@@ -303,11 +310,11 @@ export function TermosECondicoes() {
   const getTipoLabel = (tipo: string) => {
     switch (tipo) {
       case "termos":
-        return "Termos"
+        return t("Termos")
       case "regras":
-        return "Regras"
+        return t("Regras")
       case "condicoes":
-        return "Condições"
+        return t("Condições")
       default:
         return tipo
     }
@@ -338,7 +345,7 @@ export function TermosECondicoes() {
     <div className="space-y-6">
       <div className="flex flex-wrap justify-between items-center gap-3">
         <p className="text-sm text-muted-foreground">
-          Os termos ativos são anexados a cada proposta, depois das notas.
+          {t("Os termos ativos são anexados a cada proposta, depois das notas.")}
         </p>
         <div className="flex flex-wrap gap-2">
           <Button
@@ -348,11 +355,11 @@ export function TermosECondicoes() {
             className="rounded-full bg-transparent"
           >
             <FileText className="h-4 w-4 mr-2" />
-            {carregandoModelo ? "A carregar..." : "Carregar Condições Gerais"}
+            {carregandoModelo ? t("A carregar...") : t("Carregar Condições Gerais")}
           </Button>
           <Button variant="outline" onClick={() => setShowPreview(true)} className="rounded-full bg-transparent">
             <Eye className="h-4 w-4 mr-2" />
-            Pré-visualizar
+            {t("Pré-visualizar")}
           </Button>
           <Button
             onClick={() => {
@@ -362,7 +369,7 @@ export function TermosECondicoes() {
             className="rounded-full"
           >
             <Plus className="h-4 w-4 mr-2" />
-            Novo termo
+            {t("Novo termo")}
           </Button>
         </div>
       </div>
@@ -372,8 +379,13 @@ export function TermosECondicoes() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b">
-              <h2 className="text-lg font-semibold text-black">Pré-visualização dos Termos</h2>
-              <Button variant="ghost" onClick={() => setShowPreview(false)} className="text-black hover:bg-gray-100">
+              <h2 className="text-lg font-semibold text-black">{t("Pré-visualização dos termos")}</h2>
+              <Button
+                variant="ghost"
+                onClick={() => setShowPreview(false)}
+                aria-label={t("Fechar")}
+                className="text-black hover:bg-gray-100"
+              >
                 ✕
               </Button>
             </div>
@@ -387,16 +399,16 @@ export function TermosECondicoes() {
       <Dialog open={formAberto} onOpenChange={(aberto) => { if (!aberto) { setFormAberto(false); resetForm() } }}>
         <DialogContent className="sm:max-w-[640px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingTermo ? "Editar termo" : "Novo termo"}</DialogTitle>
+            <DialogTitle>{editingTermo ? t("Editar termo") : t("Novo termo")}</DialogTitle>
             <DialogDescription>
-              {editingTermo ? "Atualize o termo selecionado." : "Adicione um novo termo ou condição."}
+              {editingTermo ? t("Atualize o termo selecionado.") : t("Adicione um novo termo ou condição.")}
             </DialogDescription>
           </DialogHeader>
         <div>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="tipo">Tipo</Label>
+                  <Label htmlFor="tipo">{t("Tipo")}</Label>
                   <select
                     id="tipo"
                     value={formData.tipo}
@@ -404,13 +416,13 @@ export function TermosECondicoes() {
                     className="w-full p-2 border rounded-full"
                     required
                   >
-                    <option value="termos">Termos de Serviço</option>
-                    <option value="regras">Regras e Políticas</option>
-                    <option value="condicoes">Condições Gerais</option>
+                    <option value="termos">{t("Termos de serviço")}</option>
+                    <option value="regras">{t("Regras e políticas")}</option>
+                    <option value="condicoes">{t("Condições gerais")}</option>
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="ordem">Ordem</Label>
+                  <Label htmlFor="ordem">{t("Ordem")}</Label>
                   <CampoNumerico
                     id="ordem"
                     min={1}
@@ -423,24 +435,24 @@ export function TermosECondicoes() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="titulo">Título</Label>
+                <Label htmlFor="titulo">{t("Título")}</Label>
                 <Input
                   id="titulo"
                   value={formData.titulo}
                   onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
-                  placeholder="Ex: Prazo de Execução"
+                  placeholder={t("Ex.: Prazo de execução")}
                   className="rounded-full"
                   required
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="conteudo">Conteúdo</Label>
+                <Label htmlFor="conteudo">{t("Conteúdo")}</Label>
                 <Textarea
                   id="conteudo"
                   value={formData.conteudo}
                   onChange={(e) => setFormData({ ...formData, conteudo: e.target.value })}
-                  placeholder="Descreva o termo ou condição..."
+                  placeholder={t("Descreva o termo ou condição...")}
                   rows={6}
                   required
                 />
@@ -452,24 +464,25 @@ export function TermosECondicoes() {
                   checked={formData.ativo}
                   onCheckedChange={(checked) => setFormData({ ...formData, ativo: checked })}
                 />
-                <Label htmlFor="ativo">Termo ativo (será incluído nos orçamentos)</Label>
+                <Label htmlFor="ativo">{t("Termo ativo (será incluído nos orçamentos)")}</Label>
               </div>
 
               <div className="flex justify-end space-x-2 pt-4">
                 {editingTermo && (
                   <Button type="button" variant="outline" onClick={resetForm}>
-                    Cancelar
+                    {t("Cancelar")}
                   </Button>
                 )}
                 <Button type="submit" disabled={loading} className="rounded-full">
                   {loading ? (
                     <>
-                      <LoadingSpinner size="sm" className="mr-2" />A guardar...
+                      <LoadingSpinner size="sm" className="mr-2" />
+                      {t("A guardar...")}
                     </>
                   ) : (
                     <>
                       <Save className="h-4 w-4 mr-2" />
-                      {editingTermo ? "Atualizar" : "Criar"}
+                      {editingTermo ? t("Atualizar") : t("Criar")}
                     </>
                   )}
                 </Button>
@@ -484,9 +497,9 @@ export function TermosECondicoes() {
         {/* Notas da proposta: vivem na configuracao da empresa, editam-se aqui */}
         <Card>
           <CardHeader>
-            <CardTitle>Notas da proposta</CardTitle>
+            <CardTitle>{t("Notas da proposta")}</CardTitle>
             <CardDescription>
-              Saem numeradas no rodapé de cada proposta, antes das condições. Uma nota por linha.
+              {t("Saem numeradas no rodapé de cada proposta, antes das condições. Uma nota por linha.")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -494,15 +507,19 @@ export function TermosECondicoes() {
               rows={7}
               value={notas.join("\n")}
               onChange={(e) => setNotas(e.target.value.split("\n"))}
-              placeholder="Condições de pagamento, validade da proposta, IVA..."
+              placeholder={t("Condições de pagamento, validade da proposta, IVA...")}
             />
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs text-muted-foreground">
-                {notas.filter((nota) => nota.trim()).length} nota(s). Também editável em Configurações.
+                {notas.filter((nota) => nota.trim()).length === 1
+                  ? t("{n} nota. Também editável em Configurações.", { n: 1 })
+                  : t("{n} notas. Também editável em Configurações.", {
+                      n: notas.filter((nota) => nota.trim()).length,
+                    })}
               </p>
               <Button onClick={guardarNotas} disabled={guardandoNotas} className="rounded-full">
                 <Save className="h-4 w-4 mr-2" />
-                {guardandoNotas ? "A guardar..." : "Guardar notas"}
+                {guardandoNotas ? t("A guardar...") : t("Guardar notas")}
               </Button>
             </div>
           </CardContent>
@@ -511,9 +528,12 @@ export function TermosECondicoes() {
         {/* Lista de Termos */}
         <Card>
           <CardHeader>
-            <CardTitle>Termos Cadastrados</CardTitle>
+            <CardTitle>{t("Termos registados")}</CardTitle>
             <CardDescription>
-              {termos.filter((t) => t.ativo).length} termos ativos de {termos.length} total
+              {t("{ativos} termos ativos de {total} no total", {
+                ativos: termos.filter((x) => x.ativo).length,
+                total: termos.length,
+              })}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -522,7 +542,7 @@ export function TermosECondicoes() {
                 searchTerm={searchTerm}
                 onSearchChange={setSearchTerm}
                 onClear={clearSearch}
-                placeholder="Pesquisar termos por titulo, conteudo ou tipo..."
+                placeholder={t("Pesquisar termos por título, conteúdo ou tipo...")}
                 resultCount={filteredTermos.length}
                 totalCount={termos.length}
               />
@@ -530,16 +550,19 @@ export function TermosECondicoes() {
             <div className="space-y-4 max-h-[620px] overflow-y-auto pr-1">
               {filteredTermos.length > 0 ? (
                 (["termos", "regras", "condicoes"] as const)
-                  .map((tipo) => ({ tipo, lista: filteredTermos.filter((t) => t.tipo === tipo) }))
+                  .map((tipo) => ({ tipo, lista: filteredTermos.filter((x) => x.tipo === tipo) }))
                   .filter(({ lista }) => lista.length > 0)
                   .map(({ tipo, lista }) => (
                     <div key={tipo} className="space-y-2">
                       <div className="sticky top-0 z-10 flex items-center justify-between bg-card/95 py-1 backdrop-blur">
                         <span className="text-xs font-semibold uppercase tracking-wide text-primary">
-                          {TIPO_LABELS[tipo]}
+                          {t(TIPO_LABELS[tipo])}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          {lista.filter((t) => t.ativo).length} de {lista.length} ativos
+                          {t("{ativos} de {total} ativos", {
+                            ativos: lista.filter((x) => x.ativo).length,
+                            total: lista.length,
+                          })}
                         </span>
                       </div>
                       {lista.map((termo) => (
@@ -551,7 +574,7 @@ export function TermosECondicoes() {
                           <span className="text-xs text-muted-foreground">#{termo.ordem}</span>
                           {termo.ativo && (
                             <Badge variant="outline" className="text-xs">
-                              Ativo
+                              {t("Ativo")}
                             </Badge>
                           )}
                         </div>
@@ -559,12 +582,21 @@ export function TermosECondicoes() {
                         <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{termo.conteudo}</p>
                       </div>
                       <div className="flex space-x-1 ml-2">
-                        <Button variant="ghost" size="icon" onClick={() => handleEdit(termo)} className="h-8 w-8">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEdit(termo)}
+                          title={t("Editar")}
+                          aria-label={t("Editar")}
+                          className="h-8 w-8"
+                        >
                           <Edit className="h-3 w-3" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
+                          title={t("Eliminar")}
+                          aria-label={t("Eliminar")}
                           onClick={() => handleDelete(termo.id!)}
                           className="h-8 w-8 text-destructive hover:text-destructive"
                         >
@@ -580,16 +612,16 @@ export function TermosECondicoes() {
                 <div className="text-center py-8">
                   <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <h3 className="text-lg font-medium mb-2">
-                    {termos.length > 0 ? "Nenhum termo encontrado" : "Nenhum termo cadastrado"}
+                    {termos.length > 0 ? t("Nenhum termo encontrado") : t("Nenhum termo registado")}
                   </h3>
                   <p className="text-muted-foreground text-center mb-4">
                     {termos.length > 0
-                      ? `Nenhum resultado para "${searchTerm}".`
-                      : "Comece criando termos e condições para seus orçamentos."}
+                      ? t("Nenhum resultado para \"{pesquisa}\".", { pesquisa: searchTerm })
+                      : t("Comece por criar termos e condições para os seus orçamentos.")}
                   </p>
                   {termos.length > 0 && (
                     <Button onClick={clearSearch} variant="outline" className="rounded-full">
-                      Limpar pesquisa
+                      {t("Limpar pesquisa")}
                     </Button>
                   )}
                 </div>

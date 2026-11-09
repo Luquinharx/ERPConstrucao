@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt">
+<html lang="pt-PT">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -8,14 +8,14 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: manual de obra. Coluna de leitura larga, capitulos com o video ao lado dos passos; tudo empilha no telemovel. */
+/* Layout: manual de obra. Coluna de leitura larga, capítulos com o vídeo ao lado dos passos; tudo empilha no telemóvel. */
 :root {
   --chao: #f4f3f0;        /* fundo, papel de obra */
-  --placa: #ffffff;       /* superficies */
+  --placa: #ffffff;       /* superfícies */
   --tinta: #1d2126;       /* texto */
-  --apagado: #5d646d;     /* texto secundario */
+  --apagado: #5d646d;     /* texto secundário */
   --risco: #dcd8d1;       /* linhas */
-  --laranja: #e8650f;     /* acento: cor de sinalizacao */
+  --laranja: #e8650f;     /* acento: cor de sinalização */
   --laranja-suave: #fbe7d8;
   --verde: #1f7a4d;
   --vermelho: #b42318;
@@ -46,6 +46,12 @@ a { color: var(--laranja); }
 .rotulo { font: 600 .78rem/1 var(--corpo); text-transform: uppercase; letter-spacing: .12em; color: var(--laranja); }
 .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 
+/* Seletor de idioma */
+.idiomas { max-width: 1120px; margin: 0 auto; padding: 16px max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px)); display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.idiomas button { font: 500 .88rem/1.2 var(--corpo); color: var(--tinta); background: var(--placa); border: 1px solid var(--risco); border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+.idiomas button:hover, .idiomas button:focus-visible { border-color: var(--laranja); outline: none; }
+.idiomas button[aria-pressed="true"] { background: var(--laranja-suave); border-color: var(--laranja); color: var(--laranja); font-weight: 600; }
+
 /* Abertura */
 .abertura { display: grid; gap: 18px; border-left: 6px solid var(--laranja); padding-left: 22px; }
 .abertura p { color: var(--apagado); font-size: 1.1rem; }
@@ -70,7 +76,7 @@ th { font: 600 .78rem/1.2 var(--corpo); text-transform: uppercase; letter-spacin
 tr:last-child td { border-bottom: 0; }
 td.v { text-align: right; white-space: nowrap; font-family: var(--mono); font-variant-numeric: tabular-nums; }
 
-/* Capitulos */
+/* Capítulos */
 .capitulo { display: grid; gap: 18px; scroll-margin-top: 20px; }
 .capitulo > header { display: grid; gap: 8px; }
 .capitulo > header p { color: var(--apagado); }
@@ -103,42 +109,64 @@ hr { border: 0; border-top: 1px solid var(--risco); margin: 0; }
 </head>
 <body>
 
+<!--
+  Manual em três idiomas: pt-PT, pt-BR e en (inglês, ortografia britânica).
+  Cada idioma é um <template data-idioma="..."> completo, mais abaixo; o script copia para #manual
+  só o idioma ativo (os templates são inertes: não carregam vídeos nem duplicam ids).
+  Para alterar um texto, altere-o nos três templates. Vocabulário: lib/i18n/GLOSSARIO.md.
+  O idioma vem do cookie erp_idioma (o mesmo do sistema) ou, sem cookie, do browser.
+-->
+
+<nav class="idiomas" id="idiomas" aria-label="Idioma">
+  <button type="button" data-id="pt-PT" lang="pt-PT">🇵🇹 Português (Portugal)</button>
+  <button type="button" data-id="pt-BR" lang="pt-BR">🇧🇷 Português (Brasil)</button>
+  <button type="button" data-id="en" lang="en">🌐 English</button>
+</nav>
+
+<div id="manual"></div>
+
+<noscript>
+  <div class="pagina"><p lang="pt">Ative o JavaScript para ver o manual.</p><p lang="en">Please enable JavaScript to view the manual.</p></div>
+</noscript>
+
+<!-- ===================================================== pt-PT ===================================================== -->
+<template data-idioma="pt-PT">
 <div class="pagina">
 
   <section class="abertura">
-    <span class="rotulo">ERP TecKnowHow · manual de utilizacao</span>
-    <h1>Da proposta a garantia, numa so obra</h1>
-    <p>Este manual mostra como o sistema substitui a folha de obra (MQT, M.Calculo e Lista de custos). Cada capitulo tem um video gravado no sistema real, os passos e o que acontece em cada situacao. Os numeros de exemplo sao os da obra de demonstracao <span class="num">O26/0002</span> (DEMO Cliente Silva).</p>
+    <span class="rotulo">ERP TecKnowHow · manual de utilização</span>
+    <h1>Da proposta à garantia, numa só obra</h1>
+    <p>Este manual mostra como o sistema substitui a folha de obra (MQT, M.Cálculo e Lista de custos). Cada capítulo tem um vídeo gravado no sistema real, os passos e o que acontece em cada situação. Os números de exemplo são os da obra de demonstração <span class="num">O26/0002</span> (DEMO Cliente Silva).</p>
     <a class="entrar" href="/login">Entrar no sistema</a>
-    <nav class="indice" aria-label="Capitulos">
+    <nav class="indice" aria-label="Capítulos">
       <a href="#fluxo">O fluxo</a>
-      <a href="#numeros">De onde vem cada numero</a>
-      <a href="#catalogo">1 Catalogo</a>
-      <a href="#orcamento">2 Orcamento</a>
-      <a href="#adjudicacao">3 Adjudicacao</a>
+      <a href="#numeros">De onde vem cada número</a>
+      <a href="#catalogo">1 Catálogo</a>
+      <a href="#orcamento">2 Orçamento</a>
+      <a href="#adjudicacao">3 Adjudicação</a>
       <a href="#autos">4 Autos e pagamentos</a>
       <a href="#custo">5 Custo real</a>
-      <a href="#telemovel">6 Telemovel</a>
+      <a href="#telemovel">6 Telemóvel</a>
       <a href="#apuramento">7 Apuramento e portal</a>
       <a href="#ponto">8 Picagem de ponto</a>
-      <a href="#situacoes">Situacoes</a>
-      <a href="#permissoes">Quem faz o que</a>
-      <a href="#glossario">Glossario</a>
+      <a href="#situacoes">Situações</a>
+      <a href="#permissoes">Quem faz o quê</a>
+      <a href="#glossario">Glossário</a>
     </nav>
   </section>
 
   <section id="fluxo" class="capitulo">
     <header>
-      <span class="rotulo">A sistematica</span>
+      <span class="rotulo">A sistemática</span>
       <h2>O fluxo de uma obra</h2>
-      <p>Cada custo entra onde nasce, uma vez. Nada se volta a escrever numa folha a parte: o apuramento final junta tudo sozinho.</p>
+      <p>Cada custo entra onde nasce, uma vez. Nada se volta a escrever numa folha à parte: o apuramento final junta tudo sozinho.</p>
     </header>
     <div class="fluxo">
-      <div class="etapa"><span class="passo">1</span><b>Catalogo</b><span>Produtos, funcoes, funcionarios e servicos com composicao.</span></div>
-      <div class="etapa"><span class="passo">2</span><b>Orcamento</b><span>Comodos com medidas, itens da composicao, preco por especialidade.</span></div>
-      <div class="etapa"><span class="passo">3</span><b>Adjudicacao</b><span>Sinal, parcelas, passa a obra. Contas a receber criadas.</span></div>
-      <div class="etapa"><span class="passo">4</span><b>Execucao</b><span>Estoque bipado, livro de ponto, faturas, diario.</span></div>
-      <div class="etapa"><span class="passo">5</span><b>Faturacao</b><span>Autos de medicao e parcelas. Alertas de vencimento.</span></div>
+      <div class="etapa"><span class="passo">1</span><b>Catálogo</b><span>Produtos, funções, funcionários e serviços com composição.</span></div>
+      <div class="etapa"><span class="passo">2</span><b>Orçamento</b><span>Divisões com medidas, itens da composição, preço por especialidade.</span></div>
+      <div class="etapa"><span class="passo">3</span><b>Adjudicação</b><span>Sinal, parcelas, passagem a obra. Contas a receber criadas.</span></div>
+      <div class="etapa"><span class="passo">4</span><b>Execução</b><span>Stock lido por código de barras, livro de ponto, faturas, diário.</span></div>
+      <div class="etapa"><span class="passo">5</span><b>Faturação</b><span>Autos de medição e parcelas. Alertas de vencimento.</span></div>
       <div class="etapa"><span class="passo">6</span><b>Fecho</b><span>Apuramento previsto x real, portal do cliente, garantia.</span></div>
     </div>
   </section>
@@ -146,23 +174,23 @@ hr { border: 0; border-top: 1px solid var(--risco); margin: 0; }
   <section id="numeros" class="capitulo">
     <header>
       <span class="rotulo">Rastreabilidade</span>
-      <h2>De onde vem cada numero</h2>
-      <p>Se um numero parecer errado, e aqui que se procura. Nenhum valor e escrito duas vezes.</p>
+      <h2>De onde vem cada número</h2>
+      <p>Se um número parecer errado, é aqui que se procura. Nenhum valor é escrito duas vezes.</p>
     </header>
     <div class="tabela">
       <table>
-        <thead><tr><th>Numero</th><th>Vem de</th><th>Onde se muda</th></tr></thead>
+        <thead><tr><th>Número</th><th>Vem de</th><th>Onde se muda</th></tr></thead>
         <tbody>
-          <tr><td>Custo de um material</td><td>Preco de compra + impostos que nao se recuperam + outros custos</td><td><span class="menu">Produtos</span></td></tr>
-          <tr><td>Custo/hora de mao de obra</td><td>Ficha do funcionario (salario, encargos, seguro, subsidios)</td><td><span class="menu">Funcionarios</span></td></tr>
-          <tr><td>Custo de um servico</td><td>Composicao: horas x custo/hora + materiais + aluguer, vazadouro, transporte, extras, ao preco de hoje do catalogo</td><td><span class="menu">Servicos</span></td></tr>
-          <tr><td>Quantidade de um item</td><td>Dimensoes do comodo (teto, pavimento, paredes sem aberturas, perimetro) ou escrita a mao</td><td><span class="menu">Orcamento &gt; Itens</span></td></tr>
-          <tr><td>Preco ao cliente</td><td>Custo x (1 + estrutura + margem da especialidade)</td><td><span class="menu">Configuracoes &gt; Precos</span></td></tr>
-          <tr><td>Taxa de IVA</td><td>Sugerida pelo contexto fiscal (regiao, tipo de obra, cliente, operacao)</td><td><span class="menu">Orcamento &gt; Preco</span></td></tr>
-          <tr><td>Contas a receber</td><td>Adjudicacao (sinal e parcelas) e autos de medicao aprovados</td><td><span class="menu">Obra &gt; Pagamentos</span></td></tr>
-          <tr><td>Material real da obra</td><td>Saidas de estoque para a obra, menos o que voltou</td><td><span class="menu">Estoque &gt; Bipar</span></td></tr>
-          <tr><td>Mao de obra real</td><td>Horas aprovadas no livro de ponto (o diario de obra tambem as cria)</td><td><span class="menu">Livro de ponto</span></td></tr>
-          <tr><td>Terceiros, aluguer, transporte</td><td>Faturas de fornecedor aprovadas e despesas rapidas</td><td><span class="menu">Faturas</span></td></tr>
+          <tr><td>Custo de um material</td><td>Preço de compra + impostos que não se recuperam + outros custos</td><td><span class="menu">Produtos</span></td></tr>
+          <tr><td>Custo/hora de mão de obra</td><td>Ficha do funcionário (salário, encargos, seguro, subsídios)</td><td><span class="menu">Funcionários</span></td></tr>
+          <tr><td>Custo de um serviço</td><td>Composição: horas x custo/hora + materiais + aluguer, vazadouro, transporte, extras, ao preço atual do catálogo</td><td><span class="menu">Serviços</span></td></tr>
+          <tr><td>Quantidade de um item</td><td>Dimensões da divisão (teto, pavimento, paredes sem aberturas, perímetro) ou escrita à mão</td><td><span class="menu">Orçamento &gt; Itens</span></td></tr>
+          <tr><td>Preço ao cliente</td><td>Custo x (1 + estrutura + margem da especialidade)</td><td><span class="menu">Configurações &gt; Preços</span></td></tr>
+          <tr><td>Taxa de IVA</td><td>Sugerida pelo contexto fiscal (região, tipo de obra, cliente, operação)</td><td><span class="menu">Orçamento &gt; Preço</span></td></tr>
+          <tr><td>Contas a receber</td><td>Adjudicação (sinal e parcelas) e autos de medição aprovados</td><td><span class="menu">Obra &gt; Pagamentos</span></td></tr>
+          <tr><td>Material real da obra</td><td>Saídas de stock para a obra, menos o que voltou</td><td><span class="menu">Stock &gt; Ler código de barras</span></td></tr>
+          <tr><td>Mão de obra real</td><td>Horas aprovadas no livro de ponto (o diário de obra também as cria)</td><td><span class="menu">Livro de ponto</span></td></tr>
+          <tr><td>Terceiros, aluguer, transporte</td><td>Faturas de fornecedor aprovadas e despesas rápidas</td><td><span class="menu">Faturas</span></td></tr>
         </tbody>
       </table>
     </div>
@@ -172,133 +200,133 @@ hr { border: 0; border-top: 1px solid var(--risco); margin: 0; }
 
   <section id="catalogo" class="capitulo">
     <header>
-      <span class="rotulo">Capitulo 1 · faz-se uma vez</span>
-      <h2>Catalogo: precos, produtos e servicos</h2>
-      <p>O orcamento so e tao certo como o catalogo. Prepara-se uma vez e depois so se mantem os precos.</p>
+      <span class="rotulo">Capítulo 1 · faz-se uma vez</span>
+      <h2>Catálogo: preços, produtos e serviços</h2>
+      <p>O orçamento só é tão certo como o catálogo. Prepara-se uma vez e depois só se mantêm os preços.</p>
     </header>
     <div class="duas">
-      <video controls preload="metadata" playsinline src="/manual/video/01-catalogo.webm" aria-label="Video do capitulo 1"></video>
+      <video controls preload="metadata" playsinline src="/manual/video/01-catalogo.webm" aria-label="Vídeo do capítulo 1"></video>
       <div class="caixa">
         <ol class="passos">
-          <li><span><span class="menu">Configuracoes &gt; Precos</span>: estrutura (o "FI Estrutura" da folha, 15%) e a margem de cada especialidade: Construcao civil 15%, Aguas, Gas, Eletricidade, AVAC e SCIE 25%.</span></li>
-          <li><span><span class="menu">Configuracoes &gt; Impostos</span>: grupos de impostos. O IVA dedutivel marca-se como recuperavel e nao entra no custo.</span></li>
-          <li><span><span class="menu">Produtos &gt; Novo Produto</span>: preco de compra, grupo de impostos, margem e preco de venda. Ligue "Controlar estoque" e ponha o codigo de barras de fabrica se houver.</span></li>
-          <li><span><span class="menu">Servicos &gt; Novo Servico</span>: escolha a especialidade e a medicao (ex.: pintura de teto mede o teto). Na composicao, cada linha puxa de um produto, funcionario ou funcao.</span></li>
+          <li><span><span class="menu">Configurações &gt; Preços</span>: estrutura (o "FI Estrutura" da folha, 15%) e a margem de cada especialidade: Construção civil 15%, Águas, Gás, Eletricidade, AVAC e SCIE 25%.</span></li>
+          <li><span><span class="menu">Configurações &gt; Impostos</span>: grupos de impostos. O IVA dedutível marca-se como recuperável e não entra no custo.</span></li>
+          <li><span><span class="menu">Produtos &gt; Novo Produto</span>: preço de compra, grupo de impostos, margem e preço de venda. Ligue "Controlar stock" e indique o código de barras de fábrica, se houver.</span></li>
+          <li><span><span class="menu">Serviços &gt; Novo Serviço</span>: escolha a especialidade e a medição (ex.: pintura de teto mede o teto). Na composição, cada linha vem de um produto, funcionário ou função.</span></li>
         </ol>
       </div>
     </div>
     <div class="caixa conta">
-      <h3>Exemplo: DEMO Pintura de teto, composta para 10 m2</h3>
-      <div class="linha"><span>Mao de obra: 8 h x 10,28 EUR/h (Patolino)</span><span class="num">82,24 EUR</span></div>
+      <h3>Exemplo: DEMO Pintura de teto, composta para 10 m²</h3>
+      <div class="linha"><span>Mão de obra: 8 h x 10,28 EUR/h (Patolino)</span><span class="num">82,24 EUR</span></div>
       <div class="linha"><span>Material: 2 latas x 45,00 EUR</span><span class="num">90,00 EUR</span></div>
-      <div class="linha total"><span>Custo por m2 (172,24 / 10)</span><span class="num">17,22 EUR</span></div>
-      <div class="linha"><span>Venda por m2: 17,22 x (1 + 15% + 15%)</span><span class="num">22,39 EUR</span></div>
-      <p class="nota">Se o preco da tinta mudar em Produtos, a proxima proposta ja usa o novo custo. As propostas gravadas nao mudam.</p>
+      <div class="linha total"><span>Custo por m² (172,24 / 10)</span><span class="num">17,22 EUR</span></div>
+      <div class="linha"><span>Venda por m²: 17,22 x (1 + 15% + 15%)</span><span class="num">22,39 EUR</span></div>
+      <p class="nota">Se o preço da tinta mudar em Produtos, a próxima proposta já usa o novo custo. As propostas guardadas não mudam.</p>
     </div>
   </section>
 
   <section id="orcamento" class="capitulo">
     <header>
-      <span class="rotulo">Capitulo 2</span>
-      <h2>Orcamento: comodos, medidas e preco</h2>
-      <p>E o MQT da folha: itens por comodo. A diferenca e que as quantidades e os precos se calculam sozinhos.</p>
+      <span class="rotulo">Capítulo 2</span>
+      <h2>Orçamento: divisões, medidas e preço</h2>
+      <p>É o MQT da folha: itens por divisão. A diferença é que as quantidades e os preços se calculam sozinhos.</p>
     </header>
     <div class="duas">
-      <video controls preload="metadata" playsinline src="/manual/video/02-orcamento.webm" aria-label="Video do capitulo 2"></video>
+      <video controls preload="metadata" playsinline src="/manual/video/02-orcamento.webm" aria-label="Vídeo do capítulo 2"></video>
       <div class="caixa">
         <ol class="passos">
-          <li><span><span class="menu">Orcamentos &gt; Novo</span>: dados do cliente.</span></li>
-          <li><span><span class="menu">Itens</span>: crie o comodo e preencha comprimento, largura, pe-direito e area de portas/janelas.</span></li>
-          <li><span>Escolha o servico. A quantidade vem do comodo e a venda do modelo de preco. "Adicionar ao Orcamento".</span></li>
-          <li><span>Se mudar uma medida, todos os itens ligados a ela atualizam.</span></li>
-          <li><span><span class="menu">Preco</span>: custos indiretos (estaleiro, seguros, licencas) e contexto fiscal. "Aplicar" poe a taxa de IVA sugerida.</span></li>
-          <li><span><span class="menu">Resumo</span>: confira venda, custo e lucro previsto e grave.</span></li>
+          <li><span><span class="menu">Orçamentos &gt; Novo</span>: dados do cliente.</span></li>
+          <li><span><span class="menu">Itens</span>: crie a divisão e preencha comprimento, largura, pé-direito e área de portas/janelas.</span></li>
+          <li><span>Escolha o serviço. A quantidade vem da divisão e o preço de venda do modelo de preço. "Adicionar ao Orçamento".</span></li>
+          <li><span>Se mudar uma medida, todos os itens ligados a ela são atualizados.</span></li>
+          <li><span><span class="menu">Preço</span>: custos indiretos (estaleiro, seguros, licenças) e contexto fiscal. "Aplicar" põe a taxa de IVA sugerida.</span></li>
+          <li><span><span class="menu">Resumo</span>: confira venda, custo e lucro previsto e guarde.</span></li>
         </ol>
       </div>
     </div>
     <div class="caixa conta">
       <h3>Exemplo: Sala 6 x 4 x 2,7 m</h3>
-      <div class="linha"><span>Teto: 6 x 4 = 24 m2 x 22,39 EUR</span><span class="num">537,36 EUR</span></div>
+      <div class="linha"><span>Teto: 6 x 4 = 24 m² x 22,39 EUR</span><span class="num">537,36 EUR</span></div>
       <div class="linha"><span>Estaleiro 150 EUR vendido a x 1,30</span><span class="num">195,00 EUR</span></div>
       <div class="linha total"><span>Base sem IVA</span><span class="num">732,36 EUR</span></div>
-      <div class="linha"><span>IVA 23% (materiais pesam 52%: a verba 2.27 nao se aplica)</span><span class="num">168,44 EUR</span></div>
+      <div class="linha"><span>IVA 23% (os materiais pesam 52%: a verba 2.27 não se aplica)</span><span class="num">168,44 EUR</span></div>
       <div class="linha total"><span>Total ao cliente</span><span class="num">900,80 EUR</span></div>
       <div class="linha"><span>Custo previsto (24 x 17,22 + 150)</span><span class="num">563,28 EUR</span></div>
       <div class="linha"><span>Lucro previsto (23,09% da venda)</span><span class="num">169,08 EUR</span></div>
     </div>
     <div class="situacoes">
-      <div class="situacao"><b>Quero o modelo antigo de margens</b><p>Na aba Preco escolha "Por margens": margem do cadastro por item e/ou margem global. Voltar a "Por especialidade" repoe os precos.</p></div>
-      <div class="situacao"><b>O cliente quer material e mao de obra separados</b><p>Na aba Preco ligue "Discriminar material e mao de obra no PDF". Cada item sai com a reparticao da composicao.</p></div>
-      <div class="situacao"><b>Obra de reabilitacao em ARU</b><p>Contexto fiscal: tipo de obra ARU + empreitada sugere 6% (verba 2.23). Subempreitada sugere autoliquidacao (0%).</p></div>
-      <div class="situacao"><b>Um item foge a medida do comodo</b><p>No item escolha "Quantidade manual" e escreva o valor. Deixa de acompanhar as dimensoes.</p></div>
+      <div class="situacao"><b>Quero o modelo antigo de margens</b><p>No separador Preço escolha "Por margens": margem da ficha do produto por item e/ou margem global. Voltar a "Por especialidade" repõe os preços.</p></div>
+      <div class="situacao"><b>O cliente quer material e mão de obra separados</b><p>No separador Preço ligue "Discriminar material e mão de obra no PDF". Cada item sai com a repartição da composição.</p></div>
+      <div class="situacao"><b>Obra de reabilitação em ARU</b><p>Contexto fiscal: tipo de obra ARU + empreitada sugere 6% (verba 2.23). Subempreitada sugere autoliquidação (0%).</p></div>
+      <div class="situacao"><b>Um item foge à medida da divisão</b><p>No item escolha "Quantidade manual" e escreva o valor. Deixa de acompanhar as dimensões.</p></div>
     </div>
   </section>
 
   <section id="adjudicacao" class="capitulo">
     <header>
-      <span class="rotulo">Capitulo 3</span>
-      <h2>Adjudicacao: a proposta passa a obra</h2>
-      <p>Quando o cliente aceita, regista-se tudo num so passo: valor, sinal, como se fatura o resto e a passagem a obra.</p>
+      <span class="rotulo">Capítulo 3</span>
+      <h2>Adjudicação: a proposta passa a obra</h2>
+      <p>Quando o cliente aceita, regista-se tudo num só passo: valor, sinal, como se fatura o resto e a passagem a obra.</p>
     </header>
     <div class="duas">
-      <video controls preload="metadata" playsinline src="/manual/video/03-adjudicacao.webm" aria-label="Video do capitulo 3"></video>
+      <video controls preload="metadata" playsinline src="/manual/video/03-adjudicacao.webm" aria-label="Vídeo do capítulo 3"></video>
       <div class="caixa">
         <ol class="passos">
-          <li><span>Na lista de orcamentos, o botao das setas muda a fase: Em Revisao, Emitido.</span></li>
-          <li><span>Escolha <span class="menu">Aceite</span>: abre a adjudicacao.</span></li>
-          <li><span>Confirme o valor (com IVA), indique o sinal ja recebido e o plano: parcelas com data ou por autos de medicao.</span></li>
-          <li><span>"Confirmar adjudicacao": o numero passa de CO a O e aparece em <span class="menu">Obras</span>.</span></li>
+          <li><span>Na lista de orçamentos, o botão das setas muda a fase: Em Revisão, Emitido.</span></li>
+          <li><span>Escolha <span class="menu">Aceite</span>: abre a adjudicação.</span></li>
+          <li><span>Confirme o valor (com IVA), indique o sinal já recebido e o plano: parcelas com data ou por autos de medição.</span></li>
+          <li><span>"Confirmar adjudicação": o número passa de CO a O e aparece em <span class="menu">Obras</span>.</span></li>
         </ol>
       </div>
     </div>
     <div class="caixa conta">
       <h3>Exemplo: 900,80 EUR com sinal de 200 EUR e plano 50/50</h3>
-      <div class="linha"><span>Sinal (ja recebido)</span><span class="num">200,00 EUR</span></div>
-      <div class="linha"><span>1.a fatura: adjudicacao, 50% do remanescente</span><span class="num">350,40 EUR</span></div>
-      <div class="linha"><span>2.a fatura: conclusao, a 30 dias</span><span class="num">350,40 EUR</span></div>
-      <p class="nota">Cada parcela e uma conta a receber. O Financeiro e o Dashboard avisam 5 dias antes de vencer.</p>
+      <div class="linha"><span>Sinal (já recebido)</span><span class="num">200,00 EUR</span></div>
+      <div class="linha"><span>1.ª fatura: adjudicação, 50% do remanescente</span><span class="num">350,40 EUR</span></div>
+      <div class="linha"><span>2.ª fatura: conclusão, a 30 dias</span><span class="num">350,40 EUR</span></div>
+      <p class="nota">Cada parcela é uma conta a receber. O Financeiro e o Painel avisam 5 dias antes do vencimento.</p>
     </div>
   </section>
 
   <section id="autos" class="capitulo">
     <header>
-      <span class="rotulo">Capitulo 4</span>
-      <h2>Autos de medicao e pagamentos</h2>
-      <p>O auto certifica o que foi executado, a preco contratual. Aprovado, vira conta a receber.</p>
+      <span class="rotulo">Capítulo 4</span>
+      <h2>Autos de medição e pagamentos</h2>
+      <p>O auto certifica o que foi executado, a preço contratual. Depois de aprovado, passa a conta a receber.</p>
     </header>
     <div class="duas">
-      <video controls preload="metadata" playsinline src="/manual/video/04-autos-pagamentos.webm" aria-label="Video do capitulo 4"></video>
+      <video controls preload="metadata" playsinline src="/manual/video/04-autos-pagamentos.webm" aria-label="Vídeo do capítulo 4"></video>
       <div class="caixa">
         <ol class="passos">
-          <li><span><span class="menu">Obra &gt; Autos de medicao &gt; Novo auto</span>: cada item mostra o contratual e o ja medido.</span></li>
-          <li><span>Indique o executado neste periodo. "Medir o que falta" preenche o ultimo auto.</span></li>
-          <li><span>Grave em rascunho. Quem aprova clica "Aprovar": cria a conta a receber com IVA, a 30 dias.</span></li>
+          <li><span><span class="menu">Obra &gt; Autos de medição &gt; Novo auto</span>: cada item mostra o contratual e o já medido.</span></li>
+          <li><span>Indique o executado neste período. "Medir o que falta" preenche o último auto.</span></li>
+          <li><span>Guarde em rascunho. Quem aprova clica em "Aprovar": cria a conta a receber com IVA, a 30 dias.</span></li>
           <li><span><span class="menu">Pagamentos</span>: marque "Recebido" quando o dinheiro entrar.</span></li>
         </ol>
       </div>
     </div>
     <div class="caixa conta">
       <h3>Exemplo: medir metade da sala</h3>
-      <div class="linha"><span>12 de 24 m2, com o estaleiro ja diluido no preco contratual</span><span class="num">366,18 EUR</span></div>
+      <div class="linha"><span>12 de 24 m², com o estaleiro já diluído no preço contratual</span><span class="num">366,18 EUR</span></div>
       <div class="linha"><span>Obra medida</span><span class="num">50%</span></div>
-      <p class="nota">Um auto nao deixa medir mais do que o contratual. Trabalhos a mais pedem uma revisao da proposta.</p>
+      <p class="nota">Um auto não deixa medir mais do que o contratual. Trabalhos a mais pedem uma revisão da proposta.</p>
     </div>
   </section>
 
   <section id="custo" class="capitulo">
     <header>
-      <span class="rotulo">Capitulo 5</span>
+      <span class="rotulo">Capítulo 5</span>
       <h2>Custo real: horas, faturas e etiquetas</h2>
-      <p>O real entra pelos modulos proprios e so conta depois de aprovado. Ninguem preenche custos no fim.</p>
+      <p>O real entra pelos módulos próprios e só conta depois de aprovado. Ninguém preenche custos no fim.</p>
     </header>
     <div class="duas">
-      <video controls preload="metadata" playsinline src="/manual/video/05-custo-real.webm" aria-label="Video do capitulo 5"></video>
+      <video controls preload="metadata" playsinline src="/manual/video/05-custo-real.webm" aria-label="Vídeo do capítulo 5"></video>
       <div class="caixa">
         <ol class="passos">
-          <li><span><span class="menu">Livro de ponto</span>: escolha a obra e o dia, ponha as horas de cada trabalhador e grave. Ficam pendentes.</span></li>
-          <li><span><span class="menu">Aprovacoes</span>: quem aprova seleciona e aprova. So entao entram no custo, ao custo/hora do dia do registo.</span></li>
-          <li><span><span class="menu">Faturas &gt; Registar fatura</span>: fornecedor, obra, tipo (terceiros, aluguer, transporte, outros), valor sem IVA. Aprovada, vira conta a pagar.</span></li>
-          <li><span><span class="menu">Estoque &gt; Etiquetas</span>: escolha os produtos e quantas etiquetas QR imprimir.</span></li>
+          <li><span><span class="menu">Livro de ponto</span>: escolha a obra e o dia, indique as horas de cada trabalhador e guarde. Ficam pendentes.</span></li>
+          <li><span><span class="menu">Aprovações</span>: quem aprova seleciona e aprova. Só então entram no custo, ao custo/hora do dia do registo.</span></li>
+          <li><span><span class="menu">Faturas &gt; Registar fatura</span>: fornecedor, obra, tipo (terceiros, aluguer, transporte, outros), valor sem IVA. Depois de aprovada, passa a conta a pagar.</span></li>
+          <li><span><span class="menu">Stock &gt; Etiquetas</span>: escolha os produtos e quantas etiquetas QR imprimir.</span></li>
         </ol>
       </div>
     </div>
@@ -306,55 +334,55 @@ hr { border: 0; border-top: 1px solid var(--risco); margin: 0; }
 
   <section id="telemovel" class="capitulo">
     <header>
-      <span class="rotulo">Capitulo 6 · no armazem</span>
-      <h2>Bipar material pelo telemovel</h2>
-      <p>O material so entra na obra pelo estoque. Le-se a etiqueta QR ou o codigo de barras de fabrica com a camera.</p>
+      <span class="rotulo">Capítulo 6 · no armazém</span>
+      <h2>Ler o código de barras do material pelo telemóvel</h2>
+      <p>O material só entra na obra pelo stock. Lê-se a etiqueta QR ou o código de barras de fábrica com a câmara.</p>
     </header>
     <div class="duas">
-      <video class="vertical" controls preload="metadata" playsinline src="/manual/video/06-telemovel.webm" aria-label="Video do capitulo 6"></video>
+      <video class="vertical" controls preload="metadata" playsinline src="/manual/video/06-telemovel.webm" aria-label="Vídeo do capítulo 6"></video>
       <div class="caixa">
         <ol class="passos">
-          <li><span>No telemovel abra o sistema e va a <span class="menu">Estoque &gt; Bipar</span>.</span></li>
+          <li><span>No telemóvel abra o sistema e vá a <span class="menu">Stock &gt; Ler código de barras</span>.</span></li>
           <li><span>Escolha a obra e "Sai para a obra".</span></li>
-          <li><span>"Ligar camera" e aponte a etiqueta. Cada leitura soma 1; ajuste com + e -.</span></li>
-          <li><span>"Registar saida". Quando sobra material: "Volta da obra", bipa-se e "Registar devolucao".</span></li>
+          <li><span>"Ligar câmara" e aponte para a etiqueta. Cada leitura soma 1; ajuste com + e -.</span></li>
+          <li><span>"Registar saída". Quando sobra material: "Volta da obra", lê-se o código e "Registar devolução".</span></li>
         </ol>
-        <p class="nota">A camera exige HTTPS. No endereco publicado funciona. No computador de desenvolvimento use <span class="menu">npm run dev:https</span> e aceite o aviso de certificado no telemovel.</p>
+        <p class="nota">A câmara exige HTTPS. No endereço publicado funciona. No computador de desenvolvimento use <span class="menu">npm run dev:https</span> e aceite o aviso de certificado no telemóvel.</p>
       </div>
     </div>
     <div class="situacoes">
-      <div class="situacao"><b>Comprei na loja e levei direto para a obra</b><p>Na obra, Apuramento &gt; "Compra para esta obra": entra e sai do estoque num so registo, ao preco dessa compra.</p></div>
-      <div class="situacao"><b>Equipamento que vai e volta</b><p>Marque o produto como "Equipamento". Em Estoque &gt; "Equipamento em obra" ve-se o que esta em cada obra.</p></div>
+      <div class="situacao"><b>Comprei na loja e levei diretamente para a obra</b><p>Na obra, Apuramento &gt; "Compra para esta obra": entra e sai do stock num só registo, ao preço dessa compra.</p></div>
+      <div class="situacao"><b>Equipamento que vai e volta</b><p>Marque o produto como "Equipamento". Em Stock &gt; "Equipamento em obra" vê-se o que está em cada obra.</p></div>
     </div>
   </section>
 
   <section id="apuramento" class="capitulo">
     <header>
-      <span class="rotulo">Capitulo 7</span>
-      <h2>Apuramento, diario, portal e garantia</h2>
-      <p>O apuramento e a "MQT Real" da folha, mas exata: cada bloco compara o vendido, o previsto e o real.</p>
+      <span class="rotulo">Capítulo 7</span>
+      <h2>Apuramento, diário, portal e garantia</h2>
+      <p>O apuramento é a "MQT Real" da folha, mas exata: cada bloco compara o vendido, o previsto e o real.</p>
     </header>
     <div class="duas">
-      <video controls preload="metadata" playsinline src="/manual/video/07-apuramento-portal.webm" aria-label="Video do capitulo 7"></video>
+      <video controls preload="metadata" playsinline src="/manual/video/07-apuramento-portal.webm" aria-label="Vídeo do capítulo 7"></video>
       <div class="caixa">
         <ol class="passos">
-          <li><span><span class="menu">Obra &gt; Diario (RDO)</span>: trabalhos, equipa e horas do dia, ocorrencias. As horas vao para o livro de ponto.</span></li>
+          <li><span><span class="menu">Obra &gt; Diário (RDO)</span>: trabalhos, equipa e horas do dia, ocorrências. As horas vão para o livro de ponto.</span></li>
           <li><span><span class="menu">Apuramento</span>: venda, custo previsto, custo real e lucro real. Por bloco, a vermelho onde se gastou mais.</span></li>
-          <li><span>"Material previsto vs saido" e a lista de compras da obra, em embalagens de compra.</span></li>
-          <li><span><span class="menu">Portal do cliente</span>: "Publicar" gera um link. O cliente ve valores, pagamentos, autos e diario, nunca custos.</span></li>
-          <li><span><span class="menu">Garantia</span>: no fim, crie a ficha (5 anos por defeito) e registe as reclamacoes.</span></li>
+          <li><span>"Material previsto vs. saído" é a lista de compras da obra, em embalagens de compra.</span></li>
+          <li><span><span class="menu">Portal do cliente</span>: "Publicar" gera um link. O cliente vê valores, pagamentos, autos e diário, nunca custos.</span></li>
+          <li><span><span class="menu">Garantia</span>: no fim, crie a ficha (5 anos por omissão) e registe as reclamações.</span></li>
         </ol>
       </div>
     </div>
     <div class="tabela">
       <table>
-        <thead><tr><th>Bloco do apuramento</th><th>Previsto vem de</th><th>Real vem de</th></tr></thead>
+        <thead><tr><th>Bloco do apuramento</th><th>O previsto vem de</th><th>O real vem de</th></tr></thead>
         <tbody>
-          <tr><td>Materiais</td><td>Itens de material e a parte de material das composicoes</td><td>Saidas de estoque para a obra, menos devolucoes</td></tr>
-          <tr><td>Mao de obra</td><td>Itens de mao de obra e a parte de mao de obra das composicoes</td><td>Horas aprovadas + lancamentos manuais</td></tr>
-          <tr><td>Terceiros, aluguer, transporte, outros</td><td>Equipamento, vazadouro, transporte e extras das composicoes</td><td>Faturas aprovadas + despesas rapidas</td></tr>
-          <tr><td>Custos indiretos</td><td>Estaleiro, seguros e licencas do orcamento</td><td>Entram como faturas dos blocos acima</td></tr>
-          <tr><td>Estrutura</td><td>-</td><td>Horas aprovadas x custo fixo/hora (opcional, em Configuracoes &gt; Precos)</td></tr>
+          <tr><td>Materiais</td><td>Itens de material e a parte de material das composições</td><td>Saídas de stock para a obra, menos devoluções</td></tr>
+          <tr><td>Mão de obra</td><td>Itens de mão de obra e a parte de mão de obra das composições</td><td>Horas aprovadas + lançamentos manuais</td></tr>
+          <tr><td>Terceiros, aluguer, transporte, outros</td><td>Equipamento, vazadouro, transporte e extras das composições</td><td>Faturas aprovadas + despesas rápidas</td></tr>
+          <tr><td>Custos indiretos</td><td>Estaleiro, seguros e licenças do orçamento</td><td>Entram como faturas dos blocos acima</td></tr>
+          <tr><td>Estrutura</td><td>-</td><td>Horas aprovadas x custo fixo/hora (opcional, em Configurações &gt; Preços)</td></tr>
         </tbody>
       </table>
     </div>
@@ -362,42 +390,42 @@ hr { border: 0; border-top: 1px solid var(--risco); margin: 0; }
 
   <section id="ponto" class="capitulo">
     <header>
-      <span class="rotulo">Capitulo 8 · no telemovel e no escritorio</span>
-      <h2>Picagem de ponto, ferias e faltas</h2>
-      <p>O trabalhador pica a entrada, a pausa e a saida no telemovel, pede ferias e comunica faltas. A empresa valida em Ponto da equipa e o pedido fica verde na app dele. Cumpre o registo de tempos do art. 202.º do Codigo do Trabalho.</p>
+      <span class="rotulo">Capítulo 8 · no telemóvel e no escritório</span>
+      <h2>Picagem de ponto, férias e faltas</h2>
+      <p>O trabalhador pica a entrada, a pausa e a saída no telemóvel, pede férias e comunica faltas. A empresa valida em Ponto da equipa e o pedido fica verde na app dele. Cumpre o registo de tempos de trabalho do art. 202.º do Código do Trabalho.</p>
     </header>
     <div class="duas">
-      <video class="vertical" controls preload="metadata" playsinline src="/manual/video/08-picagem-trabalhador.webm" aria-label="Video do capitulo 8: o trabalhador"></video>
+      <video class="vertical" controls preload="metadata" playsinline src="/manual/video/08-picagem-trabalhador.webm" aria-label="Vídeo do capítulo 8: o trabalhador"></video>
       <div class="caixa">
         <ol class="passos">
-          <li><span>Envie ao trabalhador o link <span class="menu">/login?modo=pin</span>. Entra com o <b>n.º de funcionario</b> e o <b>PIN</b>; o telemovel lembra-se do numero.</span></li>
+          <li><span>Envie ao trabalhador o link <span class="menu">/login?modo=pin</span>. Entra com o <b>n.º de funcionário</b> e o <b>PIN</b>; o telemóvel lembra-se do número.</span></li>
           <li><span>Escolhe a obra e carrega em <span class="menu">Entrar</span>. Depois <span class="menu">Pausa</span>, <span class="menu">Voltar da pausa</span>, <span class="menu">Mudar de obra</span> e <span class="menu">Sair</span>.</span></li>
-          <li><span>A hora gravada e a do servidor, nao a do telemovel. As picagens nunca se apagam.</span></li>
-          <li><span><span class="menu">Ferias</span>: ve o saldo e pede as datas (so contam dias uteis, sem feriados nacionais).</span></li>
-          <li><span><span class="menu">Faltas</span>: motivo (consulta, doenca, licenca parental...), dias e, se for parte do dia, as horas.</span></li>
-          <li><span><span class="menu">Correcoes</span>: esqueceu-se de picar? Pede a hora certa com o motivo.</span></li>
+          <li><span>A hora gravada é a do servidor, não a do telemóvel. As picagens nunca são eliminadas.</span></li>
+          <li><span><span class="menu">Férias</span>: vê o saldo e pede as datas (só contam dias úteis, sem feriados nacionais).</span></li>
+          <li><span><span class="menu">Faltas</span>: motivo (consulta, doença, licença parental...), dias e, se for parte do dia, as horas.</span></li>
+          <li><span><span class="menu">Correções</span>: esqueceu-se de picar? Pede a hora certa com o motivo.</span></li>
         </ol>
-        <p class="nota">O trabalhador so ve a sua picagem. Nao ve orcamentos, precos, salarios nem os colegas, e isso e bloqueado no servidor, nao so no ecra.</p>
+        <p class="nota">O trabalhador só vê a sua picagem. Não vê orçamentos, preços, salários nem os colegas, e isso é bloqueado no servidor, não só no ecrã.</p>
       </div>
     </div>
     <div class="duas">
-      <video controls preload="metadata" playsinline src="/manual/video/09-ponto-gestor.webm" aria-label="Video do capitulo 8: o gestor"></video>
+      <video controls preload="metadata" playsinline src="/manual/video/09-ponto-gestor.webm" aria-label="Vídeo do capítulo 8: o gestor"></video>
       <div class="caixa">
         <ol class="passos">
-          <li><span><span class="menu">Ponto da equipa &gt; Acessos</span>: "Criar acesso" com um PIN de 4 a 6 digitos. "Novo PIN" troca-o; "Desativar" corta o acesso.</span></li>
+          <li><span><span class="menu">Ponto da equipa &gt; Acessos</span>: "Criar acesso" com um PIN de 4 a 6 dígitos. "Novo PIN" troca-o; "Desativar" corta o acesso.</span></li>
           <li><span><span class="menu">Obras</span>: ligue "Pode picar" nas obras ativas. Para GPS, defina o local e o raio; para QR, imprima e afixe na obra.</span></li>
-          <li><span><span class="menu">Configuracao</span>: livre, so QR, so GPS ou QR ou GPS; hora limite de entrada; dias de ferias (22).</span></li>
-          <li><span><span class="menu">Hoje</span>: quem esta a trabalhar, em pausa, de ferias e quem ainda nao picou depois da hora limite.</span></li>
+          <li><span><span class="menu">Configuração</span>: livre, só QR, só GPS ou QR ou GPS; hora limite de entrada; dias de férias (22).</span></li>
+          <li><span><span class="menu">Hoje</span>: quem está a trabalhar, em pausa, de férias e quem ainda não picou depois da hora limite.</span></li>
           <li><span><span class="menu">Pedidos</span>: aprovar ou recusar, com resposta. Fica verde ou vermelho na app do trabalhador.</span></li>
-          <li><span><span class="menu">Registos</span>: o mes de cada um, exportar CSV, imprimir e "Enviar horas para o Livro de ponto" (custo da obra).</span></li>
-          <li><span><span class="menu">Mapa de ferias</span>: a equipa no mes, por cores, com o saldo.</span></li>
+          <li><span><span class="menu">Registos</span>: o mês de cada um, exportar CSV, imprimir e "Enviar horas para o Livro de ponto" (custo da obra).</span></li>
+          <li><span><span class="menu">Mapa de férias</span>: a equipa no mês, por cores, com o saldo.</span></li>
         </ol>
       </div>
     </div>
     <div class="situacoes">
-      <div class="situacao"><b>Esqueceu-se de picar a saida</b><p>Ele pede a correcao na app, ou o gestor faz "Acrescentar picagem" em Registos. Fica marcado como corrigida, com motivo e quem fez.</p></div>
+      <div class="situacao"><b>Esqueceu-se de picar a saída</b><p>Ele pede a correção na app, ou o gestor faz "Acrescentar picagem" em Registos. Fica marcada como corrigida, com o motivo e quem a fez.</p></div>
       <div class="situacao"><b>Picagem errada</b><p>Em Registos &gt; Detalhe, "Anular" com o motivo. O original fica guardado, mas deixa de contar.</p></div>
-      <div class="situacao"><b>Esqueceu-se do PIN</b><p>Em Acessos, "Novo PIN". O antigo deixa de funcionar na hora.</p></div>
+      <div class="situacao"><b>Esqueceu-se do PIN</b><p>Em Acessos, "Novo PIN". O antigo deixa de funcionar de imediato.</p></div>
       <div class="situacao"><b>Saiu da empresa</b><p>Em Acessos, "Desativar". Os registos dele ficam para consulta.</p></div>
     </div>
   </section>
@@ -407,38 +435,38 @@ hr { border: 0; border-top: 1px solid var(--risco); margin: 0; }
   <section id="situacoes" class="capitulo">
     <header>
       <span class="rotulo">No dia a dia</span>
-      <h2>O que fazer em cada situacao</h2>
+      <h2>O que fazer em cada situação</h2>
     </header>
     <div class="situacoes">
-      <div class="situacao"><span class="estado alerta">Atencao</span><b>O lucro real esta abaixo do previsto</b><p>Abra o Apuramento e veja os blocos a vermelho. Costuma ser mao de obra acima das horas previstas ou custos que o orcamento nao tinha (aluguer, frete).</p></div>
-      <div class="situacao"><span class="estado alerta">Atencao</span><b>Uma parcela venceu e nao foi paga</b><p>Aparece no Dashboard e no Financeiro como vencida. Depois de receber, marque "Recebido" em Pagamentos.</p></div>
-      <div class="situacao"><span class="estado ok">Rotina</span><b>O cliente pediu um trabalho a mais</b><p>Crie uma revisao da proposta (Rev. A). O auto de medicao nao deixa medir acima do contratual.</p></div>
-      <div class="situacao"><span class="estado ok">Rotina</span><b>Um funcionario trabalhou em duas obras no mesmo dia</b><p>No livro de ponto registe as horas em cada obra separadamente.</p></div>
-      <div class="situacao"><span class="estado ok">Rotina</span><b>Fatura de fornecedor errada</b><p>Quem aprova clica "Rejeitar". So as aprovadas entram no custo e nas contas a pagar.</p></div>
-      <div class="situacao"><span class="estado ok">Rotina</span><b>Produto abaixo do estoque minimo</b><p>O Dashboard avisa. Faca a entrada da compra em Estoque &gt; Entrada.</p></div>
-      <div class="situacao"><span class="estado ok">Rotina</span><b>Comparar precos de fornecedores</b><p>Cotacoes: o mesmo pedido a varios fornecedores; o mais barato com resposta a tudo fica destacado.</p></div>
-      <div class="situacao"><span class="estado alerta">Atencao</span><b>Apagar uma proposta que ja e obra</b><p>Apaga tambem os autos, o diario, as horas, a garantia, o portal e as contas a receber dela. Faturas e historico do estoque ficam.</p></div>
+      <div class="situacao"><span class="estado alerta">Atenção</span><b>O lucro real está abaixo do previsto</b><p>Abra o Apuramento e veja os blocos a vermelho. Costuma ser mão de obra acima das horas previstas ou custos que o orçamento não tinha (aluguer, frete).</p></div>
+      <div class="situacao"><span class="estado alerta">Atenção</span><b>Uma parcela venceu e não foi paga</b><p>Aparece no Painel e no Financeiro como vencida. Depois de receber, marque "Recebido" em Pagamentos.</p></div>
+      <div class="situacao"><span class="estado ok">Rotina</span><b>O cliente pediu um trabalho a mais</b><p>Crie uma revisão da proposta (Rev. A). O auto de medição não deixa medir acima do contratual.</p></div>
+      <div class="situacao"><span class="estado ok">Rotina</span><b>Um funcionário trabalhou em duas obras no mesmo dia</b><p>No livro de ponto registe as horas em cada obra separadamente.</p></div>
+      <div class="situacao"><span class="estado ok">Rotina</span><b>Fatura de fornecedor errada</b><p>Quem aprova clica em "Rejeitar". Só as aprovadas entram no custo e nas contas a pagar.</p></div>
+      <div class="situacao"><span class="estado ok">Rotina</span><b>Produto abaixo do stock mínimo</b><p>O Painel avisa. Faça a entrada da compra em Stock &gt; Entrada.</p></div>
+      <div class="situacao"><span class="estado ok">Rotina</span><b>Comparar preços de fornecedores</b><p>Cotações: o mesmo pedido a vários fornecedores; o mais barato que responde a tudo fica destacado.</p></div>
+      <div class="situacao"><span class="estado alerta">Atenção</span><b>Eliminar uma proposta que já é obra</b><p>Elimina também os autos, o diário, as horas, a garantia, o portal e as contas a receber dela. As faturas e o histórico do stock ficam.</p></div>
     </div>
   </section>
 
   <section id="permissoes" class="capitulo">
     <header>
       <span class="rotulo">Acessos</span>
-      <h2>Quem faz o que</h2>
-      <p>As permissoes ja existentes cobrem os modulos novos. Atribuem-se em Utilizadores.</p>
+      <h2>Quem faz o quê</h2>
+      <p>As permissões já existentes cobrem os módulos novos. Atribuem-se em Utilizadores.</p>
     </header>
     <div class="tabela">
       <table>
-        <thead><tr><th>Permissao</th><th>Permite</th></tr></thead>
+        <thead><tr><th>Permissão</th><th>Permite</th></tr></thead>
         <tbody>
-          <tr><td>Lancar custos reais da obra</td><td>Livro de ponto, faturas, autos (rascunho), diario, despesas rapidas</td></tr>
+          <tr><td>Lançar custos reais da obra</td><td>Livro de ponto, faturas, autos (rascunho), diário, despesas rápidas</td></tr>
           <tr><td>Aprovar e emitir</td><td>Adjudicar, aprovar autos, horas e faturas</td></tr>
           <tr><td>Ver custos e margem</td><td>Apuramento, Financeiro, Pagamentos, lucro nas listas</td></tr>
-          <tr><td>Criar e editar materiais</td><td>Produtos, estoque, bipar, etiquetas, cotacoes</td></tr>
-          <tr><td>Criar e editar funcionarios</td><td>Funcionarios e funcoes (custo/hora)</td></tr>
-          <tr><td>Alterar identidade, termos e padroes</td><td>Configuracoes &gt; Precos e Impostos</td></tr>
-          <tr><td>Picar o ponto</td><td>So a pagina Picagem (cargo Trabalhador, entra com n.º + PIN)</td></tr>
-          <tr><td>Gerir o ponto da equipa</td><td>Ponto da equipa: aprovar ferias e faltas, corrigir, acessos, obras. Quem cria e edita funcionarios ja tem.</td></tr>
+          <tr><td>Criar e editar materiais</td><td>Produtos, stock, leitura de código de barras, etiquetas, cotações</td></tr>
+          <tr><td>Criar e editar funcionários</td><td>Funcionários e funções (custo/hora)</td></tr>
+          <tr><td>Alterar identidade, termos e padrões</td><td>Configurações &gt; Preços e Impostos</td></tr>
+          <tr><td>Picar o ponto</td><td>Só a página Picagem (cargo Trabalhador, entra com n.º + PIN)</td></tr>
+          <tr><td>Gerir o ponto da equipa</td><td>Ponto da equipa: aprovar férias e faltas, corrigir, acessos, obras. Quem cria e edita funcionários já a tem.</td></tr>
         </tbody>
       </table>
     </div>
@@ -447,24 +475,822 @@ hr { border: 0; border-top: 1px solid var(--risco); margin: 0; }
   <section id="glossario" class="capitulo">
     <header>
       <span class="rotulo">Termos</span>
-      <h2>Glossario</h2>
+      <h2>Glossário</h2>
     </header>
     <div class="tabela">
       <table>
         <tbody>
-          <tr><td><b>Estrutura</b></td><td>Percentagem dos custos fixos da empresa somada a todos os precos (o "FI Estrutura" da folha).</td></tr>
-          <tr><td><b>Especialidade</b></td><td>Construcao civil, aguas, gas, eletricidade, AVAC, SCIE: cada uma com a sua margem.</td></tr>
-          <tr><td><b>Composicao</b></td><td>O que um servico gasta para uma quantidade de referencia: horas, material, aluguer, vazadouro, transporte, extras.</td></tr>
-          <tr><td><b>Auto de medicao</b></td><td>Documento que certifica o executado num periodo, a preco contratual sem IVA.</td></tr>
-          <tr><td><b>RDO</b></td><td>Relatorio diario de obra: trabalhos, equipa, meteorologia, ocorrencias.</td></tr>
-          <tr><td><b>Custo medio</b></td><td>Custo de cada unidade em estoque, recalculado a cada entrada.</td></tr>
-          <tr><td><b>Verba 2.27</b></td><td>IVA reduzido em empreitadas de remodelacao de habitacao, se os materiais nao passarem de 20% do valor.</td></tr>
-          <tr><td><b>Autoliquidacao</b></td><td>Em subempreitadas de construcao civil o IVA e liquidado pelo cliente: a fatura sai a 0%.</td></tr>
+          <tr><td><b>Estrutura</b></td><td>Percentagem dos custos fixos da empresa somada a todos os preços (o "FI Estrutura" da folha).</td></tr>
+          <tr><td><b>Especialidade</b></td><td>Construção civil, águas, gás, eletricidade, AVAC, SCIE: cada uma com a sua margem.</td></tr>
+          <tr><td><b>Composição</b></td><td>O que um serviço gasta para uma quantidade de referência: horas, material, aluguer, vazadouro, transporte, extras.</td></tr>
+          <tr><td><b>Auto de medição</b></td><td>Documento que certifica o executado num período, a preço contratual sem IVA.</td></tr>
+          <tr><td><b>RDO</b></td><td>Relatório diário de obra: trabalhos, equipa, meteorologia, ocorrências.</td></tr>
+          <tr><td><b>Custo médio</b></td><td>Custo de cada unidade em stock, recalculado a cada entrada.</td></tr>
+          <tr><td><b>Verba 2.27</b></td><td>IVA reduzido em empreitadas de remodelação de habitação, se os materiais não passarem de 20% do valor.</td></tr>
+          <tr><td><b>Autoliquidação</b></td><td>Em subempreitadas de construção civil o IVA é liquidado pelo cliente: a fatura sai a 0%.</td></tr>
         </tbody>
       </table>
     </div>
   </section>
 
 </div>
+</template>
+
+<!-- ===================================================== pt-BR ===================================================== -->
+<template data-idioma="pt-BR">
+<div class="pagina">
+
+  <section class="abertura">
+    <span class="rotulo">ERP TecKnowHow · manual de uso</span>
+    <h1>Da proposta à garantia, em uma só obra</h1>
+    <p>Este manual mostra como o sistema substitui a planilha de obra (MQT, M.Cálculo e Lista de custos). Cada capítulo tem um vídeo gravado no sistema real, os passos e o que acontece em cada situação. Os números de exemplo são os da obra de demonstração <span class="num">O26/0002</span> (DEMO Cliente Silva).</p>
+    <a class="entrar" href="/login">Entrar no sistema</a>
+    <nav class="indice" aria-label="Capítulos">
+      <a href="#fluxo">O fluxo</a>
+      <a href="#numeros">De onde vem cada número</a>
+      <a href="#catalogo">1 Catálogo</a>
+      <a href="#orcamento">2 Orçamento</a>
+      <a href="#adjudicacao">3 Aprovação</a>
+      <a href="#autos">4 Medições e pagamentos</a>
+      <a href="#custo">5 Custo real</a>
+      <a href="#telemovel">6 Celular</a>
+      <a href="#apuramento">7 Apuração e portal</a>
+      <a href="#ponto">8 Registro de ponto</a>
+      <a href="#situacoes">Situações</a>
+      <a href="#permissoes">Quem faz o quê</a>
+      <a href="#glossario">Glossário</a>
+    </nav>
+  </section>
+
+  <section id="fluxo" class="capitulo">
+    <header>
+      <span class="rotulo">A sistemática</span>
+      <h2>O fluxo de uma obra</h2>
+      <p>Cada custo entra onde nasce, uma única vez. Nada é reescrito em uma planilha à parte: a apuração final junta tudo sozinha.</p>
+    </header>
+    <div class="fluxo">
+      <div class="etapa"><span class="passo">1</span><b>Catálogo</b><span>Produtos, funções, funcionários e serviços com composição.</span></div>
+      <div class="etapa"><span class="passo">2</span><b>Orçamento</b><span>Cômodos com medidas, itens da composição, preço por especialidade.</span></div>
+      <div class="etapa"><span class="passo">3</span><b>Aprovação</b><span>Sinal, parcelas, vira obra. Contas a receber criadas.</span></div>
+      <div class="etapa"><span class="passo">4</span><b>Execução</b><span>Estoque bipado, folha de ponto, notas fiscais, diário.</span></div>
+      <div class="etapa"><span class="passo">5</span><b>Faturamento</b><span>Medições e parcelas. Alertas de vencimento.</span></div>
+      <div class="etapa"><span class="passo">6</span><b>Encerramento</b><span>Apuração previsto x real, portal do cliente, garantia.</span></div>
+    </div>
+  </section>
+
+  <section id="numeros" class="capitulo">
+    <header>
+      <span class="rotulo">Rastreabilidade</span>
+      <h2>De onde vem cada número</h2>
+      <p>Se um número parecer errado, é aqui que você procura. Nenhum valor é digitado duas vezes.</p>
+    </header>
+    <div class="tabela">
+      <table>
+        <thead><tr><th>Número</th><th>Vem de</th><th>Onde se altera</th></tr></thead>
+        <tbody>
+          <tr><td>Custo de um material</td><td>Preço de compra + impostos não recuperáveis + outros custos</td><td><span class="menu">Produtos</span></td></tr>
+          <tr><td>Custo/hora de mão de obra</td><td>Cadastro do funcionário (salário, encargos, seguro, benefícios)</td><td><span class="menu">Funcionários</span></td></tr>
+          <tr><td>Custo de um serviço</td><td>Composição: horas x custo/hora + materiais + aluguel, caçamba, transporte, extras, pelo preço atual do catálogo</td><td><span class="menu">Serviços</span></td></tr>
+          <tr><td>Quantidade de um item</td><td>Dimensões do cômodo (teto, piso, paredes sem vãos, perímetro) ou digitada à mão</td><td><span class="menu">Orçamento &gt; Itens</span></td></tr>
+          <tr><td>Preço ao cliente</td><td>Custo x (1 + estrutura + margem da especialidade)</td><td><span class="menu">Configurações &gt; Preços</span></td></tr>
+          <tr><td>Alíquota de IVA</td><td>Sugerida pelo contexto fiscal (região, tipo de obra, cliente, operação)</td><td><span class="menu">Orçamento &gt; Preço</span></td></tr>
+          <tr><td>Contas a receber</td><td>Aprovação (sinal e parcelas) e medições aprovadas</td><td><span class="menu">Obra &gt; Pagamentos</span></td></tr>
+          <tr><td>Material real da obra</td><td>Saídas de estoque para a obra, menos o que voltou</td><td><span class="menu">Estoque &gt; Bipar</span></td></tr>
+          <tr><td>Mão de obra real</td><td>Horas aprovadas na folha de ponto (o diário de obra também as cria)</td><td><span class="menu">Folha de ponto</span></td></tr>
+          <tr><td>Terceiros, aluguel, transporte</td><td>Notas fiscais de fornecedor aprovadas e despesas rápidas</td><td><span class="menu">Notas fiscais</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <hr>
+
+  <section id="catalogo" class="capitulo">
+    <header>
+      <span class="rotulo">Capítulo 1 · feito uma única vez</span>
+      <h2>Catálogo: preços, produtos e serviços</h2>
+      <p>O orçamento só é tão certo quanto o catálogo. Ele é preparado uma vez e depois basta manter os preços em dia.</p>
+    </header>
+    <div class="duas">
+      <video controls preload="metadata" playsinline src="/manual/video/01-catalogo.webm" aria-label="Vídeo do capítulo 1"></video>
+      <div class="caixa">
+        <ol class="passos">
+          <li><span><span class="menu">Configurações &gt; Preços</span>: estrutura (o "FI Estrutura" da planilha, 15%) e a margem de cada especialidade: Construção civil 15%, Hidráulica, Gás, Elétrica, AVAC e SCIE 25%.</span></li>
+          <li><span><span class="menu">Configurações &gt; Impostos</span>: grupos de impostos. O IVA dedutível é marcado como recuperável e não entra no custo.</span></li>
+          <li><span><span class="menu">Produtos &gt; Novo Produto</span>: preço de compra, grupo de impostos, margem e preço de venda. Ative "Controlar estoque" e informe o código de barras de fábrica, se houver.</span></li>
+          <li><span><span class="menu">Serviços &gt; Novo Serviço</span>: escolha a especialidade e a medição (ex.: pintura de teto mede o teto). Na composição, cada linha vem de um produto, funcionário ou função.</span></li>
+        </ol>
+      </div>
+    </div>
+    <div class="caixa conta">
+      <h3>Exemplo: DEMO Pintura de teto, composta para 10 m²</h3>
+      <div class="linha"><span>Mão de obra: 8 h x 10,28 EUR/h (Patolino)</span><span class="num">82,24 EUR</span></div>
+      <div class="linha"><span>Material: 2 latas x 45,00 EUR</span><span class="num">90,00 EUR</span></div>
+      <div class="linha total"><span>Custo por m² (172,24 / 10)</span><span class="num">17,22 EUR</span></div>
+      <div class="linha"><span>Venda por m²: 17,22 x (1 + 15% + 15%)</span><span class="num">22,39 EUR</span></div>
+      <p class="nota">Se o preço da tinta mudar em Produtos, a próxima proposta já usa o novo custo. As propostas salvas não mudam.</p>
+    </div>
+  </section>
+
+  <section id="orcamento" class="capitulo">
+    <header>
+      <span class="rotulo">Capítulo 2</span>
+      <h2>Orçamento: cômodos, medidas e preço</h2>
+      <p>É o MQT da planilha: itens por cômodo. A diferença é que as quantidades e os preços são calculados automaticamente.</p>
+    </header>
+    <div class="duas">
+      <video controls preload="metadata" playsinline src="/manual/video/02-orcamento.webm" aria-label="Vídeo do capítulo 2"></video>
+      <div class="caixa">
+        <ol class="passos">
+          <li><span><span class="menu">Orçamentos &gt; Novo</span>: dados do cliente.</span></li>
+          <li><span><span class="menu">Itens</span>: crie o cômodo e preencha comprimento, largura, pé-direito e área de portas/janelas.</span></li>
+          <li><span>Escolha o serviço. A quantidade vem do cômodo e o preço de venda do modelo de preço. "Adicionar ao Orçamento".</span></li>
+          <li><span>Se você mudar uma medida, todos os itens ligados a ela são atualizados.</span></li>
+          <li><span><span class="menu">Preço</span>: custos indiretos (canteiro, seguros, licenças) e contexto fiscal. "Aplicar" coloca a alíquota de IVA sugerida.</span></li>
+          <li><span><span class="menu">Resumo</span>: confira venda, custo e lucro previsto e salve.</span></li>
+        </ol>
+      </div>
+    </div>
+    <div class="caixa conta">
+      <h3>Exemplo: Sala 6 x 4 x 2,7 m</h3>
+      <div class="linha"><span>Teto: 6 x 4 = 24 m² x 22,39 EUR</span><span class="num">537,36 EUR</span></div>
+      <div class="linha"><span>Canteiro 150 EUR vendido a x 1,30</span><span class="num">195,00 EUR</span></div>
+      <div class="linha total"><span>Base sem IVA</span><span class="num">732,36 EUR</span></div>
+      <div class="linha"><span>IVA 23% (os materiais representam 52%: a verba 2.27 não se aplica)</span><span class="num">168,44 EUR</span></div>
+      <div class="linha total"><span>Total ao cliente</span><span class="num">900,80 EUR</span></div>
+      <div class="linha"><span>Custo previsto (24 x 17,22 + 150)</span><span class="num">563,28 EUR</span></div>
+      <div class="linha"><span>Lucro previsto (23,09% da venda)</span><span class="num">169,08 EUR</span></div>
+    </div>
+    <div class="situacoes">
+      <div class="situacao"><b>Quero o modelo antigo de margens</b><p>Na aba Preço escolha "Por margens": margem do cadastro por item e/ou margem global. Voltar para "Por especialidade" restaura os preços.</p></div>
+      <div class="situacao"><b>O cliente quer material e mão de obra separados</b><p>Na aba Preço ative "Discriminar material e mão de obra no PDF". Cada item sai com a divisão da composição.</p></div>
+      <div class="situacao"><b>Obra de reabilitação em ARU</b><p>Contexto fiscal: tipo de obra ARU + empreitada sugere 6% (verba 2.23). Subempreitada sugere autoliquidação (0%).</p></div>
+      <div class="situacao"><b>Um item não segue a medida do cômodo</b><p>No item escolha "Quantidade manual" e digite o valor. Ele deixa de acompanhar as dimensões.</p></div>
+    </div>
+  </section>
+
+  <section id="adjudicacao" class="capitulo">
+    <header>
+      <span class="rotulo">Capítulo 3</span>
+      <h2>Aprovação: a proposta vira obra</h2>
+      <p>Quando o cliente aprova, tudo é registrado em um só passo: valor, sinal, como o restante será faturado e a passagem para obra.</p>
+    </header>
+    <div class="duas">
+      <video controls preload="metadata" playsinline src="/manual/video/03-adjudicacao.webm" aria-label="Vídeo do capítulo 3"></video>
+      <div class="caixa">
+        <ol class="passos">
+          <li><span>Na lista de orçamentos, o botão das setas muda a fase: Em Revisão, Emitido.</span></li>
+          <li><span>Escolha <span class="menu">Aprovado</span>: abre a aprovação.</span></li>
+          <li><span>Confirme o valor (com IVA), informe o sinal já recebido e o plano: parcelas com data ou por medições.</span></li>
+          <li><span>"Confirmar aprovação": o número passa de CO para O e aparece em <span class="menu">Obras</span>.</span></li>
+        </ol>
+      </div>
+    </div>
+    <div class="caixa conta">
+      <h3>Exemplo: 900,80 EUR com sinal de 200 EUR e plano 50/50</h3>
+      <div class="linha"><span>Sinal (já recebido)</span><span class="num">200,00 EUR</span></div>
+      <div class="linha"><span>1ª nota fiscal: aprovação, 50% do restante</span><span class="num">350,40 EUR</span></div>
+      <div class="linha"><span>2ª nota fiscal: conclusão, em 30 dias</span><span class="num">350,40 EUR</span></div>
+      <p class="nota">Cada parcela é uma conta a receber. O Financeiro e o Painel avisam 5 dias antes do vencimento.</p>
+    </div>
+  </section>
+
+  <section id="autos" class="capitulo">
+    <header>
+      <span class="rotulo">Capítulo 4</span>
+      <h2>Medições e pagamentos</h2>
+      <p>A medição certifica o que foi executado, pelo preço contratual. Depois de aprovada, vira conta a receber.</p>
+    </header>
+    <div class="duas">
+      <video controls preload="metadata" playsinline src="/manual/video/04-autos-pagamentos.webm" aria-label="Vídeo do capítulo 4"></video>
+      <div class="caixa">
+        <ol class="passos">
+          <li><span><span class="menu">Obra &gt; Medições &gt; Nova medição</span>: cada item mostra o contratado e o já medido.</span></li>
+          <li><span>Informe o executado neste período. "Medir o que falta" preenche a última medição.</span></li>
+          <li><span>Salve como rascunho. Quem aprova clica em "Aprovar": cria a conta a receber com IVA, em 30 dias.</span></li>
+          <li><span><span class="menu">Pagamentos</span>: marque "Recebido" quando o dinheiro entrar.</span></li>
+        </ol>
+      </div>
+    </div>
+    <div class="caixa conta">
+      <h3>Exemplo: medir metade da sala</h3>
+      <div class="linha"><span>12 de 24 m², com o canteiro já diluído no preço contratual</span><span class="num">366,18 EUR</span></div>
+      <div class="linha"><span>Obra medida</span><span class="num">50%</span></div>
+      <p class="nota">Uma medição não permite medir mais do que o contratado. Serviços adicionais exigem uma revisão da proposta.</p>
+    </div>
+  </section>
+
+  <section id="custo" class="capitulo">
+    <header>
+      <span class="rotulo">Capítulo 5</span>
+      <h2>Custo real: horas, notas fiscais e etiquetas</h2>
+      <p>O real entra pelos próprios módulos e só conta depois de aprovado. Ninguém preenche custos no final.</p>
+    </header>
+    <div class="duas">
+      <video controls preload="metadata" playsinline src="/manual/video/05-custo-real.webm" aria-label="Vídeo do capítulo 5"></video>
+      <div class="caixa">
+        <ol class="passos">
+          <li><span><span class="menu">Folha de ponto</span>: escolha a obra e o dia, informe as horas de cada trabalhador e salve. Elas ficam pendentes.</span></li>
+          <li><span><span class="menu">Aprovações</span>: quem aprova seleciona e aprova. Só então elas entram no custo, pelo custo/hora do dia do registro.</span></li>
+          <li><span><span class="menu">Notas fiscais &gt; Registrar nota fiscal</span>: fornecedor, obra, tipo (terceiros, aluguel, transporte, outros), valor sem IVA. Depois de aprovada, vira conta a pagar.</span></li>
+          <li><span><span class="menu">Estoque &gt; Etiquetas</span>: escolha os produtos e quantas etiquetas QR imprimir.</span></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section id="telemovel" class="capitulo">
+    <header>
+      <span class="rotulo">Capítulo 6 · no depósito</span>
+      <h2>Bipar material pelo celular</h2>
+      <p>O material só entra na obra pelo estoque. Você lê a etiqueta QR ou o código de barras de fábrica com a câmera.</p>
+    </header>
+    <div class="duas">
+      <video class="vertical" controls preload="metadata" playsinline src="/manual/video/06-telemovel.webm" aria-label="Vídeo do capítulo 6"></video>
+      <div class="caixa">
+        <ol class="passos">
+          <li><span>No celular abra o sistema e vá em <span class="menu">Estoque &gt; Bipar</span>.</span></li>
+          <li><span>Escolha a obra e "Sai para a obra".</span></li>
+          <li><span>"Ligar câmera" e aponte para a etiqueta. Cada leitura soma 1; ajuste com + e -.</span></li>
+          <li><span>"Registrar saída". Quando sobra material: "Volta da obra", bipe e "Registrar devolução".</span></li>
+        </ol>
+        <p class="nota">A câmera exige HTTPS. No endereço publicado funciona. No computador de desenvolvimento use <span class="menu">npm run dev:https</span> e aceite o aviso de certificado no celular.</p>
+      </div>
+    </div>
+    <div class="situacoes">
+      <div class="situacao"><b>Comprei na loja e levei direto para a obra</b><p>Na obra, Apuração &gt; "Compra para esta obra": entra e sai do estoque em um só registro, pelo preço dessa compra.</p></div>
+      <div class="situacao"><b>Equipamento que vai e volta</b><p>Marque o produto como "Equipamento". Em Estoque &gt; "Equipamento em obra" você vê o que está em cada obra.</p></div>
+    </div>
+  </section>
+
+  <section id="apuramento" class="capitulo">
+    <header>
+      <span class="rotulo">Capítulo 7</span>
+      <h2>Apuração, diário, portal e garantia</h2>
+      <p>A apuração é o "MQT Real" da planilha, mas exato: cada bloco compara o vendido, o previsto e o real.</p>
+    </header>
+    <div class="duas">
+      <video controls preload="metadata" playsinline src="/manual/video/07-apuramento-portal.webm" aria-label="Vídeo do capítulo 7"></video>
+      <div class="caixa">
+        <ol class="passos">
+          <li><span><span class="menu">Obra &gt; Diário (RDO)</span>: serviços, equipe e horas do dia, ocorrências. As horas vão para a folha de ponto.</span></li>
+          <li><span><span class="menu">Apuração</span>: venda, custo previsto, custo real e lucro real. Por bloco, em vermelho onde se gastou mais.</span></li>
+          <li><span>"Material previsto vs. saído" é a lista de compras da obra, em embalagens de compra.</span></li>
+          <li><span><span class="menu">Portal do cliente</span>: "Publicar" gera um link. O cliente vê valores, pagamentos, medições e diário, nunca custos.</span></li>
+          <li><span><span class="menu">Garantia</span>: no final, crie o registro (5 anos por padrão) e registre as reclamações.</span></li>
+        </ol>
+      </div>
+    </div>
+    <div class="tabela">
+      <table>
+        <thead><tr><th>Bloco da apuração</th><th>O previsto vem de</th><th>O real vem de</th></tr></thead>
+        <tbody>
+          <tr><td>Materiais</td><td>Itens de material e a parte de material das composições</td><td>Saídas de estoque para a obra, menos devoluções</td></tr>
+          <tr><td>Mão de obra</td><td>Itens de mão de obra e a parte de mão de obra das composições</td><td>Horas aprovadas + lançamentos manuais</td></tr>
+          <tr><td>Terceiros, aluguel, transporte, outros</td><td>Equipamento, caçamba, transporte e extras das composições</td><td>Notas fiscais aprovadas + despesas rápidas</td></tr>
+          <tr><td>Custos indiretos</td><td>Canteiro, seguros e licenças do orçamento</td><td>Entram como notas fiscais dos blocos acima</td></tr>
+          <tr><td>Estrutura</td><td>-</td><td>Horas aprovadas x custo fixo/hora (opcional, em Configurações &gt; Preços)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="ponto" class="capitulo">
+    <header>
+      <span class="rotulo">Capítulo 8 · no celular e no escritório</span>
+      <h2>Registro de ponto, férias e faltas</h2>
+      <p>O trabalhador bate o ponto de entrada, pausa e saída no celular, pede férias e comunica faltas. A empresa valida em Ponto da equipe e o pedido fica verde no app dele. Atende ao registro de tempos de trabalho do art. 202 do Código do Trabalho português.</p>
+    </header>
+    <div class="duas">
+      <video class="vertical" controls preload="metadata" playsinline src="/manual/video/08-picagem-trabalhador.webm" aria-label="Vídeo do capítulo 8: o trabalhador"></video>
+      <div class="caixa">
+        <ol class="passos">
+          <li><span>Envie ao trabalhador o link <span class="menu">/login?modo=pin</span>. Ele entra com o <b>nº de funcionário</b> e o <b>PIN</b>; o celular lembra o número.</span></li>
+          <li><span>Escolhe a obra e toca em <span class="menu">Entrar</span>. Depois <span class="menu">Pausa</span>, <span class="menu">Retornar da pausa</span>, <span class="menu">Mudar de obra</span> e <span class="menu">Sair</span>.</span></li>
+          <li><span>A hora gravada é a do servidor, não a do celular. Os registros de ponto nunca são excluídos.</span></li>
+          <li><span><span class="menu">Férias</span>: vê o saldo e pede as datas (só contam dias úteis, sem feriados nacionais).</span></li>
+          <li><span><span class="menu">Faltas</span>: motivo (consulta, doença, licença parental...), dias e, se for parte do dia, as horas.</span></li>
+          <li><span><span class="menu">Correções</span>: esqueceu de bater o ponto? Pede a hora certa com o motivo.</span></li>
+        </ol>
+        <p class="nota">O trabalhador só vê o próprio ponto. Não vê orçamentos, preços, salários nem os colegas, e isso é bloqueado no servidor, não só na tela.</p>
+      </div>
+    </div>
+    <div class="duas">
+      <video controls preload="metadata" playsinline src="/manual/video/09-ponto-gestor.webm" aria-label="Vídeo do capítulo 8: o gestor"></video>
+      <div class="caixa">
+        <ol class="passos">
+          <li><span><span class="menu">Ponto da equipe &gt; Acessos</span>: "Criar acesso" com um PIN de 4 a 6 dígitos. "Novo PIN" troca o PIN; "Desativar" corta o acesso.</span></li>
+          <li><span><span class="menu">Obras</span>: ative "Pode bater ponto" nas obras ativas. Para GPS, defina o local e o raio; para QR, imprima e afixe na obra.</span></li>
+          <li><span><span class="menu">Configuração</span>: livre, só QR, só GPS ou QR ou GPS; horário limite de entrada; dias de férias (22).</span></li>
+          <li><span><span class="menu">Hoje</span>: quem está trabalhando, em pausa, de férias e quem ainda não bateu o ponto depois do horário limite.</span></li>
+          <li><span><span class="menu">Pedidos</span>: aprovar ou recusar, com resposta. Fica verde ou vermelho no app do trabalhador.</span></li>
+          <li><span><span class="menu">Registros</span>: o mês de cada um, exportar CSV, imprimir e "Enviar horas para a Folha de ponto" (custo da obra).</span></li>
+          <li><span><span class="menu">Mapa de férias</span>: a equipe no mês, por cores, com o saldo.</span></li>
+        </ol>
+      </div>
+    </div>
+    <div class="situacoes">
+      <div class="situacao"><b>Esqueceu de bater o ponto de saída</b><p>Ele pede a correção no app, ou o gestor usa "Adicionar registro" em Registros. Fica marcado como corrigido, com o motivo e quem fez.</p></div>
+      <div class="situacao"><b>Registro de ponto errado</b><p>Em Registros &gt; Detalhe, "Anular" com o motivo. O original fica armazenado, mas deixa de contar.</p></div>
+      <div class="situacao"><b>Esqueceu o PIN</b><p>Em Acessos, "Novo PIN". O antigo deixa de funcionar na hora.</p></div>
+      <div class="situacao"><b>Saiu da empresa</b><p>Em Acessos, "Desativar". Os registros dele ficam para consulta.</p></div>
+    </div>
+  </section>
+
+  <hr>
+
+  <section id="situacoes" class="capitulo">
+    <header>
+      <span class="rotulo">No dia a dia</span>
+      <h2>O que fazer em cada situação</h2>
+    </header>
+    <div class="situacoes">
+      <div class="situacao"><span class="estado alerta">Atenção</span><b>O lucro real está abaixo do previsto</b><p>Abra a Apuração e veja os blocos em vermelho. Costuma ser mão de obra acima das horas previstas ou custos que o orçamento não tinha (aluguel, frete).</p></div>
+      <div class="situacao"><span class="estado alerta">Atenção</span><b>Uma parcela venceu e não foi paga</b><p>Aparece no Painel e no Financeiro como vencida. Depois de receber, marque "Recebido" em Pagamentos.</p></div>
+      <div class="situacao"><span class="estado ok">Rotina</span><b>O cliente pediu um serviço adicional</b><p>Crie uma revisão da proposta (Rev. A). A medição não permite medir acima do contratado.</p></div>
+      <div class="situacao"><span class="estado ok">Rotina</span><b>Um funcionário trabalhou em duas obras no mesmo dia</b><p>Na folha de ponto registre as horas de cada obra separadamente.</p></div>
+      <div class="situacao"><span class="estado ok">Rotina</span><b>Nota fiscal de fornecedor errada</b><p>Quem aprova clica em "Rejeitar". Só as aprovadas entram no custo e nas contas a pagar.</p></div>
+      <div class="situacao"><span class="estado ok">Rotina</span><b>Produto abaixo do estoque mínimo</b><p>O Painel avisa. Faça a entrada da compra em Estoque &gt; Entrada.</p></div>
+      <div class="situacao"><span class="estado ok">Rotina</span><b>Comparar preços de fornecedores</b><p>Cotações: o mesmo pedido a vários fornecedores; o mais barato que responde a tudo fica destacado.</p></div>
+      <div class="situacao"><span class="estado alerta">Atenção</span><b>Excluir uma proposta que já é obra</b><p>Exclui também as medições, o diário, as horas, a garantia, o portal e as contas a receber dela. As notas fiscais e o histórico do estoque permanecem.</p></div>
+    </div>
+  </section>
+
+  <section id="permissoes" class="capitulo">
+    <header>
+      <span class="rotulo">Acessos</span>
+      <h2>Quem faz o quê</h2>
+      <p>As permissões já existentes cobrem os módulos novos. Elas são atribuídas em Usuários.</p>
+    </header>
+    <div class="tabela">
+      <table>
+        <thead><tr><th>Permissão</th><th>Permite</th></tr></thead>
+        <tbody>
+          <tr><td>Lançar custos reais da obra</td><td>Folha de ponto, notas fiscais, medições (rascunho), diário, despesas rápidas</td></tr>
+          <tr><td>Aprovar e emitir</td><td>Aprovar propostas, medições, horas e notas fiscais</td></tr>
+          <tr><td>Ver custos e margem</td><td>Apuração, Financeiro, Pagamentos, lucro nas listas</td></tr>
+          <tr><td>Criar e editar materiais</td><td>Produtos, estoque, bipar, etiquetas, cotações</td></tr>
+          <tr><td>Criar e editar funcionários</td><td>Funcionários e funções (custo/hora)</td></tr>
+          <tr><td>Alterar identidade, termos e padrões</td><td>Configurações &gt; Preços e Impostos</td></tr>
+          <tr><td>Bater ponto</td><td>Só a página Registro de ponto (cargo Trabalhador, entra com nº + PIN)</td></tr>
+          <tr><td>Gerenciar o ponto da equipe</td><td>Ponto da equipe: aprovar férias e faltas, corrigir, acessos, obras. Quem cria e edita funcionários já tem.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="glossario" class="capitulo">
+    <header>
+      <span class="rotulo">Termos</span>
+      <h2>Glossário</h2>
+    </header>
+    <div class="tabela">
+      <table>
+        <tbody>
+          <tr><td><b>Estrutura</b></td><td>Porcentagem dos custos fixos da empresa somada a todos os preços (o "FI Estrutura" da planilha).</td></tr>
+          <tr><td><b>Especialidade</b></td><td>Construção civil, hidráulica, gás, elétrica, AVAC, SCIE: cada uma com a sua margem.</td></tr>
+          <tr><td><b>Composição</b></td><td>O que um serviço consome para uma quantidade de referência: horas, material, aluguel, caçamba, transporte, extras.</td></tr>
+          <tr><td><b>Medição</b></td><td>Documento que certifica o executado em um período, pelo preço contratual sem IVA.</td></tr>
+          <tr><td><b>RDO</b></td><td>Relatório diário de obra: serviços, equipe, condições do tempo, ocorrências.</td></tr>
+          <tr><td><b>Custo médio</b></td><td>Custo de cada unidade em estoque, recalculado a cada entrada.</td></tr>
+          <tr><td><b>Verba 2.27</b></td><td>IVA reduzido em empreitadas de reforma de habitação, se os materiais não passarem de 20% do valor.</td></tr>
+          <tr><td><b>Autoliquidação</b></td><td>Em subempreitadas de construção civil o IVA é recolhido pelo cliente: a nota fiscal sai com 0%.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</div>
+</template>
+
+<!-- ======================================================= en ====================================================== -->
+<template data-idioma="en">
+<div class="pagina">
+
+  <section class="abertura">
+    <span class="rotulo">ERP TecKnowHow · user manual</span>
+    <h1>From proposal to warranty, in a single job</h1>
+    <p>This manual shows how the system replaces the job spreadsheet (MQT, M.Cálculo and cost list). Each chapter has a video recorded in the real system, the steps and what happens in each situation. The example figures come from the demo job <span class="num">O26/0002</span> (DEMO Client Silva).</p>
+    <a class="entrar" href="/login">Sign in to the system</a>
+    <nav class="indice" aria-label="Chapters">
+      <a href="#fluxo">The workflow</a>
+      <a href="#numeros">Where each figure comes from</a>
+      <a href="#catalogo">1 Catalogue</a>
+      <a href="#orcamento">2 Quote</a>
+      <a href="#adjudicacao">3 Acceptance</a>
+      <a href="#autos">4 Measurements and payments</a>
+      <a href="#custo">5 Actual cost</a>
+      <a href="#telemovel">6 Mobile</a>
+      <a href="#apuramento">7 Job costing and portal</a>
+      <a href="#ponto">8 Time clock</a>
+      <a href="#situacoes">Situations</a>
+      <a href="#permissoes">Who does what</a>
+      <a href="#glossario">Glossary</a>
+    </nav>
+  </section>
+
+  <section id="fluxo" class="capitulo">
+    <header>
+      <span class="rotulo">The method</span>
+      <h2>How a job flows</h2>
+      <p>Each cost is entered once, where it arises. Nothing is retyped into a separate spreadsheet: the final job costing brings it all together on its own.</p>
+    </header>
+    <div class="fluxo">
+      <div class="etapa"><span class="passo">1</span><b>Catalogue</b><span>Products, trades, employees and services with a breakdown.</span></div>
+      <div class="etapa"><span class="passo">2</span><b>Quote</b><span>Rooms with measurements, breakdown items, price by speciality.</span></div>
+      <div class="etapa"><span class="passo">3</span><b>Acceptance</b><span>Deposit, instalments, becomes a job. Receivables created.</span></div>
+      <div class="etapa"><span class="passo">4</span><b>Execution</b><span>Stock scanned by barcode, timesheet, invoices, site diary.</span></div>
+      <div class="etapa"><span class="passo">5</span><b>Invoicing</b><span>Progress measurements and instalments. Due date alerts.</span></div>
+      <div class="etapa"><span class="passo">6</span><b>Close-out</b><span>Estimated vs actual job costing, client portal, warranty.</span></div>
+    </div>
+  </section>
+
+  <section id="numeros" class="capitulo">
+    <header>
+      <span class="rotulo">Traceability</span>
+      <h2>Where each figure comes from</h2>
+      <p>If a figure looks wrong, this is where to look. No value is ever entered twice.</p>
+    </header>
+    <div class="tabela">
+      <table>
+        <thead><tr><th>Figure</th><th>Comes from</th><th>Where to change it</th></tr></thead>
+        <tbody>
+          <tr><td>Cost of a material</td><td>Purchase price + non-recoverable taxes + other costs</td><td><span class="menu">Products</span></td></tr>
+          <tr><td>Labour cost per hour</td><td>Employee record (salary, employer contributions, insurance, allowances)</td><td><span class="menu">Employees</span></td></tr>
+          <tr><td>Cost of a service</td><td>Breakdown: hours x cost/hour + materials + hire, waste disposal, transport, extras, at today's catalogue price</td><td><span class="menu">Services</span></td></tr>
+          <tr><td>Quantity of an item</td><td>Room dimensions (ceiling, floor, walls excluding openings, perimeter) or typed in manually</td><td><span class="menu">Quote &gt; Items</span></td></tr>
+          <tr><td>Price to the client</td><td>Cost x (1 + overheads + speciality margin)</td><td><span class="menu">Settings &gt; Pricing</span></td></tr>
+          <tr><td>VAT rate</td><td>Suggested by the tax context (region, type of job, client, transaction)</td><td><span class="menu">Quote &gt; Pricing</span></td></tr>
+          <tr><td>Receivables</td><td>Acceptance (deposit and instalments) and approved progress measurements</td><td><span class="menu">Job &gt; Payments</span></td></tr>
+          <tr><td>Actual job materials</td><td>Stock out to the job, minus returns</td><td><span class="menu">Stock &gt; Scan barcode</span></td></tr>
+          <tr><td>Actual labour</td><td>Hours approved in the timesheet (the site diary also creates them)</td><td><span class="menu">Timesheet</span></td></tr>
+          <tr><td>Subcontractors, hire, transport</td><td>Approved supplier invoices and quick expenses</td><td><span class="menu">Invoices</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <hr>
+
+  <section id="catalogo" class="capitulo">
+    <header>
+      <span class="rotulo">Chapter 1 · done once</span>
+      <h2>Catalogue: prices, products and services</h2>
+      <p>A quote is only as accurate as the catalogue. Set it up once, then just keep the prices up to date.</p>
+    </header>
+    <div class="duas">
+      <video controls preload="metadata" playsinline src="/manual/video/01-catalogo.webm" aria-label="Chapter 1 video"></video>
+      <div class="caixa">
+        <ol class="passos">
+          <li><span><span class="menu">Settings &gt; Pricing</span>: overheads (the spreadsheet's "FI Estrutura", 15%) and the margin for each speciality: Civil construction 15%; Plumbing, Gas, Electrical, HVAC and Fire safety (SCIE) 25%.</span></li>
+          <li><span><span class="menu">Settings &gt; Taxes</span>: tax groups. Deductible VAT is marked as recoverable and is not included in the cost.</span></li>
+          <li><span><span class="menu">Products &gt; New Product</span>: purchase price, tax group, margin and sale price. Turn on "Track stock" and enter the manufacturer's barcode, if there is one.</span></li>
+          <li><span><span class="menu">Services &gt; New Service</span>: choose the speciality and the measurement (e.g. ceiling painting measures the ceiling). In the breakdown, each line comes from a product, employee or trade.</span></li>
+        </ol>
+      </div>
+    </div>
+    <div class="caixa conta">
+      <h3>Example: DEMO Ceiling painting, broken down for 10 m²</h3>
+      <div class="linha"><span>Labour: 8 h x €10.28/h (Patolino)</span><span class="num">€82.24</span></div>
+      <div class="linha"><span>Material: 2 tins x €45.00</span><span class="num">€90.00</span></div>
+      <div class="linha total"><span>Cost per m² (172.24 / 10)</span><span class="num">€17.22</span></div>
+      <div class="linha"><span>Sale price per m²: 17.22 x (1 + 15% + 15%)</span><span class="num">€22.39</span></div>
+      <p class="nota">If the price of paint changes in Products, the next proposal already uses the new cost. Saved proposals do not change.</p>
+    </div>
+  </section>
+
+  <section id="orcamento" class="capitulo">
+    <header>
+      <span class="rotulo">Chapter 2</span>
+      <h2>Quote: rooms, measurements and price</h2>
+      <p>This is the spreadsheet's MQT: items by room. The difference is that quantities and prices are calculated automatically.</p>
+    </header>
+    <div class="duas">
+      <video controls preload="metadata" playsinline src="/manual/video/02-orcamento.webm" aria-label="Chapter 2 video"></video>
+      <div class="caixa">
+        <ol class="passos">
+          <li><span><span class="menu">Quotes &gt; New</span>: client details.</span></li>
+          <li><span><span class="menu">Items</span>: create the room and fill in length, width, ceiling height and door/window area.</span></li>
+          <li><span>Choose the service. The quantity comes from the room and the sale price from the pricing model. "Add to Quote".</span></li>
+          <li><span>If you change a measurement, every item linked to it is updated.</span></li>
+          <li><span><span class="menu">Pricing</span>: indirect costs (site set-up, insurance, permits) and tax context. "Apply" sets the suggested VAT rate.</span></li>
+          <li><span><span class="menu">Summary</span>: check the sale price, cost and estimated profit, then save.</span></li>
+        </ol>
+      </div>
+    </div>
+    <div class="caixa conta">
+      <h3>Example: Living room 6 x 4 x 2.7 m</h3>
+      <div class="linha"><span>Ceiling: 6 x 4 = 24 m² x €22.39</span><span class="num">€537.36</span></div>
+      <div class="linha"><span>Site set-up €150 sold at x 1.30</span><span class="num">€195.00</span></div>
+      <div class="linha total"><span>Net amount (excl. VAT)</span><span class="num">€732.36</span></div>
+      <div class="linha"><span>VAT 23% (materials make up 52%: item 2.27 does not apply)</span><span class="num">€168.44</span></div>
+      <div class="linha total"><span>Total to the client</span><span class="num">€900.80</span></div>
+      <div class="linha"><span>Estimated cost (24 x 17.22 + 150)</span><span class="num">€563.28</span></div>
+      <div class="linha"><span>Estimated profit (23.09% of sales)</span><span class="num">€169.08</span></div>
+    </div>
+    <div class="situacoes">
+      <div class="situacao"><b>I want the old margin model</b><p>On the Pricing tab choose "By margins": the product's own margin per item and/or a global margin. Switching back to "By speciality" restores the prices.</p></div>
+      <div class="situacao"><b>The client wants materials and labour shown separately</b><p>On the Pricing tab turn on "Itemise materials and labour in the PDF". Each item is printed with its breakdown split.</p></div>
+      <div class="situacao"><b>Refurbishment job in an ARU (urban regeneration area)</b><p>Tax context: job type ARU + main contract suggests 6% (item 2.23). Subcontract suggests reverse charge (0%).</p></div>
+      <div class="situacao"><b>An item does not follow the room's measurements</b><p>On the item choose "Manual quantity" and type the value. It no longer follows the dimensions.</p></div>
+    </div>
+  </section>
+
+  <section id="adjudicacao" class="capitulo">
+    <header>
+      <span class="rotulo">Chapter 3</span>
+      <h2>Acceptance: the proposal becomes a job</h2>
+      <p>When the client accepts, everything is recorded in one step: amount, deposit, how the balance will be invoiced and conversion into a job.</p>
+    </header>
+    <div class="duas">
+      <video controls preload="metadata" playsinline src="/manual/video/03-adjudicacao.webm" aria-label="Chapter 3 video"></video>
+      <div class="caixa">
+        <ol class="passos">
+          <li><span>In the list of quotes, the arrows button changes the stage: Under Review, Issued.</span></li>
+          <li><span>Choose <span class="menu">Accepted</span>: the acceptance form opens.</span></li>
+          <li><span>Confirm the amount (incl. VAT), enter the deposit already received and the plan: dated instalments or by progress measurement.</span></li>
+          <li><span>"Confirm acceptance": the number changes from CO to O and appears under <span class="menu">Jobs</span>.</span></li>
+        </ol>
+      </div>
+    </div>
+    <div class="caixa conta">
+      <h3>Example: €900.80 with a €200 deposit and a 50/50 plan</h3>
+      <div class="linha"><span>Deposit (already received)</span><span class="num">€200.00</span></div>
+      <div class="linha"><span>1st invoice: acceptance, 50% of the balance</span><span class="num">€350.40</span></div>
+      <div class="linha"><span>2nd invoice: completion, due in 30 days</span><span class="num">€350.40</span></div>
+      <p class="nota">Each instalment is a receivable. Finance and the Dashboard give a warning 5 days before it is due.</p>
+    </div>
+  </section>
+
+  <section id="autos" class="capitulo">
+    <header>
+      <span class="rotulo">Chapter 4</span>
+      <h2>Progress measurements and payments</h2>
+      <p>A progress measurement certifies the work carried out, at the contract price. Once approved, it becomes a receivable.</p>
+    </header>
+    <div class="duas">
+      <video controls preload="metadata" playsinline src="/manual/video/04-autos-pagamentos.webm" aria-label="Chapter 4 video"></video>
+      <div class="caixa">
+        <ol class="passos">
+          <li><span><span class="menu">Job &gt; Progress measurements &gt; New measurement</span>: each item shows the contract quantity and what has already been measured.</span></li>
+          <li><span>Enter the work carried out in this period. "Measure the remainder" fills in the final measurement.</span></li>
+          <li><span>Save as a draft. The approver clicks "Approve": this creates the receivable with VAT, due in 30 days.</span></li>
+          <li><span><span class="menu">Payments</span>: mark "Received" when the money comes in.</span></li>
+        </ol>
+      </div>
+    </div>
+    <div class="caixa conta">
+      <h3>Example: measuring half of the living room</h3>
+      <div class="linha"><span>12 of 24 m², with site set-up already spread over the contract price</span><span class="num">€366.18</span></div>
+      <div class="linha"><span>Job measured</span><span class="num">50%</span></div>
+      <p class="nota">A measurement cannot exceed the contract quantity. Extra work requires a revision of the proposal.</p>
+    </div>
+  </section>
+
+  <section id="custo" class="capitulo">
+    <header>
+      <span class="rotulo">Chapter 5</span>
+      <h2>Actual cost: hours, invoices and labels</h2>
+      <p>Actual costs come in through their own modules and only count once approved. Nobody fills in costs at the end.</p>
+    </header>
+    <div class="duas">
+      <video controls preload="metadata" playsinline src="/manual/video/05-custo-real.webm" aria-label="Chapter 5 video"></video>
+      <div class="caixa">
+        <ol class="passos">
+          <li><span><span class="menu">Timesheet</span>: choose the job and the day, enter each worker's hours and save. They are left pending.</span></li>
+          <li><span><span class="menu">Approvals</span>: the approver selects and approves. Only then are they added to the cost, at the hourly cost on the date of the record.</span></li>
+          <li><span><span class="menu">Invoices &gt; Record invoice</span>: supplier, job, type (subcontractors, hire, transport, other), amount excl. VAT. Once approved, it becomes a payable.</span></li>
+          <li><span><span class="menu">Stock &gt; Labels</span>: choose the products and how many QR labels to print.</span></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section id="telemovel" class="capitulo">
+    <header>
+      <span class="rotulo">Chapter 6 · in the warehouse</span>
+      <h2>Scanning materials with a mobile phone</h2>
+      <p>Materials only reach the job through stock. Scan the QR label or the manufacturer's barcode with the camera.</p>
+    </header>
+    <div class="duas">
+      <video class="vertical" controls preload="metadata" playsinline src="/manual/video/06-telemovel.webm" aria-label="Chapter 6 video"></video>
+      <div class="caixa">
+        <ol class="passos">
+          <li><span>On your mobile, open the system and go to <span class="menu">Stock &gt; Scan barcode</span>.</span></li>
+          <li><span>Choose the job and "Out to job".</span></li>
+          <li><span>"Turn on camera" and point it at the label. Each scan adds 1; adjust with + and -.</span></li>
+          <li><span>"Record stock out". When there is material left over: "Back from job", scan it and "Record return".</span></li>
+        </ol>
+        <p class="nota">The camera requires HTTPS. It works on the published address. On a development computer use <span class="menu">npm run dev:https</span> and accept the certificate warning on the phone.</p>
+      </div>
+    </div>
+    <div class="situacoes">
+      <div class="situacao"><b>I bought it at the shop and took it straight to the job</b><p>On the job, Job costing &gt; "Purchase for this job": it goes into and out of stock in a single record, at that purchase price.</p></div>
+      <div class="situacao"><b>Equipment that goes out and comes back</b><p>Mark the product as "Equipment". Under Stock &gt; "Equipment on site" you can see what is at each job.</p></div>
+    </div>
+  </section>
+
+  <section id="apuramento" class="capitulo">
+    <header>
+      <span class="rotulo">Chapter 7</span>
+      <h2>Job costing, site diary, portal and warranty</h2>
+      <p>Job costing is the spreadsheet's "MQT Real", but exact: each block compares what was sold, what was estimated and what actually happened.</p>
+    </header>
+    <div class="duas">
+      <video controls preload="metadata" playsinline src="/manual/video/07-apuramento-portal.webm" aria-label="Chapter 7 video"></video>
+      <div class="caixa">
+        <ol class="passos">
+          <li><span><span class="menu">Job &gt; Site diary (RDO)</span>: the day's work, team and hours, incidents. The hours go to the timesheet.</span></li>
+          <li><span><span class="menu">Job costing</span>: sales, estimated cost, actual cost and actual profit. By block, in red where more was spent.</span></li>
+          <li><span>"Estimated vs issued materials" is the job's shopping list, in purchase pack sizes.</span></li>
+          <li><span><span class="menu">Client portal</span>: "Publish" generates a link. The client sees amounts, payments, measurements and the site diary, never costs.</span></li>
+          <li><span><span class="menu">Warranty</span>: at the end, create the warranty record (5 years by default) and log any claims.</span></li>
+        </ol>
+      </div>
+    </div>
+    <div class="tabela">
+      <table>
+        <thead><tr><th>Job costing block</th><th>Estimate comes from</th><th>Actual comes from</th></tr></thead>
+        <tbody>
+          <tr><td>Materials</td><td>Material items and the materials share of breakdowns</td><td>Stock out to the job, minus returns</td></tr>
+          <tr><td>Labour</td><td>Labour items and the labour share of breakdowns</td><td>Approved hours + manual entries</td></tr>
+          <tr><td>Subcontractors, hire, transport, other</td><td>Equipment, waste disposal, transport and extras from breakdowns</td><td>Approved invoices + quick expenses</td></tr>
+          <tr><td>Indirect costs</td><td>Site set-up, insurance and permits from the quote</td><td>Entered as invoices in the blocks above</td></tr>
+          <tr><td>Overheads</td><td>-</td><td>Approved hours x fixed cost/hour (optional, in Settings &gt; Pricing)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="ponto" class="capitulo">
+    <header>
+      <span class="rotulo">Chapter 8 · on the phone and in the office</span>
+      <h2>Time clock, annual leave and absences</h2>
+      <p>Workers clock in, take breaks and clock out on their phone, request annual leave and report absences. The company reviews everything in Team time clock and the request turns green in the worker's app. It meets the working time recording requirement of art. 202 of the Portuguese Labour Code.</p>
+    </header>
+    <div class="duas">
+      <video class="vertical" controls preload="metadata" playsinline src="/manual/video/08-picagem-trabalhador.webm" aria-label="Chapter 8 video: the worker"></video>
+      <div class="caixa">
+        <ol class="passos">
+          <li><span>Send the worker the link <span class="menu">/login?modo=pin</span>. They sign in with their <b>employee no.</b> and <b>PIN</b>; the phone remembers the number.</span></li>
+          <li><span>They choose the job and tap <span class="menu">Clock in</span>. Then <span class="menu">Break</span>, <span class="menu">Resume</span>, <span class="menu">Switch job</span> and <span class="menu">Clock out</span>.</span></li>
+          <li><span>The time recorded is the server's, not the phone's. Clock records are never deleted.</span></li>
+          <li><span><span class="menu">Annual leave</span>: see the balance and request dates (only working days count, excluding national public holidays).</span></li>
+          <li><span><span class="menu">Absences</span>: reason (appointment, illness, parental leave...), days and, if it is part of a day, the hours.</span></li>
+          <li><span><span class="menu">Corrections</span>: forgot to clock in or out? Request the correct time with a reason.</span></li>
+        </ol>
+        <p class="nota">Workers only see their own time clock. They cannot see quotes, prices, salaries or colleagues, and this is blocked on the server, not just on screen.</p>
+      </div>
+    </div>
+    <div class="duas">
+      <video controls preload="metadata" playsinline src="/manual/video/09-ponto-gestor.webm" aria-label="Chapter 8 video: the manager"></video>
+      <div class="caixa">
+        <ol class="passos">
+          <li><span><span class="menu">Team time clock &gt; Access</span>: "Create access" with a 4 to 6 digit PIN. "New PIN" replaces it; "Deactivate" revokes access.</span></li>
+          <li><span><span class="menu">Jobs</span>: turn on "Clocking allowed" for active jobs. For GPS, set the location and radius; for QR, print the code and put it up on site.</span></li>
+          <li><span><span class="menu">Settings</span>: free, QR only, GPS only, or QR or GPS; clock-in cut-off time; annual leave days (22).</span></li>
+          <li><span><span class="menu">Today</span>: who is working, on a break, on leave, and who has not clocked in after the cut-off time.</span></li>
+          <li><span><span class="menu">Requests</span>: approve or reject, with a reply. It turns green or red in the worker's app.</span></li>
+          <li><span><span class="menu">Records</span>: each person's month, export CSV, print and "Send hours to Timesheet" (job cost).</span></li>
+          <li><span><span class="menu">Leave calendar</span>: the team for the month, colour-coded, with balances.</span></li>
+        </ol>
+      </div>
+    </div>
+    <div class="situacoes">
+      <div class="situacao"><b>Forgot to clock out</b><p>The worker requests a correction in the app, or the manager uses "Add clock record" in Records. It is flagged as corrected, with the reason and who made it.</p></div>
+      <div class="situacao"><b>Wrong clock record</b><p>In Records &gt; Details, "Void" with a reason. The original is kept but no longer counts.</p></div>
+      <div class="situacao"><b>Forgot the PIN</b><p>In Access, "New PIN". The old one stops working immediately.</p></div>
+      <div class="situacao"><b>Left the company</b><p>In Access, "Deactivate". Their records remain available for reference.</p></div>
+    </div>
+  </section>
+
+  <hr>
+
+  <section id="situacoes" class="capitulo">
+    <header>
+      <span class="rotulo">Day to day</span>
+      <h2>What to do in each situation</h2>
+    </header>
+    <div class="situacoes">
+      <div class="situacao"><span class="estado alerta">Warning</span><b>Actual profit is below the estimate</b><p>Open Job costing and look at the blocks in red. It is usually labour above the estimated hours or costs the quote did not include (hire, freight).</p></div>
+      <div class="situacao"><span class="estado alerta">Warning</span><b>An instalment is overdue and unpaid</b><p>It appears as overdue on the Dashboard and in Finance. Once received, mark it "Received" in Payments.</p></div>
+      <div class="situacao"><span class="estado ok">Routine</span><b>The client asked for extra work</b><p>Create a revision of the proposal (Rev. A). Progress measurements cannot exceed the contract quantity.</p></div>
+      <div class="situacao"><span class="estado ok">Routine</span><b>An employee worked on two jobs on the same day</b><p>In the timesheet, record the hours for each job separately.</p></div>
+      <div class="situacao"><span class="estado ok">Routine</span><b>Incorrect supplier invoice</b><p>The approver clicks "Reject". Only approved invoices count towards cost and payables.</p></div>
+      <div class="situacao"><span class="estado ok">Routine</span><b>Product below minimum stock</b><p>The Dashboard warns you. Record the purchase under Stock &gt; Stock in.</p></div>
+      <div class="situacao"><span class="estado ok">Routine</span><b>Comparing supplier prices</b><p>Supplier quotes: the same request sent to several suppliers; the cheapest that answers every line is highlighted.</p></div>
+      <div class="situacao"><span class="estado alerta">Warning</span><b>Deleting a proposal that is already a job</b><p>This also deletes its measurements, site diary, hours, warranty, portal and receivables. Invoices and stock history are kept.</p></div>
+    </div>
+  </section>
+
+  <section id="permissoes" class="capitulo">
+    <header>
+      <span class="rotulo">Access</span>
+      <h2>Who does what</h2>
+      <p>The existing permissions cover the new modules. They are assigned in Users.</p>
+    </header>
+    <div class="tabela">
+      <table>
+        <thead><tr><th>Permission</th><th>Allows</th></tr></thead>
+        <tbody>
+          <tr><td>Enter actual job costs</td><td>Timesheet, invoices, measurements (draft), site diary, quick expenses</td></tr>
+          <tr><td>Approve and issue</td><td>Accept proposals, approve measurements, hours and invoices</td></tr>
+          <tr><td>View costs and margin</td><td>Job costing, Finance, Payments, profit in lists</td></tr>
+          <tr><td>Create and edit materials</td><td>Products, stock, barcode scanning, labels, supplier quotes</td></tr>
+          <tr><td>Create and edit employees</td><td>Employees and trades (cost/hour)</td></tr>
+          <tr><td>Change identity, terms and defaults</td><td>Settings &gt; Pricing and Taxes</td></tr>
+          <tr><td>Clock in</td><td>Time clock page only (Worker role, signs in with no. + PIN)</td></tr>
+          <tr><td>Manage the team time clock</td><td>Team time clock: approve leave and absences, make corrections, access, jobs. Anyone who can create and edit employees already has it.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="glossario" class="capitulo">
+    <header>
+      <span class="rotulo">Terms</span>
+      <h2>Glossary</h2>
+    </header>
+    <div class="tabela">
+      <table>
+        <tbody>
+          <tr><td><b>Overheads</b></td><td>Percentage of the company's fixed costs added to every price (the spreadsheet's "FI Estrutura").</td></tr>
+          <tr><td><b>Speciality</b></td><td>Civil construction, plumbing, gas, electrical, HVAC, fire safety (SCIE): each with its own margin.</td></tr>
+          <tr><td><b>Breakdown</b></td><td>What a service uses for a reference quantity: hours, materials, hire, waste disposal, transport, extras.</td></tr>
+          <tr><td><b>Progress measurement</b></td><td>Document certifying the work carried out in a period, at the contract price excluding VAT.</td></tr>
+          <tr><td><b>RDO</b></td><td>Daily site report: work done, team, weather, incidents.</td></tr>
+          <tr><td><b>Average cost</b></td><td>Cost of each unit in stock, recalculated on every stock in.</td></tr>
+          <tr><td><b>Item 2.27</b></td><td>Reduced VAT on home renovation contracts, provided materials do not exceed 20% of the value.</td></tr>
+          <tr><td><b>Reverse charge</b></td><td>On civil construction subcontracts the VAT is accounted for by the client: the invoice is issued at 0%.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</div>
+</template>
+
+<script>
+(function () {
+  // Textos fora dos templates (título da página e rótulo do seletor), por idioma.
+  var META = {
+    "pt-PT": { titulo: "Manual de Obra TecKnowHow", seletor: "Idioma" },
+    "pt-BR": { titulo: "Manual de Obra TecKnowHow", seletor: "Idioma" },
+    "en":    { titulo: "TecKnowHow Job Manual", seletor: "Language" }
+  };
+  var COOKIE = "erp_idioma";
+
+  function lerCookie() {
+    var m = document.cookie.match(/(?:^|;\s*)erp_idioma=([^;]*)/);
+    if (!m) return null;
+    try { var v = decodeURIComponent(m[1]); } catch (e) { return null; }
+    return META[v] ? v : null;
+  }
+  function idiomaDoBrowser() {
+    var lista = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || ""];
+    var l = String(lista[0] || "").toLowerCase();
+    if (l === "pt-br" || l.indexOf("pt-br") === 0) return "pt-BR";
+    if (l === "pt" || l.indexOf("pt-") === 0) return "pt-PT";
+    return "en";
+  }
+  function gravarCookie(id) {
+    document.cookie = COOKIE + "=" + id + "; path=/; max-age=31536000; samesite=lax";
+  }
+
+  var destino = document.getElementById("manual");
+  var botoes = document.querySelectorAll("#idiomas button");
+
+  function mostrar(id) {
+    var tpl = document.querySelector('template[data-idioma="' + id + '"]');
+    if (!tpl) return;
+    destino.replaceChildren(tpl.content.cloneNode(true));
+    document.documentElement.lang = id;
+    document.title = META[id].titulo;
+    document.getElementById("idiomas").setAttribute("aria-label", META[id].seletor);
+    for (var i = 0; i < botoes.length; i++) {
+      botoes[i].setAttribute("aria-pressed", botoes[i].getAttribute("data-id") === id ? "true" : "false");
+    }
+  }
+
+  for (var i = 0; i < botoes.length; i++) {
+    botoes[i].addEventListener("click", function () {
+      var id = this.getAttribute("data-id");
+      gravarCookie(id);
+      mostrar(id);
+      // Mantém a secção em que a pessoa estava (os ids são iguais nos três idiomas).
+      if (location.hash) {
+        var alvo = document.getElementById(location.hash.slice(1));
+        if (alvo) alvo.scrollIntoView({ behavior: "auto" });
+      }
+    });
+  }
+
+  mostrar(lerCookie() || idiomaDoBrowser());
+  if (location.hash) {
+    var alvo = document.getElementById(location.hash.slice(1));
+    if (alvo) alvo.scrollIntoView({ behavior: "auto" });
+  }
+})();
+</script>
 </body>
 </html>

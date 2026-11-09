@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { usePermissoes } from "@/hooks/use-permissoes"
 import { getCargo } from "@/lib/permissoes"
+import { t } from "@/lib/i18n"
 
 interface SemAcessoProps {
   /** Nome do ecra, para a mensagem dizer o que ficou por abrir. */
@@ -31,8 +32,8 @@ export function SemAcesso({ area, requisito }: SemAcessoProps) {
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-3xl font-bold">{area || "Área restrita"}</h1>
-        <p className="text-muted-foreground mt-2">Esta área depende de permissões que o seu cargo não tem.</p>
+        <h1 className="text-3xl font-bold">{area || t("Área restrita")}</h1>
+        <p className="text-muted-foreground mt-2">{t("Esta área depende de permissões que o seu cargo não tem.")}</p>
       </div>
 
       <Card>
@@ -42,27 +43,36 @@ export function SemAcesso({ area, requisito }: SemAcessoProps) {
           </span>
 
           <div className="max-w-md space-y-2">
-            <h2 className="text-lg font-medium">Sem acesso a esta área</h2>
+            <h2 className="text-lg font-medium">{t("Sem acesso a esta área")}</h2>
             <p className="text-sm text-muted-foreground">
               {requisito
-                ? `Para entrar aqui é preciso ${requisito}.`
-                : "O seu cargo não inclui as permissões necessárias."}{" "}
-              O seu cargo atual é <strong className="text-foreground">{getCargo(perfil?.cargo).nome}</strong>.
+                ? t("Para entrar aqui é preciso {requisito}.", { requisito })
+                : t("O seu cargo não inclui as permissões necessárias.")}{" "}
+              {(() => {
+                const [antes, depois] = t("O seu cargo atual é {cargo}.").split("{cargo}")
+                return (
+                  <>
+                    {antes}
+                    <strong className="text-foreground">{t(getCargo(perfil?.cargo).nome)}</strong>
+                    {depois}
+                  </>
+                )
+              })()}
             </p>
             <p className="text-sm text-muted-foreground">
-              Peça a quem administra o sistema para rever as suas permissões em Utilizadores e cargos.
+              {t("Peça a quem administra o sistema para rever as suas permissões em Utilizadores e cargos.")}
             </p>
           </div>
 
           <div className="flex flex-wrap justify-center gap-2 pt-2">
             <Button variant="outline" onClick={() => router.back()} className="rounded-full">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Voltar
+              {t("Voltar")}
             </Button>
             <Button asChild className="rounded-full">
               <Link href="/dashboard">
                 <Home className="mr-2 h-4 w-4" />
-                Ir para o Dashboard
+                {t("Ir para o painel")}
               </Link>
             </Button>
           </div>

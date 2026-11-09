@@ -11,7 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { useConfiguracao } from "@/hooks/use-configuracao"
 import { toast } from "@/hooks/use-toast"
-import { COLUNAS_ANO, LETRAS_SEMANA, htmlMapaFerias, iniciais, mapaAnual, textoPeriodo, type DiaMapa, type LinhaMapa, type MarcaDia } from "@/lib/mapa-ferias"
+import { t } from "@/lib/i18n"
+import { COLUNAS_ANO, htmlMapaFerias, letrasSemana, iniciais, mapaAnual, textoPeriodo, type DiaMapa, type LinhaMapa, type MarcaDia } from "@/lib/mapa-ferias"
 import { NOMES_ESTADO, diaLocal, diasDoPeriodo, ehDiaUtil, feriadosPT, nomeMotivoFalta, pedidoNoDia, saldoFerias } from "@/lib/ponto"
 import type { ConfigPonto, PedidoPonto, Picagem } from "@/lib/types"
 
@@ -36,7 +37,13 @@ function fundoDia(d: DiaMapa, so: boolean): string {
 
 function tituloDia(d: DiaMapa): string {
   const data = `${d.dia.slice(8, 10)}/${d.dia.slice(5, 7)}`
-  const partes = [d.feriado?.nome, ...d.marcas.map((m) => `${m.nome}: ${m.tipo === "falta" ? m.motivo || "falta" : "ferias"}${m.estado === "pendente" ? " (por aprovar)" : ""}`)]
+  const partes = [
+    d.feriado?.nome,
+    ...d.marcas.map((m) => {
+      const tipo = m.tipo === "falta" ? m.motivo || t("falta") : t("férias")
+      return m.estado === "pendente" ? t("{nome}: {tipo} (por aprovar)", { nome: m.nome, tipo }) : t("{nome}: {tipo}", { nome: m.nome, tipo })
+    }),
+  ]
   return [data, ...partes.filter(Boolean)].join("\n")
 }
 
@@ -58,6 +65,7 @@ function FaixaAno({ linha, meses }: { linha: LinhaMapa; meses: ReturnType<typeof
 }
 
 function CalendarioAno({ mapa, so, hoje }: { mapa: ReturnType<typeof mapaAnual>; so: boolean; hoje: string }) {
+  const letras = letrasSemana()
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[980px] table-fixed border-separate border-spacing-[2px] text-xs" data-testid="calendario-ano">
@@ -66,7 +74,7 @@ function CalendarioAno({ mapa, so, hoje }: { mapa: ReturnType<typeof mapaAnual>;
             <th className="w-24" />
             {Array.from({ length: COLUNAS_ANO }, (_, i) => (
               <th key={i} className={`pb-1 text-center font-medium ${i % 7 >= 5 ? "text-muted-foreground/60" : "text-muted-foreground"}`}>
-                {LETRAS_SEMANA[i % 7]}
+                {letras[i % 7]}
               </th>
             ))}
           </tr>
@@ -119,12 +127,12 @@ function Legenda({ pendentes, faltas, facultativos }: { pendentes: boolean; falt
   )
   return (
     <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-      {item("bg-emerald-500", "Ferias aprovadas")}
-      {pendentes && item("bg-amber-400", "Por aprovar")}
-      {faltas && item("bg-orange-400", "Falta")}
-      {item("bg-rose-100", "Feriado nacional")}
-      {facultativos && item("bg-violet-100", "Feriado dado pela empresa")}
-      {item("bg-muted", "Fim de semana")}
+      {item("bg-emerald-500", t("Férias aprovadas"))}
+      {pendentes && item("bg-amber-400", t("Por aprovar"))}
+      {faltas && item("bg-orange-400", t("Falta"))}
+      {item("bg-rose-100", t("Feriado nacional"))}
+      {facultativos && item("bg-violet-100", t("Feriado dado pela empresa"))}
+      {item("bg-muted", t("Fim de semana"))}
     </div>
   )
 }
@@ -161,7 +169,7 @@ export function MapaFerias({
     () =>
       mapaAnual(
         ano,
-        escolhidas.map((p) => ({ funcionarioId: p.funcionarioId, nome: p.nome || "(sem nome)", numero: p.numero })),
+        escolhidas.map((p) => ({ funcionarioId: p.funcionarioId, nome: p.nome || t("(sem nome)"), numero: p.numero })),
         pedidos,
         { incluirPendentes: pendentes, incluirFaltas: faltas, diasFerias: config.diasFerias, feriados: config },
       ),
@@ -174,13 +182,13 @@ export function MapaFerias({
 
   const imprimir = () => {
     const janela = window.open("", "_blank")
-    if (!janela) return toast({ title: "O browser bloqueou a janela", description: "Permita janelas deste site para imprimir.", variant: "destructive" })
+    if (!janela) return toast({ title: t("O browser bloqueou a janela"), description: t("Permita janelas deste site para imprimir."), variant: "destructive" })
     const pessoa = so ? escolhidas[0]?.nome : ""
     janela.document.write(
       htmlMapaFerias(
         mapa,
         { nome: configuracao.razaoSocial || configuracao.nome, logoUrl: configuracao.logoUrl, morada: [configuracao.morada, configuracao.codigoPostal, configuracao.cidade].filter(Boolean).join(", "), nif: configuracao.nif },
-        { incluirPendentes: pendentes, incluirFaltas: faltas, elaboradoEm: new Date(), titulo: so ? `Ferias ${ano}: ${pessoa}` : undefined },
+        { incluirPendentes: pendentes, incluirFaltas: faltas, elaboradoEm: new Date(), titulo: so ? t("Férias {ano}: {pessoa}", { ano, pessoa }) : undefined },
       ),
     )
     janela.document.close()
@@ -196,41 +204,41 @@ export function MapaFerias({
       <CardHeader>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <CardTitle className="text-lg">Mapa de ferias</CardTitle>
+            <CardTitle className="text-lg">{t("Mapa de férias")}</CardTitle>
             <CardDescription>
               {vista === "ano"
-                ? "O ano inteiro da equipa. Por lei (art. 241.º CT) o mapa e feito ate 15 de abril e fica afixado ate 31 de outubro."
-                : "Verde: aprovado · amarelo: por aprovar · laranja: falta · ponto: picou nesse dia."}
+                ? t("O ano inteiro da equipa. Por lei (art. 241.º CT) o mapa é feito até 15 de abril e fica afixado até 31 de outubro.")
+                : t("Verde: aprovado · amarelo: por aprovar · laranja: falta · ponto: picou nesse dia.")}
             </CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex rounded-full border p-0.5" role="group" aria-label="Vista do mapa">
+            <div className="inline-flex rounded-full border p-0.5" role="group" aria-label={t("Vista do mapa")}>
               {(["ano", "mes"] as const).map((v) => (
                 <Button key={v} size="sm" variant={vista === v ? "default" : "ghost"} className="h-8 rounded-full px-4" onClick={() => setVista(v)} aria-pressed={vista === v}>
-                  {v === "ano" ? "Ano" : "Mes"}
+                  {v === "ano" ? t("Ano") : t("Mês")}
                 </Button>
               ))}
             </div>
             {vista === "ano" ? (
               <>
                 <div className="inline-flex items-center rounded-full border">
-                  <Button size="icon" variant="ghost" className="h-8 w-8 rounded-full" onClick={() => setAno(ano - 1)} aria-label="Ano anterior">
+                  <Button size="icon" variant="ghost" className="h-8 w-8 rounded-full" onClick={() => setAno(ano - 1)} aria-label={t("Ano anterior")}>
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
                   <span className="w-12 text-center text-sm font-semibold tabular-nums" data-testid="ano-mapa">
                     {ano}
                   </span>
-                  <Button size="icon" variant="ghost" className="h-8 w-8 rounded-full" onClick={() => setAno(ano + 1)} aria-label="Ano seguinte">
+                  <Button size="icon" variant="ghost" className="h-8 w-8 rounded-full" onClick={() => setAno(ano + 1)} aria-label={t("Ano seguinte")}>
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
                 <Button className="rounded-full" onClick={imprimir}>
                   <Printer className="mr-2 h-4 w-4" />
-                  Imprimir para afixar
+                  {t("Imprimir para afixar")}
                 </Button>
               </>
             ) : (
-              <Input type="month" value={mes} onChange={(e) => e.target.value && setMes(e.target.value)} className="w-40" aria-label="Mes do mapa" />
+              <Input type="month" value={mes} onChange={(e) => e.target.value && setMes(e.target.value)} className="w-40" aria-label={t("Mês do mapa")} />
             )}
           </div>
         </div>
@@ -242,15 +250,15 @@ export function MapaFerias({
           <>
             <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
               <Select value={quem} onValueChange={(v) => v && setQuem(v)}>
-                <SelectTrigger className="w-64" aria-label="Trabalhador do mapa">
+                <SelectTrigger className="w-64" aria-label={t("Trabalhador do mapa")}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={TODOS}>Toda a equipa</SelectItem>
+                  <SelectItem value={TODOS}>{t("Toda a equipa")}</SelectItem>
                   {todas.map((p) => (
                     <SelectItem key={p.funcionarioId} value={p.funcionarioId}>
                       {p.nome}
-                      {p.numero ? ` (n.º ${p.numero})` : ""}
+                      {p.numero ? ` ${t("(n.º {numero})", { numero: p.numero })}` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -258,25 +266,33 @@ export function MapaFerias({
               <div className="flex items-center gap-2">
                 <Switch id="mapa-pendentes" checked={pendentes} onCheckedChange={setPendentes} />
                 <Label htmlFor="mapa-pendentes" className="font-normal">
-                  Mostrar por aprovar
+                  {t("Mostrar por aprovar")}
                 </Label>
               </div>
               <div className="flex items-center gap-2">
                 <Switch id="mapa-faltas" checked={faltas} onCheckedChange={setFaltas} />
                 <Label htmlFor="mapa-faltas" className="font-normal">
-                  Mostrar faltas
+                  {t("Mostrar faltas")}
                 </Label>
               </div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" data-testid="resumo-mapa">
-              <Resumo titulo="Dias aprovados" valor={String(totalMarcados)} nota={`${mapa.linhas.length} trabalhador(es)`} />
-              <Resumo titulo="Por aprovar" valor={String(totalPendentes)} nota="dias uteis" destaque={totalPendentes > 0 ? "text-amber-600" : ""} />
-              <Resumo titulo="Sem ferias marcadas" valor={String(semMarcar)} nota={semMarcar ? "falta marcar" : "todos marcados"} destaque={semMarcar ? "text-rose-600" : "text-emerald-600"} />
               <Resumo
-                titulo="Mais gente fora"
+                titulo={t("Dias aprovados")}
+                valor={String(totalMarcados)}
+                nota={mapa.linhas.length === 1 ? t("{n} trabalhador", { n: mapa.linhas.length }) : t("{n} trabalhadores", { n: mapa.linhas.length })}
+              />
+              <Resumo titulo={t("Por aprovar")} valor={String(totalPendentes)} nota={t("dias úteis")} destaque={totalPendentes > 0 ? "text-amber-600" : ""} />
+              <Resumo titulo={t("Sem férias marcadas")} valor={String(semMarcar)} nota={semMarcar ? t("falta marcar") : t("todos marcados")} destaque={semMarcar ? "text-rose-600" : "text-emerald-600"} />
+              <Resumo
+                titulo={t("Mais gente fora")}
                 valor={mapa.pico ? `${mapa.pico.nomes.length}` : "0"}
-                nota={mapa.pico ? `a ${mapa.pico.dia.slice(8, 10)}/${mapa.pico.dia.slice(5, 7)}: ${mapa.pico.nomes.map(iniciais).join(", ")}` : "ninguem marcado"}
+                nota={
+                  mapa.pico
+                    ? t("a {data}: {nomes}", { data: `${mapa.pico.dia.slice(8, 10)}/${mapa.pico.dia.slice(5, 7)}`, nomes: mapa.pico.nomes.map(iniciais).join(", ") })
+                    : t("ninguém marcado")
+                }
               />
             </div>
 
@@ -287,10 +303,10 @@ export function MapaFerias({
               <table className="w-full min-w-[900px] text-sm" data-testid="mapa-ferias">
                 <thead>
                   <tr className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
-                    <th className="py-2 pr-3 font-medium">Trabalhador</th>
-                    <th className="py-2 pr-3 font-medium">Periodos de ferias</th>
-                    <th className="py-2 pr-3 text-center font-medium">Dias</th>
-                    <th className="py-2 pr-3 text-center font-medium">Saldo</th>
+                    <th className="py-2 pr-3 font-medium">{t("Trabalhador")}</th>
+                    <th className="py-2 pr-3 font-medium">{t("Períodos de férias")}</th>
+                    <th className="py-2 pr-3 text-center font-medium">{t("Dias")}</th>
+                    <th className="py-2 pr-3 text-center font-medium">{t("Saldo")}</th>
                     <th className="py-2 font-medium">
                       <div className="flex min-w-[420px]">
                         {mapa.meses.map((m) => (
@@ -307,11 +323,11 @@ export function MapaFerias({
                     <tr key={l.pessoa.funcionarioId} className="border-b last:border-0">
                       <td className="py-2 pr-3">
                         <div className="font-medium">{l.pessoa.nome}</div>
-                        {l.pessoa.numero && <div className="text-xs text-muted-foreground">n.º {l.pessoa.numero}</div>}
+                        {l.pessoa.numero && <div className="text-xs text-muted-foreground">{t("n.º {numero}", { numero: l.pessoa.numero })}</div>}
                       </td>
                       <td className="py-2 pr-3">
                         {l.periodos.length === 0 ? (
-                          <span className="text-xs text-muted-foreground">Sem ferias marcadas</span>
+                          <span className="text-xs text-muted-foreground">{t("Sem férias marcadas")}</span>
                         ) : (
                           <div className="flex flex-wrap gap-1">
                             {l.periodos.map((p) => (
@@ -319,7 +335,7 @@ export function MapaFerias({
                                 key={p.inicio}
                                 className={`rounded px-1.5 py-0.5 text-xs ${p.estado === "aprovado" ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200" : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200"}`}
                               >
-                                {textoPeriodo(p)} · {p.dias} d
+                                {textoPeriodo(p)} · {t("{n} d", { n: p.dias })}
                               </span>
                             ))}
                           </div>
@@ -339,11 +355,11 @@ export function MapaFerias({
                   ))}
                 </tbody>
               </table>
-              {mapa.linhas.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Sem trabalhadores.</p>}
+              {mapa.linhas.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">{t("Sem trabalhadores.")}</p>}
             </div>
 
             <details className="text-sm">
-              <summary className="cursor-pointer text-muted-foreground">Feriados de {ano}</summary>
+              <summary className="cursor-pointer text-muted-foreground">{t("Feriados de {ano}", { ano })}</summary>
               <ul className="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
                 {mapa.feriados.map((f) => (
                   <li key={f.dia}>
@@ -351,11 +367,11 @@ export function MapaFerias({
                       {f.dia.slice(8, 10)}/{f.dia.slice(5, 7)}
                     </span>{" "}
                     {f.nome}
-                    {f.facultativo && <span className="text-violet-600"> (empresa)</span>}
+                    {f.facultativo && <span className="text-violet-600"> ({t("empresa")})</span>}
                   </li>
                 ))}
               </ul>
-              <p className="mt-2 text-xs text-muted-foreground">Carnaval e feriado municipal so contam se a empresa os der: ative-os em Configuracao.</p>
+              <p className="mt-2 text-xs text-muted-foreground">{t("Carnaval e feriado municipal só contam se a empresa os der: ative-os em Configurações.")}</p>
             </details>
           </>
         )}
@@ -386,8 +402,8 @@ function MapaMes({ pessoas, pedidos, picagens, config, mes }: { pessoas: Pessoa[
       <table className="w-full border-collapse text-xs" data-testid="mapa-mes">
         <thead>
           <tr>
-            <th className="sticky left-0 bg-background p-1 text-left">Trabalhador</th>
-            <th className="p-1 text-left">Saldo {ano}</th>
+            <th className="sticky left-0 bg-background p-1 text-left">{t("Trabalhador")}</th>
+            <th className="p-1 text-left">{t("Saldo {ano}", { ano })}</th>
             {dias.map((d) => (
               <th key={d} className={`w-6 p-0.5 text-center font-normal ${!ehDiaUtil(d, config) ? "text-muted-foreground" : ""}`} title={feriados.get(d) || ""}>
                 {Number(d.slice(8))}
@@ -427,7 +443,7 @@ function MapaMes({ pessoas, pedidos, picagens, config, mes }: { pessoas: Pessoa[
                     <td
                       key={d}
                       className={`h-6 border text-center ${cor}`}
-                      title={pedido ? `${pedido.tipo === "ferias" ? "Ferias" : nomeMotivoFalta(pedido.motivoFalta)} (${NOMES_ESTADO[pedido.estado]})` : feriados.get(d) || ""}
+                      title={pedido ? `${pedido.tipo === "ferias" ? t("Férias") : nomeMotivoFalta(pedido.motivoFalta)} (${t(NOMES_ESTADO[pedido.estado])})` : feriados.get(d) || ""}
                     >
                       {picou ? "•" : ""}
                     </td>
@@ -438,7 +454,7 @@ function MapaMes({ pessoas, pedidos, picagens, config, mes }: { pessoas: Pessoa[
           })}
         </tbody>
       </table>
-      {pessoas.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Sem trabalhadores.</p>}
+      {pessoas.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">{t("Sem trabalhadores.")}</p>}
     </div>
   )
 }

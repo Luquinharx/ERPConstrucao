@@ -10,6 +10,7 @@ import { usePermissoes } from "@/hooks/use-permissoes"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { SemAcesso } from "@/components/sem-acesso"
 import { entradaDaRota } from "@/lib/navegacao"
+import { t } from "@/lib/i18n"
 
 interface MainLayoutProps {
   children: React.ReactNode
@@ -67,7 +68,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       */}
       <main className="flex-1 overflow-auto scroll-pb-24 transition-[margin] duration-200 lg:[margin-left:var(--largura-barra)]">
         <div className="mx-auto max-w-[1600px] p-4 sm:p-6 lg:p-8">
-          {semPermissao ? <SemAcesso area={entrada?.name} /> : children}
+          {semPermissao ? <SemAcesso area={entrada?.name ? t(entrada.name) : undefined} /> : children}
         </div>
       </main>
     </div>

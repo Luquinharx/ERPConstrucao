@@ -1,5 +1,6 @@
 import { calcularIRS } from "./irs-tables"
 import { round2 } from "./utils"
+import { localeIntl, t } from "./i18n"
 import type { Funcionario, ModoTaxa } from "./types"
 
 /**
@@ -33,10 +34,10 @@ export const MESES_SUBSIDIO_ALIMENTACAO = 11
 /** Como se define a quantidade de horas do mes usada no custo/hora. */
 export type BaseHoras = "media" | "maior" | "menor" | "mes"
 
-export const NOMES_MESES = [
-  "janeiro", "fevereiro", "marco", "abril", "maio", "junho",
-  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
-]
+/** Nome do mes (0 = janeiro) no idioma atual. */
+function nomeMes(indice: number): string {
+  return new Intl.DateTimeFormat(localeIntl(), { month: "long" }).format(new Date(2000, indice, 1))
+}
 
 export function getCurrentMonthInput(): string {
   const agora = new Date()
@@ -114,16 +115,16 @@ export function resolverBaseDias(
   const menorDias = Math.min(...doAno)
 
   if (base === "maior") {
-    return { dias: maiorDias, detalhe: `${NOMES_MESES[doAno.indexOf(maiorDias)]} de ${ano}` }
+    return { dias: maiorDias, detalhe: t("{mes} de {ano}", { mes: nomeMes(doAno.indexOf(maiorDias)), ano }) }
   }
   if (base === "menor") {
-    return { dias: menorDias, detalhe: `${NOMES_MESES[doAno.indexOf(menorDias)]} de ${ano}` }
+    return { dias: menorDias, detalhe: t("{mes} de {ano}", { mes: nomeMes(doAno.indexOf(menorDias)), ano }) }
   }
   if (base === "mes") {
-    return { dias: calculateDiasUteisMes(mesReferencia, diasPorSemana), detalhe: "mes de referencia" }
+    return { dias: calculateDiasUteisMes(mesReferencia, diasPorSemana), detalhe: t("mês de referência") }
   }
   const total = doAno.reduce((acc, dias) => acc + dias, 0)
-  return { dias: round2(total / 12), detalhe: `${total} dias uteis em ${ano} / 12` }
+  return { dias: round2(total / 12), detalhe: t("{total} dias úteis em {ano} / 12", { total, ano }) }
 }
 
 export function calculateHorasPorMes(mesReferencia: string, horasPorDia: number, diasPorSemana: number): number {

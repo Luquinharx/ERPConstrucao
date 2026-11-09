@@ -26,8 +26,10 @@ import { numeroCompleto } from "@/lib/numeracao"
 import { custoHoraFuncionario } from "@/lib/produto-calculos"
 import type { Funcionario, RelatorioDiario } from "@/lib/types"
 import { formatDate, formatNumber2, hojeLocal, round2 } from "@/lib/utils"
+import { m, t } from "@/lib/i18n"
 
-const METEOROLOGIA = ["Bom tempo", "Nublado", "Chuva fraca", "Chuva forte", "Vento forte", "Frio intenso", "Calor intenso"]
+/** Valor gravado em português de Portugal (código); traduz-se só ao mostrar. */
+const METEOROLOGIA = [m("Bom tempo"), m("Nublado"), m("Chuva fraca"), m("Chuva forte"), m("Vento forte"), m("Frio intenso"), m("Calor intenso")]
 
 type Rascunho = Omit<RelatorioDiario, "id" | "createdAt" | "userId" | "estado" | "orcamentoId" | "orcamentoNumero">
 
@@ -63,13 +65,13 @@ export default function DiarioPage() {
   }, [carregar])
 
   if (carregando || aCarregar) return <LoadingSpinner size="lg" />
-  if (!pode("orcamentos.ver")) return <SemAcesso area="Diario de obra" />
-  if (!orcamento) return <p>Proposta nao encontrada.</p>
+  if (!pode("orcamentos.ver")) return <SemAcesso area={t("Diário de obra")} />
+  if (!orcamento) return <p>{t("Proposta não encontrada.")}</p>
 
   const submeter = async () => {
     if (!user || !novo || !orcamento.id) return
-    if (!novo.trabalhos.trim()) return toast({ title: "Descreva os trabalhos do dia", variant: "destructive" })
-    if (rdos.some((r) => r.data === novo.data)) return toast({ title: "Ja existe um RDO para esse dia", variant: "destructive" })
+    if (!novo.trabalhos.trim()) return toast({ title: t("Descreva os trabalhos do dia"), variant: "destructive" })
+    if (rdos.some((r) => r.data === novo.data)) return toast({ title: t("Já existe um RDO para esse dia"), variant: "destructive" })
     const equipa = novo.equipa.filter((e) => e.funcionarioId && e.horas > 0)
     const numero = numeroCompleto(orcamento, configuracao)
     setAGravar(true)
@@ -96,11 +98,17 @@ export default function DiarioPage() {
           custoHora: f ? custoHoraFuncionario(f) : 0,
           custoFixoHora: round2(configuracao.custoFixoHora || 0),
           estado: "pendente",
-          observacoes: "Do diario de obra",
+          observacoes: t("Do diário de obra"),
           userId: user.uid,
         })
       }
-      toast({ title: "RDO submetido", description: `${equipa.length} registo(s) de horas enviados para aprovacao.` })
+      toast({
+        title: t("RDO submetido"),
+        description:
+          equipa.length === 1
+            ? t("{n} registo de horas enviado para aprovação.", { n: equipa.length })
+            : t("{n} registos de horas enviados para aprovação.", { n: equipa.length }),
+      })
       setNovo(null)
       await carregar()
     } finally {
@@ -110,16 +118,16 @@ export default function DiarioPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <CabecalhoObra orcamento={orcamento} subtitulo="diario de obra" />
+      <CabecalhoObra orcamento={orcamento} subtitulo={t("diário de obra")} />
 
       {!novo && podeLancar && (
         <div className="flex justify-end">
           <Button
             className="rounded-full"
-            onClick={() => setNovo({ data: hojeLocal(), meteorologia: "Bom tempo", trabalhos: "", equipa: [], ocorrencias: "", bloqueios: "" })}
+            onClick={() => setNovo({ data: hojeLocal(), meteorologia: METEOROLOGIA[0], trabalhos: "", equipa: [], ocorrencias: "", bloqueios: "" })}
           >
             <Plus className="mr-2 h-4 w-4" />
-            Novo RDO
+            {t("Novo RDO")}
           </Button>
         </div>
       )}
@@ -127,32 +135,32 @@ export default function DiarioPage() {
       {novo && (
         <Card data-testid="novo-rdo">
           <CardHeader>
-            <CardTitle className="text-lg">Relatorio diario</CardTitle>
-            <CardDescription>A equipa e as horas vao para o livro de ponto ao submeter.</CardDescription>
+            <CardTitle className="text-lg">{t("Relatório diário")}</CardTitle>
+            <CardDescription>{t("A equipa e as horas vão para o livro de ponto ao submeter.")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1">
-                <Label>Dia</Label>
+                <Label>{t("Dia")}</Label>
                 <Input type="date" value={novo.data} onChange={(e) => setNovo({ ...novo, data: e.target.value })} />
               </div>
               <div className="space-y-1">
-                <Label>Meteorologia</Label>
+                <Label>{t("Meteorologia")}</Label>
                 <Select value={novo.meteorologia} onValueChange={(meteorologia) => setNovo({ ...novo, meteorologia })}>
-                  <SelectTrigger aria-label="Meteorologia"><SelectValue /></SelectTrigger>
+                  <SelectTrigger aria-label={t("Meteorologia")}><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {METEOROLOGIA.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                    {METEOROLOGIA.map((tempo) => <SelectItem key={tempo} value={tempo}>{t(tempo)}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div className="space-y-1">
-              <Label>Trabalhos executados</Label>
-              <Textarea aria-label="Trabalhos executados" rows={3} value={novo.trabalhos} onChange={(e) => setNovo({ ...novo, trabalhos: e.target.value })} />
+              <Label>{t("Trabalhos executados")}</Label>
+              <Textarea aria-label={t("Trabalhos executados")} rows={3} value={novo.trabalhos} onChange={(e) => setNovo({ ...novo, trabalhos: e.target.value })} />
             </div>
 
             <div className="space-y-2">
-              <Label>Equipa no dia</Label>
+              <Label>{t("Equipa no dia")}</Label>
               {novo.equipa.map((e, i) => (
                 <div key={i} className="grid grid-cols-[1fr_120px_auto] items-center gap-2" data-testid="linha-equipa">
                   <SeletorComBusca
@@ -161,9 +169,9 @@ export default function DiarioPage() {
                       const f = funcionarios.find((x) => x.id === funcionarioId)
                       setNovo({ ...novo, equipa: novo.equipa.map((x, j) => (j === i ? { ...x, funcionarioId, nome: f?.nome || "" } : x)) })
                     }}
-                    placeholder="Trabalhador"
-                    placeholderBusca="Procurar..."
-                    vazio="Nenhum."
+                    placeholder={t("Trabalhador")}
+                    placeholderBusca={t("Procurar...")}
+                    vazio={t("Nenhum.")}
                     opcoes={funcionarios.map((f) => ({ valor: f.id!, rotulo: f.nome, detalhe: f.funcao }))}
                   />
                   <CampoNumerico
@@ -171,7 +179,7 @@ export default function DiarioPage() {
                     min={0}
                     max={24}
                     sufixo="h"
-                    aria-label="Horas"
+                    aria-label={t("Horas")}
                     value={e.horas}
                     onChange={(horas) => setNovo({ ...novo, equipa: novo.equipa.map((x, j) => (j === i ? { ...x, horas } : x)) })}
                   />
@@ -188,25 +196,25 @@ export default function DiarioPage() {
                 onClick={() => setNovo({ ...novo, equipa: [...novo.equipa, { funcionarioId: "", nome: "", horas: 8 }] })}
               >
                 <Plus className="mr-1 h-3 w-3" />
-                Trabalhador
+                {t("Trabalhador")}
               </Button>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1">
-                <Label>Ocorrencias</Label>
+                <Label>{t("Ocorrências")}</Label>
                 <Textarea rows={2} value={novo.ocorrencias} onChange={(e) => setNovo({ ...novo, ocorrencias: e.target.value })} />
               </div>
               <div className="space-y-1">
-                <Label>Bloqueios (o que impediu avancar)</Label>
+                <Label>{t("Bloqueios (o que impediu avançar)")}</Label>
                 <Textarea rows={2} value={novo.bloqueios} onChange={(e) => setNovo({ ...novo, bloqueios: e.target.value })} />
               </div>
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setNovo(null)}>Cancelar</Button>
+              <Button variant="outline" onClick={() => setNovo(null)}>{t("Cancelar")}</Button>
               <Button onClick={submeter} disabled={aGravar} className="rounded-full">
                 {aGravar && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Submeter RDO
+                {t("Submeter RDO")}
               </Button>
             </div>
           </CardContent>
@@ -215,22 +223,26 @@ export default function DiarioPage() {
 
       <div className="space-y-3">
         {rdos.length === 0 && !novo && (
-          <Card><CardContent className="py-10 text-center text-muted-foreground">Ainda sem relatorios diarios.</CardContent></Card>
+          <Card><CardContent className="py-10 text-center text-muted-foreground">{t("Ainda sem relatórios diários.")}</CardContent></Card>
         )}
         {rdos.map((r) => (
           <Card key={r.id} data-testid="rdo">
             <CardContent className="space-y-2 pt-6 text-sm">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="font-medium">{formatDate(r.data)} · {r.meteorologia}</div>
+                <div className="font-medium">{formatDate(r.data)} · {t(r.meteorologia)}</div>
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline">{r.equipa.length} trabalhador(es) · {formatNumber2(r.equipa.reduce((s, e) => s + e.horas, 0))} h</Badge>
+                  <Badge variant="outline">
+                    {r.equipa.length === 1
+                      ? t("{n} trabalhador · {horas} h", { n: r.equipa.length, horas: formatNumber2(r.equipa.reduce((s, e) => s + e.horas, 0)) })
+                      : t("{n} trabalhadores · {horas} h", { n: r.equipa.length, horas: formatNumber2(r.equipa.reduce((s, e) => s + e.horas, 0)) })}
+                  </Badge>
                   {podeLancar && (
                     <Button
                       size="icon"
                       variant="ghost"
-                      title="Apagar RDO (as horas ja enviadas ficam no livro de ponto)"
+                      title={t("Eliminar RDO (as horas já enviadas ficam no livro de ponto)")}
                       onClick={async () => {
-                        if (!r.id || !confirm("Apagar este RDO? As horas ja enviadas ficam no livro de ponto.")) return
+                        if (!r.id || !confirm(t("Eliminar este RDO? As horas já enviadas ficam no livro de ponto."))) return
                         await apagar("rdos", r.id)
                         await carregar()
                       }}
@@ -244,8 +256,8 @@ export default function DiarioPage() {
               {r.equipa.length > 0 && (
                 <p className="text-muted-foreground">{r.equipa.map((e) => `${e.nome} (${formatNumber2(e.horas)} h)`).join(", ")}</p>
               )}
-              {r.ocorrencias && <p><span className="font-medium">Ocorrencias:</span> {r.ocorrencias}</p>}
-              {r.bloqueios && <p className="text-rose-700"><span className="font-medium">Bloqueios:</span> {r.bloqueios}</p>}
+              {r.ocorrencias && <p><span className="font-medium">{t("Ocorrências:")}</span> {r.ocorrencias}</p>}
+              {r.bloqueios && <p className="text-rose-700"><span className="font-medium">{t("Bloqueios:")}</span> {r.bloqueios}</p>}
             </CardContent>
           </Card>
         ))}

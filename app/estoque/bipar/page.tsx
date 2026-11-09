@@ -15,6 +15,8 @@ import { usePermissoes } from "@/hooks/use-permissoes"
 import { toast } from "@/hooks/use-toast"
 import { podeApurar } from "@/lib/apuramento-obra"
 import { produtoDoCodigo } from "@/lib/etiquetas"
+import { t } from "@/lib/i18n"
+import { nomeUnidade } from "@/lib/produto-calculos"
 import { FirebaseService, registarDevolucao, registarMovimentoEstoque } from "@/lib/firebase-service"
 import { numeroCompleto } from "@/lib/numeracao"
 import type { Material, Orcamento } from "@/lib/types"
@@ -67,7 +69,7 @@ export default function BiparPage() {
       ultimo.current = { codigo: lido, quando: agora }
       const produto = produtoDoCodigo(lido, produtos)
       if (!produto?.id) {
-        toast({ title: "Codigo desconhecido", description: lido, variant: "destructive" })
+        toast({ title: t("Código desconhecido"), description: lido, variant: "destructive" })
         return
       }
       setCarrinho((c) => ({ ...c, [produto.id!]: round2((c[produto.id!] || 0) + 1) }))
@@ -98,8 +100,8 @@ export default function BiparPage() {
       setCamera(true)
     } catch (erro) {
       toast({
-        title: "Nao foi possivel abrir a camera",
-        description: "Autorize a camera no browser, ou escreva o codigo no campo.",
+        title: t("Não foi possível abrir a câmara"),
+        description: t("Autorize a câmara no browser, ou escreva o código no campo."),
         variant: "destructive",
       })
       console.error(erro)
@@ -111,8 +113,8 @@ export default function BiparPage() {
   const linhas = Object.entries(carrinho).filter(([, q]) => q > 0)
 
   const registar = async () => {
-    if (!user || !obra?.id) return toast({ title: "Escolha a obra", variant: "destructive" })
-    if (linhas.length === 0) return toast({ title: "Ainda nao bipou nada", variant: "destructive" })
+    if (!user || !obra?.id) return toast({ title: t("Escolha a obra"), variant: "destructive" })
+    if (linhas.length === 0) return toast({ title: t("Ainda não leu nenhum código"), variant: "destructive" })
     setAGravar(true)
     const numero = numeroCompleto(obra, configuracao)
     let feitos = 0
@@ -120,7 +122,7 @@ export default function BiparPage() {
       for (const [materialId, quantidade] of linhas) {
         if (modo === "saida") {
           await registarMovimentoEstoque(
-            { materialId, tipo: "saida", quantidade, data: hojeLocal(), orcamentoId: obra.id, orcamentoNumero: numero, documento: "Bipado", userId: user.uid },
+            { materialId, tipo: "saida", quantidade, data: hojeLocal(), orcamentoId: obra.id, orcamentoNumero: numero, documento: t("Lido por código de barras"), userId: user.uid },
             { grupos: configuracao.gruposImpostos || [] },
           )
         } else {
@@ -132,12 +134,21 @@ export default function BiparPage() {
         feitos++
         setCarrinho((c) => ({ ...c, [materialId]: 0 }))
       }
-      toast({ title: modo === "saida" ? `${feitos} produto(s) sairam para ${numero}` : `${feitos} produto(s) voltaram de ${numero}` })
+      toast({
+        title:
+          modo === "saida"
+            ? feitos === 1
+              ? t("{n} produto saiu para {numero}", { n: feitos, numero })
+              : t("{n} produtos saíram para {numero}", { n: feitos, numero })
+            : feitos === 1
+              ? t("{n} produto voltou de {numero}", { n: feitos, numero })
+              : t("{n} produtos voltaram de {numero}", { n: feitos, numero }),
+      })
       await carregar()
     } catch (erro) {
       toast({
-        title: `Registados ${feitos} de ${linhas.length}`,
-        description: erro instanceof Error ? erro.message : "Tente novamente.",
+        title: t("Registados {feitos} de {total}", { feitos, total: linhas.length }),
+        description: erro instanceof Error ? erro.message : t("Tente novamente."),
         variant: "destructive",
       })
     } finally {
@@ -146,33 +157,33 @@ export default function BiparPage() {
   }
 
   if (aCarregar) return <LoadingSpinner size="lg" />
-  if (!pode("materiais.gerir")) return <p>Precisa da permissao de gerir materiais.</p>
+  if (!pode("materiais.gerir")) return <p>{t("Precisa da permissão de gerir materiais.")}</p>
 
   return (
     <div className="mx-auto max-w-xl space-y-4 animate-fade-in">
       <div>
-        <h1 className="text-2xl font-bold">Bipar material</h1>
-        <p className="text-sm text-muted-foreground">Aponte a camera a etiqueta ou ao codigo de barras.</p>
+        <h1 className="text-2xl font-bold">{t("Ler código de barras")}</h1>
+        <p className="text-sm text-muted-foreground">{t("Aponte a câmara à etiqueta ou ao código de barras.")}</p>
       </div>
 
       <Card>
         <CardContent className="space-y-3 pt-6">
           <div className="space-y-1">
-            <Label>Obra</Label>
+            <Label>{t("Obra")}</Label>
             <SeletorComBusca
               valor={obraId}
               onChange={setObraId}
-              placeholder="Escolha a obra"
-              placeholderBusca="Procurar obra..."
-              vazio="Nenhuma obra adjudicada."
+              placeholder={t("Escolha a obra")}
+              placeholderBusca={t("Pesquisar obra...")}
+              vazio={t("Nenhuma obra adjudicada.")}
               opcoes={obras.map((o) => ({ valor: o.id!, rotulo: numeroCompleto(o, configuracao), detalhe: o.cliente.nome }))}
             />
           </div>
           <div className="grid grid-cols-2 gap-2" data-testid="modo-bipar">
             {(
               [
-                ["saida", "Sai para a obra"],
-                ["devolucao", "Volta da obra"],
+                ["saida", t("Sai para a obra")],
+                ["devolucao", t("Volta da obra")],
               ] as const
             ).map(([id, nome]) => (
               <button
@@ -193,7 +204,7 @@ export default function BiparPage() {
           <div id="leitor-camera" className={camera ? "overflow-hidden rounded-lg" : "hidden"} />
           <Button variant={camera ? "outline" : "default"} className="w-full rounded-full" onClick={camera ? pararCamera : ligarCamera}>
             {camera ? <CameraOff className="mr-2 h-4 w-4" /> : <Camera className="mr-2 h-4 w-4" />}
-            {camera ? "Desligar camera" : "Ligar camera"}
+            {camera ? t("Desligar câmara") : t("Ligar câmara")}
           </Button>
           <form
             className="flex gap-2"
@@ -206,18 +217,20 @@ export default function BiparPage() {
             <Input
               value={codigo}
               onChange={(e) => setCodigo(e.target.value)}
-              placeholder="Ou escreva o codigo / EAN"
-              aria-label="Codigo"
+              placeholder={t("Ou escreva o código / EAN")}
+              aria-label={t("Código")}
             />
-            <Button type="submit" variant="outline">Ler</Button>
+            <Button type="submit" variant="outline">{t("Ler")}</Button>
           </form>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">{modo === "saida" ? "A sair para a obra" : "A voltar ao armazem"}</CardTitle>
-          <CardDescription>{linhas.length} produto(s)</CardDescription>
+          <CardTitle className="text-lg">{modo === "saida" ? t("A sair para a obra") : t("A voltar ao armazém")}</CardTitle>
+          <CardDescription>
+            {linhas.length === 1 ? t("{n} produto", { n: linhas.length }) : t("{n} produtos", { n: linhas.length })}
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2" data-testid="carrinho">
           {linhas.map(([id, q]) => {
@@ -227,7 +240,9 @@ export default function BiparPage() {
                 <div className="min-w-0">
                   <div className="truncate font-medium">{p?.nome}</div>
                   <div className="text-xs text-muted-foreground">
-                    Em estoque: {formatNumber2(Number(p?.estoqueAtual) || 0)} {p?.unidade}
+                    {t("Em stock: {quantidade}", {
+                      quantidade: `${formatNumber2(Number(p?.estoqueAtual) || 0)} ${nomeUnidade(p?.unidade)}`,
+                    })}
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
@@ -247,7 +262,7 @@ export default function BiparPage() {
           })}
           <Button className="w-full rounded-full" disabled={aGravar || linhas.length === 0} onClick={registar}>
             {aGravar && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {modo === "saida" ? "Registar saida" : "Registar devolucao"}
+            {modo === "saida" ? t("Registar saída") : t("Registar devolução")}
           </Button>
         </CardContent>
       </Card>

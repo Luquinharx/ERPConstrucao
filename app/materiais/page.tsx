@@ -25,28 +25,31 @@ import { formatCurrency, formatNumber2, hojeLocal, matchesSearch, round2 } from 
 import { ListToolbar } from "@/components/ui/list-toolbar"
 import { useSearchQuery } from "@/hooks/use-search-query"
 import { MovimentoDialog } from "@/components/estoque/movimento-dialog"
+import { m, t } from "@/lib/i18n"
 import {
   custoDoProduto,
   custoRealProduto,
   estoqueBaixo,
   margemPorPreco,
+  nomeUnidade,
   precoPorMargem,
   resumoImpostos,
   vendaDoProduto,
 } from "@/lib/produto-calculos"
 
+/** [valor gravado, rótulo mostrado]. O valor não muda com o idioma. */
 const UNIDADES = [
-  ["Unidades", "Unidades"],
-  ["Litros", "Litros"],
-  ["Kg", "Quilogramas"],
-  ["Metros", "Metros"],
-  ["M²", "Metros Quadrados"],
-  ["M³", "Metros Cubicos"],
-  ["Galões", "Galoes"],
-  ["Latas", "Latas"],
-  ["Rolos", "Rolos"],
-  ["Sacos", "Sacos"],
-  ["Caixas", "Caixas"],
+  ["Unidades", m("Unidades")],
+  ["Litros", m("Litros")],
+  ["Kg", m("Quilogramas")],
+  ["Metros", m("Metros")],
+  ["M²", m("Metros quadrados")],
+  ["M³", m("Metros cúbicos")],
+  ["Galões", m("Galões")],
+  ["Latas", m("Latas")],
+  ["Rolos", m("Rolos")],
+  ["Sacos", m("Sacos")],
+  ["Caixas", m("Caixas")],
 ]
 
 interface ProdutoForm {
@@ -172,8 +175,8 @@ export default function ProdutosPage() {
     } catch (error) {
       console.error("Erro ao carregar dados:", error)
       toast({
-        title: "Erro ao carregar dados",
-        description: "Nao foi possivel carregar a lista de produtos ou categorias.",
+        title: t("Erro ao carregar dados"),
+        description: t("Não foi possível carregar a lista de produtos ou categorias."),
         variant: "destructive",
       })
     } finally {
@@ -223,7 +226,7 @@ export default function ProdutosPage() {
     e.preventDefault()
     if (!user) return
     if (!formData.nome.trim()) {
-      toast({ title: "Indique o nome do produto", variant: "destructive" })
+      toast({ title: t("Indique o nome do produto"), variant: "destructive" })
       return
     }
 
@@ -258,7 +261,7 @@ export default function ProdutosPage() {
       if (editingMaterial) {
         // Saldo e custo medio nao vao no update: so os movimentos mexem neles
         await FirebaseService.updateMaterial(editingMaterial.id!, produto)
-        toast({ title: "Produto atualizado", description: "Os dados do produto foram atualizados." })
+        toast({ title: t("Produto atualizado"), description: t("Os dados do produto foram atualizados.") })
       } else {
         const id = await FirebaseService.addMaterial(
           { ...produto, estoqueAtual: 0, custoMedio: custoForm },
@@ -271,11 +274,11 @@ export default function ProdutosPage() {
             quantidade: formData.estoqueInicial,
             custoUnitario: custoForm,
             data: hojeLocal(),
-            documento: "Estoque inicial",
+            documento: t("Stock inicial"),
             userId: user.uid,
           })
         }
-        toast({ title: "Produto cadastrado", description: "O produto foi cadastrado com sucesso." })
+        toast({ title: t("Produto criado"), description: t("O produto foi criado com sucesso.") })
       }
 
       resetForm()
@@ -284,8 +287,8 @@ export default function ProdutosPage() {
     } catch (error) {
       console.error("Erro ao salvar produto:", error)
       toast({
-        title: "Erro ao salvar produto",
-        description: "Nao foi possivel salvar os dados do produto.",
+        title: t("Erro ao guardar o produto"),
+        description: t("Não foi possível guardar os dados do produto."),
         variant: "destructive",
       })
     } finally {
@@ -300,15 +303,15 @@ export default function ProdutosPage() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Tem certeza que deseja excluir este produto?")) return
+    if (!confirm(t("Tem a certeza de que quer eliminar este produto?"))) return
 
     try {
       await FirebaseService.deleteMaterial(id)
-      toast({ title: "Produto excluido", description: "O produto foi excluido com sucesso." })
+      toast({ title: t("Produto eliminado"), description: t("O produto foi eliminado com sucesso.") })
       await loadData()
     } catch (error) {
       console.error("Erro ao excluir produto:", error)
-      toast({ title: "Erro ao excluir produto", description: "Nao foi possivel excluir o produto.", variant: "destructive" })
+      toast({ title: t("Erro ao eliminar o produto"), description: t("Não foi possível eliminar o produto."), variant: "destructive" })
     }
   }
 
@@ -354,7 +357,7 @@ export default function ProdutosPage() {
   const materialsByCategory = useMemo(() => {
     const grouped: { [key: string]: Material[] } = {}
     filteredMaterials.forEach((material) => {
-      const categoryName = categories.find((cat) => cat.id === material.categoriaId)?.nome || "Sem Categoria"
+      const categoryName = categories.find((cat) => cat.id === material.categoriaId)?.nome || t("Sem categoria")
       if (!grouped[categoryName]) grouped[categoryName] = []
       grouped[categoryName].push(material)
     })
@@ -375,8 +378,8 @@ export default function ProdutosPage() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-wrap justify-between items-center gap-3">
         <div>
-          <h1 className="text-3xl font-bold">Produtos</h1>
-          <p className="text-muted-foreground mt-2">Custo real, impostos, preco de venda e estoque de cada produto</p>
+          <h1 className="text-3xl font-bold">{t("Produtos")}</h1>
+          <p className="text-muted-foreground mt-2">{t("Custo real, impostos, preço de venda e stock de cada produto")}</p>
         </div>
         <Button
           disabled={!podeGerir}
@@ -387,47 +390,47 @@ export default function ProdutosPage() {
           className="rounded-full"
         >
           <Plus className="h-4 w-4 mr-2" />
-          Novo Produto
+          {t("Novo produto")}
         </Button>
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[680px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingMaterial ? "Editar Produto" : "Novo Produto"}</DialogTitle>
+            <DialogTitle>{editingMaterial ? t("Editar produto") : t("Novo produto")}</DialogTitle>
             <DialogDescription>
-              O custo real e o que o produto custa a empresa. O preco de venda e o que se cobra ao cliente.
+              {t("O custo real é o que o produto custa à empresa. O preço de venda é o que se cobra ao cliente.")}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Identificacao */}
             <section className="space-y-4">
-              <h3 className="font-medium">Identificacao</h3>
+              <h3 className="font-medium">{t("Identificação")}</h3>
               <div className="grid gap-4 sm:grid-cols-[140px_1fr]">
                 <div className="space-y-2">
-                  <Label htmlFor="codigo">Codigo</Label>
+                  <Label htmlFor="codigo">{t("Código")}</Label>
                   <Input
                     id="codigo"
                     value={formData.codigo}
                     onChange={(e) => setFormData({ ...formData, codigo: e.target.value })}
-                    placeholder="Opcional"
+                    placeholder={t("Opcional")}
                     className="rounded-full"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="nome">Nome do produto</Label>
+                  <Label htmlFor="nome">{t("Nome do produto")}</Label>
                   <Input
                     id="nome"
                     value={formData.nome}
                     onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-                    placeholder="Ex.: Tinta plastica branca 15L"
+                    placeholder={t("Ex.: Tinta plástica branca 15 L")}
                     className="rounded-full"
                   />
                 </div>
               </div>
               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="space-y-2">
-                  <Label>Unidade</Label>
+                  <Label>{t("Unidade")}</Label>
                   <Select value={formData.unidade} onValueChange={(unidade) => setFormData({ ...formData, unidade })}>
                     <SelectTrigger className="rounded-full">
                       <SelectValue />
@@ -435,14 +438,14 @@ export default function ProdutosPage() {
                     <SelectContent>
                       {UNIDADES.map(([valor, rotulo]) => (
                         <SelectItem key={valor} value={valor}>
-                          {rotulo}
+                          {t(rotulo)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Categoria</Label>
+                  <Label>{t("Categoria")}</Label>
                   <Select
                     value={formData.categoriaId}
                     onValueChange={(categoriaId) => setFormData({ ...formData, categoriaId })}
@@ -451,7 +454,7 @@ export default function ProdutosPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="sem-categoria">Sem categoria</SelectItem>
+                      <SelectItem value="sem-categoria">{t("Sem categoria")}</SelectItem>
                       {categories.map((cat) => (
                         <SelectItem key={cat.id} value={cat.id!}>
                           {cat.nome}
@@ -461,7 +464,7 @@ export default function ProdutosPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="fornecedor">Fornecedor</Label>
+                  <Label htmlFor="fornecedor">{t("Fornecedor")}</Label>
                   <Input
                     id="fornecedor"
                     value={formData.fornecedor}
@@ -474,10 +477,10 @@ export default function ProdutosPage() {
 
             {/* Custo */}
             <section className="space-y-4 rounded-lg border p-4">
-              <h3 className="font-medium">Custo</h3>
+              <h3 className="font-medium">{t("Custo")}</h3>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Preco de compra (por {formData.unidade.toLowerCase()})</Label>
+                  <Label>{t("Preço de compra (por {unidade})", { unidade: nomeUnidade(formData.unidade).toLowerCase() })}</Label>
                   <CampoNumerico
                     min={0}
                     sufixo="EUR"
@@ -487,7 +490,7 @@ export default function ProdutosPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Outros custos (frete, embalagem...)</Label>
+                  <Label>{t("Outros custos (frete, embalagem...)")}</Label>
                   <CampoNumerico
                     min={0}
                     sufixo="EUR"
@@ -499,16 +502,16 @@ export default function ProdutosPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>Grupo de impostos</Label>
+                <Label>{t("Grupo de impostos")}</Label>
                 <Select
                   value={formData.grupoImpostosId || "__sem"}
                   onValueChange={(v) => alterarCusto({ grupoImpostosId: v === "__sem" ? "" : v })}
                 >
-                  <SelectTrigger className="rounded-full" aria-label="Grupo de impostos">
+                  <SelectTrigger className="rounded-full" aria-label={t("Grupo de impostos")}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__sem">Sem impostos</SelectItem>
+                    <SelectItem value="__sem">{t("Sem impostos")}</SelectItem>
                     {grupos.map((g) => (
                       <SelectItem key={g.id} value={g.id}>
                         {g.nome}
@@ -517,48 +520,48 @@ export default function ProdutosPage() {
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  {grupos.length === 0 ? "Ainda nao ha grupos de impostos. " : "As taxas de cada grupo definem-se em "}
+                  {grupos.length === 0 ? t("Ainda não há grupos de impostos.") + " " : t("As taxas de cada grupo definem-se em") + " "}
                   <Link
                     href="/configuracoes?aba=impostos"
                     target="_blank"
                     className="font-medium text-primary underline underline-offset-2"
                   >
-                    {grupos.length === 0 ? "Criar grupo de impostos" : "Configuracoes > Impostos"}
+                    {grupos.length === 0 ? t("Criar grupo de impostos") : t("Configurações > Impostos")}
                   </Link>
-                  {grupos.length === 0 && " (abre noutro separador; depois recarregue esta pagina)."}
-                  {temImpostosAntigos && " Este produto tem impostos no formato antigo, que contam ate escolher um grupo."}
+                  {grupos.length === 0 && " " + t("(abre noutro separador; depois recarregue esta página).")}
+                  {temImpostosAntigos && " " + t("Este produto tem impostos no formato antigo, que contam até escolher um grupo.")}
                 </p>
                 {grupoEmFalta && (
                   <p className="text-xs font-medium text-destructive" data-testid="grupo-em-falta">
-                    O grupo de impostos deste produto foi apagado: esta a ser calculado sem impostos. Escolha outro grupo.
+                    {t("O grupo de impostos deste produto foi apagado: está a ser calculado sem impostos. Escolha outro grupo.")}
                   </p>
                 )}
               </div>
 
               <div className="rounded-md bg-muted p-3 text-sm space-y-1" data-testid="resumo-custo">
                 <div className="flex justify-between">
-                  <span>Compra</span>
+                  <span>{t("Compra")}</span>
                   <span className="tabular-nums">{formatCurrency(formData.precoCompra)}</span>
                 </div>
                 {resumoForm.compraNoCusto > 0 && (
                   <div className="flex justify-between">
-                    <span>Impostos no custo</span>
+                    <span>{t("Impostos no custo")}</span>
                     <span className="tabular-nums">{formatCurrency(resumoForm.compraNoCusto)}</span>
                   </div>
                 )}
                 {formData.outrosCustos > 0 && (
                   <div className="flex justify-between">
-                    <span>Outros custos</span>
+                    <span>{t("Outros custos")}</span>
                     <span className="tabular-nums">{formatCurrency(formData.outrosCustos)}</span>
                   </div>
                 )}
                 <div className="flex justify-between border-t pt-1 font-semibold">
-                  <span>Custo real</span>
+                  <span>{t("Custo real")}</span>
                   <span className="tabular-nums" data-testid="custo-real">{formatCurrency(custoForm)}</span>
                 </div>
                 {resumoForm.credito > 0 && (
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Credito de impostos (recuperavel, fora do custo)</span>
+                    <span>{t("Crédito de impostos (recuperável, fora do custo)")}</span>
                     <span className="tabular-nums">{formatCurrency(resumoForm.credito)}</span>
                   </div>
                 )}
@@ -567,14 +570,14 @@ export default function ProdutosPage() {
 
             {/* Venda */}
             <section className="space-y-4 rounded-lg border p-4">
-              <h3 className="font-medium">Venda</h3>
+              <h3 className="font-medium">{t("Venda")}</h3>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Margem sobre o custo</Label>
+                  <Label>{t("Margem sobre o custo")}</Label>
                   <CampoNumerico sufixo="%" value={formData.margemVenda} onChange={alterarMargem} className="rounded-full" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Preco de venda (sem IVA)</Label>
+                  <Label>{t("Preço de venda (sem IVA)")}</Label>
                   <CampoNumerico
                     min={0}
                     sufixo="EUR"
@@ -586,27 +589,28 @@ export default function ProdutosPage() {
               </div>
               <div className="rounded-md bg-muted p-3 text-sm space-y-1" data-testid="resumo-venda">
                 <div className="flex justify-between">
-                  <span>Preco de venda</span>
+                  <span>{t("Preço de venda")}</span>
                   <span className="tabular-nums">{formatCurrency(formData.precoVenda)}</span>
                 </div>
                 {resumoForm.percentualVenda > 0 && (
                   <div className="flex justify-between">
-                    <span>Impostos de venda ({formatNumber2(resumoForm.percentualVenda)}%)</span>
+                    <span>{t("Impostos de venda ({percentagem}%)", { percentagem: formatNumber2(resumoForm.percentualVenda) })}</span>
                     <span className="tabular-nums">- {formatCurrency(impostoVendaForm)}</span>
                   </div>
                 )}
                 <div className="flex justify-between">
-                  <span>Custo real</span>
+                  <span>{t("Custo real")}</span>
                   <span className="tabular-nums">- {formatCurrency(custoForm)}</span>
                 </div>
                 <div className={`flex justify-between border-t pt-1 font-semibold ${lucroUnitario < 0 ? "text-destructive" : ""}`}>
-                  <span>Lucro por unidade</span>
+                  <span>{t("Lucro por unidade")}</span>
                   <span className="tabular-nums" data-testid="lucro-unidade">{formatCurrency(lucroUnitario)}</span>
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Mude a margem e o preco acompanha, ou escreva o preco e a margem e calculada. A margem e o lucro que
-                sobra depois dos impostos de venda.
+                {t(
+                  "Mude a margem e o preço acompanha, ou escreva o preço e a margem é calculada. A margem é o lucro que sobra depois dos impostos de venda.",
+                )}
               </p>
             </section>
 
@@ -617,15 +621,15 @@ export default function ProdutosPage() {
                   checked={formData.controlaEstoque}
                   onCheckedChange={(controlaEstoque) => setFormData({ ...formData, controlaEstoque })}
                 />
-                Controlar estoque deste produto
+                {t("Controlar o stock deste produto")}
               </label>
               {formData.controlaEstoque && (
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label>Estoque minimo</Label>
+                    <Label>{t("Stock mínimo")}</Label>
                     <CampoNumerico
                       min={0}
-                      sufixo={formData.unidade}
+                      sufixo={nomeUnidade(formData.unidade)}
                       value={formData.estoqueMinimo}
                       onChange={(estoqueMinimo) => setFormData({ ...formData, estoqueMinimo })}
                       className="rounded-full"
@@ -633,25 +637,25 @@ export default function ProdutosPage() {
                   </div>
                   {editingMaterial ? (
                     <div className="space-y-2">
-                      <Label>Saldo atual</Label>
+                      <Label>{t("Saldo atual")}</Label>
                       <Input
                         readOnly
-                        value={`${formatNumber2(Number(editingMaterial.estoqueAtual) || 0)} ${editingMaterial.unidade}`}
+                        value={`${formatNumber2(Number(editingMaterial.estoqueAtual) || 0)} ${nomeUnidade(editingMaterial.unidade)}`}
                         className="rounded-full bg-muted"
                       />
-                      <p className="text-xs text-muted-foreground">Muda-se por entradas, saidas ou ajustes.</p>
+                      <p className="text-xs text-muted-foreground">{t("Muda-se por entradas, saídas ou ajustes.")}</p>
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      <Label>Estoque inicial</Label>
+                      <Label>{t("Stock inicial")}</Label>
                       <CampoNumerico
                         min={0}
-                        sufixo={formData.unidade}
+                        sufixo={nomeUnidade(formData.unidade)}
                         value={formData.estoqueInicial}
                         onChange={(estoqueInicial) => setFormData({ ...formData, estoqueInicial })}
                         className="rounded-full"
                       />
-                      <p className="text-xs text-muted-foreground">Fica registado como primeira entrada.</p>
+                      <p className="text-xs text-muted-foreground">{t("Fica registado como primeira entrada.")}</p>
                     </div>
                   )}
                 </div>
@@ -660,19 +664,19 @@ export default function ProdutosPage() {
 
             {/* Compra e etiquetas */}
             <section className="space-y-4 rounded-lg border p-4">
-              <h3 className="font-medium">Compra e etiquetas</h3>
+              <h3 className="font-medium">{t("Compra e etiquetas")}</h3>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Unidade de compra</Label>
+                  <Label>{t("Unidade de compra")}</Label>
                   <Input
                     value={formData.unidadeCompra}
                     onChange={(e) => setFormData({ ...formData, unidadeCompra: e.target.value })}
-                    placeholder="rolo, saco, lata..."
+                    placeholder={t("rolo, saco, lata...")}
                     className="rounded-full"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Quantidade por embalagem ({formData.unidade})</Label>
+                  <Label>{t("Quantidade por embalagem ({unidade})", { unidade: nomeUnidade(formData.unidade) })}</Label>
                   <CampoNumerico
                     min={0}
                     value={formData.qtdPorEmbalagem}
@@ -680,30 +684,30 @@ export default function ProdutosPage() {
                     className="rounded-full"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Ex.: rolo de 90 m2. A obra que precisa de 32,67 m2 pede 1 rolo.
+                    {t("Ex.: rolo de 90 m². A obra que precisa de 32,67 m² pede 1 rolo.")}
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <Label>Codigo de barras (EAN)</Label>
+                  <Label>{t("Código de barras (EAN)")}</Label>
                   <Input
                     value={formData.codigoBarras}
                     onChange={(e) => setFormData({ ...formData, codigoBarras: e.target.value })}
-                    placeholder="Opcional: o da embalagem de fabrica"
+                    placeholder={t("Opcional: o da embalagem de fábrica")}
                     className="rounded-full"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Tipo</Label>
+                  <Label>{t("Tipo")}</Label>
                   <Select
                     value={formData.tipoItem}
                     onValueChange={(tipoItem) => setFormData({ ...formData, tipoItem: tipoItem as ProdutoForm["tipoItem"] })}
                   >
-                    <SelectTrigger className="rounded-full" aria-label="Tipo de item">
+                    <SelectTrigger className="rounded-full" aria-label={t("Tipo de item")}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="consumivel">Consumivel (gasta-se na obra)</SelectItem>
-                      <SelectItem value="equipamento">Equipamento (sai e volta)</SelectItem>
+                      <SelectItem value="consumivel">{t("Consumível (gasta-se na obra)")}</SelectItem>
+                      <SelectItem value="equipamento">{t("Equipamento (sai e volta)")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -711,7 +715,7 @@ export default function ProdutosPage() {
             </section>
 
             <div className="space-y-2">
-              <Label htmlFor="observacoes">Observacoes</Label>
+              <Label htmlFor="observacoes">{t("Observações")}</Label>
               <Textarea
                 id="observacoes"
                 value={formData.observacoes}
@@ -722,10 +726,10 @@ export default function ProdutosPage() {
 
             <div className="flex justify-end space-x-2">
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Cancelar
+                {t("Cancelar")}
               </Button>
               <Button type="submit" disabled={loading || !podeGerir} className="rounded-full">
-                {loading ? "A guardar..." : editingMaterial ? "Atualizar" : "Cadastrar"}
+                {loading ? t("A guardar...") : editingMaterial ? t("Atualizar") : t("Criar")}
               </Button>
             </div>
           </form>
@@ -745,18 +749,18 @@ export default function ProdutosPage() {
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
         onClear={clearFilters}
-        placeholder="Buscar por codigo, nome, fornecedor ou categoria..."
+        placeholder={t("Pesquisar por código, nome, fornecedor ou categoria...")}
         resultCount={filteredMaterials.length}
         totalCount={materiais.length}
       >
         <Select value={selectedCategoryFilter} onValueChange={setSelectedCategoryFilter}>
           <SelectTrigger className="w-full sm:w-[240px] rounded-full">
-            <SelectValue placeholder="Todas as categorias" />
+            <SelectValue placeholder={t("Todas as categorias")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="todas">Todas as categorias</SelectItem>
-            <SelectItem value="estoque-baixo">Estoque baixo</SelectItem>
-            <SelectItem value="sem-categoria">Sem categoria</SelectItem>
+            <SelectItem value="todas">{t("Todas as categorias")}</SelectItem>
+            <SelectItem value="estoque-baixo">{t("Stock baixo")}</SelectItem>
+            <SelectItem value="sem-categoria">{t("Sem categoria")}</SelectItem>
             {categories.map((cat) => (
               <SelectItem key={cat.id} value={cat.id!}>
                 {cat.nome}
@@ -767,7 +771,7 @@ export default function ProdutosPage() {
         {hasActiveFilters && (
           <Button variant="ghost" onClick={clearFilters} className="rounded-full text-muted-foreground">
             <X className="h-4 w-4 mr-2" />
-            Limpar filtros
+            {t("Limpar filtros")}
           </Button>
         )}
       </ListToolbar>
@@ -778,7 +782,9 @@ export default function ProdutosPage() {
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-semibold mt-6 mb-4">{categoryName}</h2>
               <Badge variant="secondary" className="text-xs">
-                {materialsInGroup.length} {materialsInGroup.length === 1 ? "item" : "itens"}
+                {materialsInGroup.length === 1
+                  ? t("{n} item", { n: materialsInGroup.length })
+                  : t("{n} itens", { n: materialsInGroup.length })}
               </Badge>
             </div>
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -799,39 +805,39 @@ export default function ProdutosPage() {
                               {material.codigo && <span className="text-muted-foreground mr-1">{material.codigo}</span>}
                               {material.nome}
                             </CardTitle>
-                            <CardDescription className="truncate">{material.fornecedor || "Sem fornecedor"}</CardDescription>
+                            <CardDescription className="truncate">{material.fornecedor || t("Sem fornecedor")}</CardDescription>
                           </div>
                         </div>
                         <Badge variant="secondary" className="shrink-0">
-                          {material.unidade}
+                          {nomeUnidade(material.unidade)}
                         </Badge>
                       </div>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-1 text-sm">
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Custo real</span>
+                          <span className="text-muted-foreground">{t("Custo real")}</span>
                           <span className="font-medium tabular-nums">{formatCurrency(custo)}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Venda</span>
+                          <span className="text-muted-foreground">{t("Venda")}</span>
                           <span className="font-medium tabular-nums">{formatCurrency(venda)}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Margem</span>
+                          <span className="text-muted-foreground">{t("Margem")}</span>
                           <span className="tabular-nums">{formatNumber2(margemPorPreco(custo, venda, resumoImpostos(material, grupos).percentualVenda))}%</span>
                         </div>
                         {material.controlaEstoque && (
                           <div className="flex justify-between items-center pt-1 border-t">
-                            <span className="text-muted-foreground">Estoque</span>
+                            <span className="text-muted-foreground">{t("Stock")}</span>
                             <span className="flex items-center gap-2">
                               {baixo && (
                                 <Badge variant="outline" className="border-rose-500/40 text-rose-600 text-[10px]">
-                                  Baixo
+                                  {t("Baixo")}
                                 </Badge>
                               )}
                               <span className="font-medium tabular-nums">
-                                {formatNumber2(Number(material.estoqueAtual) || 0)} {material.unidade}
+                                {formatNumber2(Number(material.estoqueAtual) || 0)} {nomeUnidade(material.unidade)}
                               </span>
                             </span>
                           </div>
@@ -843,7 +849,7 @@ export default function ProdutosPage() {
                             <Button
                               variant="outline"
                               size="icon"
-                              title="Entrada de estoque"
+                              title={t("Entrada de stock")}
                               onClick={() => setMovimento({ produtoId: material.id!, tipo: "entrada" })}
                               className="rounded-full"
                             >
@@ -852,7 +858,7 @@ export default function ProdutosPage() {
                             <Button
                               variant="outline"
                               size="icon"
-                              title="Saida de estoque"
+                              title={t("Saída de stock")}
                               onClick={() => setMovimento({ produtoId: material.id!, tipo: "saida" })}
                               className="rounded-full"
                             >
@@ -884,11 +890,11 @@ export default function ProdutosPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Search className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium mb-2">Nenhum produto encontrado</h3>
-            <p className="text-muted-foreground text-center mb-4">Tente ajustar os filtros ou termos de busca.</p>
+            <h3 className="text-lg font-medium mb-2">{t("Nenhum produto encontrado")}</h3>
+            <p className="text-muted-foreground text-center mb-4">{t("Tente ajustar os filtros ou os termos de pesquisa.")}</p>
             <Button onClick={clearFilters} variant="outline" className="rounded-full bg-transparent">
               <X className="h-4 w-4 mr-2" />
-              Limpar Filtros
+              {t("Limpar filtros")}
             </Button>
           </CardContent>
         </Card>
@@ -896,8 +902,8 @@ export default function ProdutosPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Package className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium mb-2">Nenhum produto cadastrado</h3>
-            <p className="text-muted-foreground text-center mb-4">Comece por adicionar os produtos que usa em obra.</p>
+            <h3 className="text-lg font-medium mb-2">{t("Ainda não há produtos")}</h3>
+            <p className="text-muted-foreground text-center mb-4">{t("Comece por adicionar os produtos que usa em obra.")}</p>
             <Button
               disabled={!podeGerir}
               onClick={() => {
@@ -907,7 +913,7 @@ export default function ProdutosPage() {
               className="rounded-full"
             >
               <Plus className="h-4 w-4 mr-2" />
-              Adicionar Primeiro Produto
+              {t("Adicionar o primeiro produto")}
             </Button>
           </CardContent>
         </Card>

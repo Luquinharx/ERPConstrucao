@@ -12,6 +12,7 @@ import { contasEmAlerta } from "@/lib/obra"
 import { estoqueBaixo } from "@/lib/produto-calculos"
 import type { Conta, FaturaFornecedor, RegistoHoras } from "@/lib/types"
 import { formatCurrency } from "@/lib/utils"
+import { t } from "@/lib/i18n"
 
 interface Alerta {
   texto: string
@@ -35,8 +36,16 @@ export function AlertasDashboard() {
       tarefas.push(
         listar<Conta>("contas").then((contas) => {
           for (const c of contasEmAlerta(contas)) {
+            const vars = {
+              valor: formatCurrency(c.valor),
+              descricao: `${c.descricao}${c.orcamentoNumero ? ` (${c.orcamentoNumero})` : ""}`,
+              data: c.vencimento.split("-").reverse().join("/"),
+            }
             lista.push({
-              texto: `${c.tipo === "receber" ? "Receber" : "Pagar"} ${formatCurrency(c.valor)} · ${c.descricao}${c.orcamentoNumero ? ` (${c.orcamentoNumero})` : ""} · vence ${c.vencimento.split("-").reverse().join("/")}`,
+              texto:
+                c.tipo === "receber"
+                  ? t("Receber {valor} · {descricao} · vence a {data}", vars)
+                  : t("Pagar {valor} · {descricao} · vence a {data}", vars),
               href: c.orcamentoId ? `/orcamentos/${c.orcamentoId}/pagamentos` : "/financeiro",
             })
           }
@@ -47,11 +56,22 @@ export function AlertasDashboard() {
       tarefas.push(
         listar<RegistoHoras>("registosHoras").then((r) => {
           const n = r.filter((x) => x.estado === "pendente").length
-          if (n) lista.push({ texto: `${n} registo(s) de horas por aprovar`, href: "/horas" })
+          if (n)
+            lista.push({
+              texto: n === 1 ? t("{n} registo de horas por aprovar", { n }) : t("{n} registos de horas por aprovar", { n }),
+              href: "/horas",
+            })
         }),
         listar<FaturaFornecedor>("faturasFornecedor").then((f) => {
           const n = f.filter((x) => x.estado === "pendente").length
-          if (n) lista.push({ texto: `${n} fatura(s) de fornecedor por aprovar`, href: "/faturas" })
+          if (n)
+            lista.push({
+              texto:
+                n === 1
+                  ? t("{n} fatura de fornecedor por aprovar", { n })
+                  : t("{n} faturas de fornecedor por aprovar", { n }),
+              href: "/faturas",
+            })
         }),
       )
     }
@@ -59,7 +79,11 @@ export function AlertasDashboard() {
       tarefas.push(
         FirebaseService.getMateriais(user.uid).then((m) => {
           const n = m.filter(estoqueBaixo).length
-          if (n) lista.push({ texto: `${n} produto(s) abaixo do estoque minimo`, href: "/estoque" })
+          if (n)
+            lista.push({
+              texto: n === 1 ? t("{n} produto abaixo do stock mínimo", { n }) : t("{n} produtos abaixo do stock mínimo", { n }),
+              href: "/estoque",
+            })
         }),
       )
     }
@@ -72,7 +96,7 @@ export function AlertasDashboard() {
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-base">
           <AlertTriangle className="h-4 w-4 text-amber-600" />
-          Precisa de atencao
+          {t("Precisa de atenção")}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-1 text-sm">

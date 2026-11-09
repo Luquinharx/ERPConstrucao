@@ -26,6 +26,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { ListToolbar } from "@/components/ui/list-toolbar"
 import { useSearchQuery } from "@/hooks/use-search-query"
 import { matchesSearch } from "@/lib/utils"
+import { t } from "@/lib/i18n"
 
 const PRESET_COLORS = [
   "#ef4444", // red
@@ -74,8 +75,8 @@ export default function CategoriasPage() {
     } catch (error) {
       console.error("❌ Erro ao carregar categorias:", error)
       toast({
-        title: "Erro ao carregar categorias",
-        description: "Não foi possível carregar a lista de categorias.",
+        title: t("Erro ao carregar categorias"),
+        description: t("Não foi possível carregar a lista de categorias."),
         variant: "destructive",
       })
     } finally {
@@ -87,31 +88,32 @@ export default function CategoriasPage() {
     if (!user) return
     setLoading(true)
     try {
+      // Ficam gravadas no idioma de quem as cria: a partir daí são dados do utilizador
       const defaultCategories = [
-        { nome: "Tintas e Vernizes", descricao: "Tintas acrílicas, esmaltes, vernizes, epóxi, sprays", cor: "#3b82f6" },
-        { nome: "Ferramentas", descricao: "Rolos, trinchas, pincéis, espátulas, desempenadeiras", cor: "#f59e0b" },
-        { nome: "Preparação de Superfície", descricao: "Massas, fundos, seladores, texturas", cor: "#8b5cf6" },
-        { nome: "Lixas e Abrasivos", descricao: "Lixas de parede, água, ferro, discos de lixa", cor: "#10b981" },
-        { nome: "Fitas e Proteção", descricao: "Fitas crepes, lonas, papéis, plásticos para proteção", cor: "#f97316" },
-        { nome: "Solventes e Químicos", descricao: "Aguarrás, thinner, removedores, diluentes", cor: "#ef4444" },
-        { nome: "Limpeza e Conservação", descricao: "Estopas, panos, detergentes, sabões", cor: "#06b6d4" },
-        { nome: "Equipamentos de Proteção (EPI)", descricao: "Máscaras, óculos, luvas, botas", cor: "#22c55e" },
-        { nome: "Equipamentos e Máquinas", descricao: "Compressores, pistolas de pintura, lixadeiras", cor: "#64748b" },
-        { nome: "Manutenção Geral", descricao: "Materiais elétricos, hidráulicos, ferragens", cor: "#a8a29e" }
+        { nome: t("Tintas e vernizes"), descricao: t("Tintas acrílicas, esmaltes, vernizes, epóxi, sprays"), cor: "#3b82f6" },
+        { nome: t("Ferramentas"), descricao: t("Rolos, trinchas, pincéis, espátulas, talochas"), cor: "#f59e0b" },
+        { nome: t("Preparação de superfícies"), descricao: t("Massas, primários, seladores, texturas"), cor: "#8b5cf6" },
+        { nome: t("Lixas e abrasivos"), descricao: t("Lixas de parede, de água e de ferro, discos de lixa"), cor: "#10b981" },
+        { nome: t("Fitas e proteção"), descricao: t("Fitas de pintor, lonas, papéis, plásticos de proteção"), cor: "#f97316" },
+        { nome: t("Solventes e químicos"), descricao: t("Aguarrás, diluentes, decapantes"), cor: "#ef4444" },
+        { nome: t("Limpeza e conservação"), descricao: t("Desperdícios, panos, detergentes, sabões"), cor: "#06b6d4" },
+        { nome: t("Equipamentos de proteção (EPI)"), descricao: t("Máscaras, óculos, luvas, botas"), cor: "#22c55e" },
+        { nome: t("Equipamentos e máquinas"), descricao: t("Compressores, pistolas de pintura, lixadoras"), cor: "#64748b" },
+        { nome: t("Manutenção geral"), descricao: t("Material elétrico, canalização, ferragens"), cor: "#a8a29e" }
       ]
 
       await Promise.all(defaultCategories.map(cat => FirebaseService.addMaterialCategory({ ...cat, ativo: true }, user.uid)))
       
       toast({
-        title: "Categorias padrão adicionadas",
-        description: "Categorias base para pintura e manutenção foram criadas com sucesso.",
+        title: t("Categorias predefinidas adicionadas"),
+        description: t("As categorias base para pintura e manutenção foram criadas com sucesso."),
       })
       await loadCategories()
     } catch (error) {
       console.error("❌ Erro ao adicionar categorias padrão:", error)
       toast({
-        title: "Erro",
-        description: "Ocorreu um erro ao tentar criar as categorias padrão.",
+        title: t("Erro"),
+        description: t("Ocorreu um erro ao criar as categorias predefinidas."),
         variant: "destructive",
       })
     } finally {
@@ -128,14 +130,14 @@ export default function CategoriasPage() {
       if (editingCategory) {
         await FirebaseService.updateMaterialCategory(editingCategory.id!, formData)
         toast({
-          title: "Categoria atualizada",
-          description: "Os dados da categoria foram atualizados com sucesso.",
+          title: t("Categoria atualizada"),
+          description: t("Os dados da categoria foram atualizados com sucesso."),
         })
       } else {
         await FirebaseService.addMaterialCategory(formData, user.uid)
         toast({
-          title: "Categoria cadastrada",
-          description: "A categoria foi cadastrada com sucesso.",
+          title: t("Categoria criada"),
+          description: t("A categoria foi criada com sucesso."),
         })
       }
 
@@ -145,8 +147,8 @@ export default function CategoriasPage() {
     } catch (error) {
       console.error("❌ Erro ao salvar categoria:", error)
       toast({
-        title: "Erro ao salvar categoria",
-        description: "Não foi possível salvar os dados da categoria.",
+        title: t("Erro ao guardar a categoria"),
+        description: t("Não foi possível guardar os dados da categoria."),
         variant: "destructive",
       })
     } finally {
@@ -165,20 +167,20 @@ export default function CategoriasPage() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Tem certeza que deseja excluir esta categoria?")) return
+    if (!confirm(t("Tem a certeza de que quer eliminar esta categoria?"))) return
 
     try {
       await FirebaseService.deleteMaterialCategory(id)
       toast({
-        title: "Categoria excluída",
-        description: "A categoria foi excluída com sucesso.",
+        title: t("Categoria eliminada"),
+        description: t("A categoria foi eliminada com sucesso."),
       })
       await loadCategories()
     } catch (error) {
       console.error("❌ Erro ao excluir categoria:", error)
       toast({
-        title: "Erro ao excluir categoria",
-        description: "Não foi possível excluir a categoria.",
+        title: t("Erro ao eliminar a categoria"),
+        description: t("Não foi possível eliminar a categoria."),
         variant: "destructive",
       })
     }
@@ -210,8 +212,8 @@ export default function CategoriasPage() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Categorias de Materiais</h1>
-          <p className="text-muted-foreground mt-2">Organize seus materiais por categorias</p>
+          <h1 className="text-3xl font-bold">{t("Categorias de materiais")}</h1>
+          <p className="text-muted-foreground mt-2">{t("Organize os seus materiais por categorias")}</p>
         </div>
         <div className="flex space-x-2">
           {categories.length === 0 && (
@@ -221,49 +223,49 @@ export default function CategoriasPage() {
               disabled={loading}
               className="rounded-full bg-transparent border-primary/20 hover:bg-primary/5"
             >
-              Adicionar Categorias Padrão
+              {t("Adicionar categorias predefinidas")}
             </Button>
           )}
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button disabled={!pode("materiais.gerir")} onClick={resetForm} className="rounded-full">
                 <Plus className="h-4 w-4 mr-2" />
-                Nova Categoria
+                {t("Nova categoria")}
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[500px]">
               <DialogHeader>
-                <DialogTitle>{editingCategory ? "Editar Categoria" : "Nova Categoria"}</DialogTitle>
+                <DialogTitle>{editingCategory ? t("Editar categoria") : t("Nova categoria")}</DialogTitle>
                 <DialogDescription>
-                  {editingCategory ? "Atualize os dados da categoria." : "Adicione uma nova categoria de materiais."}
+                  {editingCategory ? t("Atualize os dados da categoria.") : t("Adicione uma nova categoria de materiais.")}
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="nome">Nome da Categoria</Label>
+                  <Label htmlFor="nome">{t("Nome da categoria")}</Label>
                   <Input
                     id="nome"
                     value={formData.nome}
                     onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-                    placeholder="Ex: Tintas, Pincéis, Equipamentos"
+                    placeholder={t("Ex.: Tintas, Pincéis, Equipamentos")}
                     required
                     className="rounded-full"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="descricao">Descrição (Opcional)</Label>
+                  <Label htmlFor="descricao">{t("Descrição (opcional)")}</Label>
                   <Textarea
                     id="descricao"
                     value={formData.descricao}
                     onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
-                    placeholder="Descrição da categoria..."
+                    placeholder={t("Descrição da categoria...")}
                     rows={3}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Cor da Categoria</Label>
+                  <Label>{t("Cor da categoria")}</Label>
                   <div className="flex flex-wrap gap-2">
                     {PRESET_COLORS.map((color) => (
                       <button
@@ -279,16 +281,16 @@ export default function CategoriasPage() {
                   </div>
                   <div className="flex items-center gap-2 mt-2">
                     <div className="w-4 h-4 rounded-full border" style={{ backgroundColor: formData.cor }} />
-                    <span className="text-sm text-muted-foreground">Cor selecionada</span>
+                    <span className="text-sm text-muted-foreground">{t("Cor selecionada")}</span>
                   </div>
                 </div>
 
                 <div className="flex justify-end space-x-2 pt-4">
                   <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                    Cancelar
+                    {t("Cancelar")}
                   </Button>
                   <Button type="submit" disabled={loading} className="rounded-full">
-                    {loading ? "A guardar..." : editingCategory ? "Atualizar" : "Cadastrar"}
+                    {loading ? t("A guardar...") : editingCategory ? t("Atualizar") : t("Criar")}
                   </Button>
                 </div>
               </form>
@@ -301,7 +303,7 @@ export default function CategoriasPage() {
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
         onClear={clearSearch}
-        placeholder="Pesquisar categorias por nome ou descricao..."
+        placeholder={t("Pesquisar categorias por nome ou descrição...")}
         resultCount={filteredCategories.length}
         totalCount={categories.length}
       />
@@ -335,7 +337,7 @@ export default function CategoriasPage() {
                       borderColor: category.cor,
                     }}
                   >
-                    Categoria
+                    {t("Categoria")}
                   </Badge>
                 </div>
               </CardHeader>
@@ -361,12 +363,12 @@ export default function CategoriasPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Tag className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium mb-2">Nenhuma categoria encontrada</h3>
+            <h3 className="text-lg font-medium mb-2">{t("Nenhuma categoria encontrada")}</h3>
             <p className="text-muted-foreground text-center mb-4">
-              Nenhum resultado para &quot;{searchTerm}&quot;.
+              {t("Nenhum resultado para \"{termo}\".", { termo: searchTerm })}
             </p>
             <Button onClick={clearSearch} variant="outline" className="rounded-full">
-              Limpar pesquisa
+              {t("Limpar pesquisa")}
             </Button>
           </CardContent>
         </Card>
@@ -374,17 +376,17 @@ export default function CategoriasPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Tag className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium mb-2">Nenhuma categoria cadastrada</h3>
+            <h3 className="text-lg font-medium mb-2">{t("Ainda não há categorias")}</h3>
             <p className="text-muted-foreground text-center mb-4">
-              Comece por criar categorias para organizar seus materiais.
+              {t("Comece por criar categorias para organizar os seus materiais.")}
             </p>
             <div className="flex gap-2">
               <Button onClick={() => setIsDialogOpen(true)} className="rounded-full">
                 <Plus className="h-4 w-4 mr-2" />
-                Criar Primeira Categoria
+                {t("Criar a primeira categoria")}
               </Button>
               <Button onClick={handleAddDefaultCategories} disabled={loading} variant="secondary" className="rounded-full">
-                Adicionar Categorias Padrão
+                {t("Adicionar categorias predefinidas")}
               </Button>
             </div>
           </CardContent>

@@ -17,8 +17,9 @@ import { useConfiguracao } from "@/hooks/use-configuracao"
 import { usePermissoes } from "@/hooks/use-permissoes"
 import { toast } from "@/hooks/use-toast"
 import { FirebaseService, registarCompraParaObra, registarMovimentoEstoque } from "@/lib/firebase-service"
+import { t } from "@/lib/i18n"
 import { numeroCompleto } from "@/lib/numeracao"
-import { custoDoProduto, custoRealProduto, saldoAposMovimento } from "@/lib/produto-calculos"
+import { custoDoProduto, custoRealProduto, nomeUnidade, saldoAposMovimento } from "@/lib/produto-calculos"
 import type { Material, Orcamento, TipoMovimentoEstoque } from "@/lib/types"
 import { formatCurrency, formatNumber2, hojeLocal } from "@/lib/utils"
 
@@ -127,11 +128,11 @@ export function MovimentoDialog({
 
   const gravar = async () => {
     if (!user || !produto?.id) {
-      toast({ title: "Escolha o produto", variant: "destructive" })
+      toast({ title: t("Escolha o produto"), variant: "destructive" })
       return
     }
     if (tipo !== "ajuste" && quantidade <= 0) {
-      toast({ title: "Indique a quantidade", variant: "destructive" })
+      toast({ title: t("Indique a quantidade"), variant: "destructive" })
       return
     }
 
@@ -139,7 +140,7 @@ export function MovimentoDialog({
     setAGravar(true)
     try {
       if (tipo === "compra") {
-        if (!obra?.id) throw new Error("A compra tem de estar ligada a uma obra.")
+        if (!obra?.id) throw new Error(t("A compra tem de estar ligada a uma obra."))
         await registarCompraParaObra(
           {
             materialId: produto.id,
@@ -156,7 +157,7 @@ export function MovimentoDialog({
           },
           { atualizarCusto, grupos },
         )
-        toast({ title: "Compra registada", description: `${produto.nome}: entrou e saiu para a obra.` })
+        toast({ title: t("Compra registada"), description: t("{produto}: entrou e saiu para a obra.", { produto: produto.nome }) })
         onRegistado()
         onOpenChange(false)
         return
@@ -177,13 +178,19 @@ export function MovimentoDialog({
         },
         { atualizarCusto: tipo === "entrada" && atualizarCusto, precoCompra, grupos },
       )
-      toast({ title: "Movimento registado", description: `${produto.nome}: saldo ${formatNumber2(saldoDepois)} ${produto.unidade}.` })
+      toast({
+        title: t("Movimento registado"),
+        description: t("{produto}: saldo {saldo}.", {
+          produto: produto.nome,
+          saldo: `${formatNumber2(saldoDepois)} ${nomeUnidade(produto.unidade)}`,
+        }),
+      })
       onRegistado()
       onOpenChange(false)
     } catch (error) {
       toast({
-        title: "Nao foi possivel registar",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        title: t("Não foi possível registar"),
+        description: error instanceof Error ? error.message : t("Tente novamente."),
         variant: "destructive",
       })
     } finally {
@@ -195,9 +202,9 @@ export function MovimentoDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[520px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Movimento de estoque</DialogTitle>
+          <DialogTitle>{t("Movimento de stock")}</DialogTitle>
           <DialogDescription>
-            O saldo so muda por movimentos. Um engano corrige-se com outro movimento ou com um ajuste.
+            {t("O saldo só muda por movimentos. Um engano corrige-se com outro movimento ou com um ajuste.")}
           </DialogDescription>
         </DialogHeader>
 
@@ -205,56 +212,56 @@ export function MovimentoDialog({
           <Tabs value={tipo} onValueChange={(valor) => setTipo(valor as ModoMovimento)}>
             {obraFixa ? (
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="saida">Saida do estoque</TabsTrigger>
-                <TabsTrigger value="compra">Compra para a obra</TabsTrigger>
+                <TabsTrigger value="saida">{t("Saída do stock")}</TabsTrigger>
+                <TabsTrigger value="compra">{t("Compra para a obra")}</TabsTrigger>
               </TabsList>
             ) : (
               <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="entrada">Entrada</TabsTrigger>
-                <TabsTrigger value="saida">Saida</TabsTrigger>
-                <TabsTrigger value="ajuste">Ajuste</TabsTrigger>
+                <TabsTrigger value="entrada">{t("Entrada")}</TabsTrigger>
+                <TabsTrigger value="saida">{t("Saída")}</TabsTrigger>
+                <TabsTrigger value="ajuste">{t("Ajuste")}</TabsTrigger>
               </TabsList>
             )}
           </Tabs>
           {obraFixa && (
             <p className="text-xs text-muted-foreground">
               {ehCompra
-                ? "Material comprado para levar direto a obra: entra no estoque e sai logo para ela, ao custo desta compra."
-                : "Material que ja estava em estoque e foi para a obra, ao custo medio."}{" "}
-              Obra: <span className="font-medium">{numeroCompleto(obraFixa, configuracao)}</span>
+                ? t("Material comprado para levar direto para a obra: entra no stock e sai logo para ela, ao custo desta compra.")
+                : t("Material que já estava em stock e foi para a obra, ao custo médio.")}{" "}
+              {t("Obra:")} <span className="font-medium">{numeroCompleto(obraFixa, configuracao)}</span>
             </p>
           )}
 
           <div className="space-y-2">
-            <Label>Produto</Label>
+            <Label>{t("Produto")}</Label>
             <SeletorComBusca
               valor={materialId}
               onChange={escolherProduto}
-              placeholder="Escolha o produto"
-              placeholderBusca="Procurar produto..."
-              vazio="Nenhum produto com controlo de estoque."
+              placeholder={t("Escolha o produto")}
+              placeholderBusca={t("Pesquisar produto...")}
+              vazio={t("Nenhum produto com controlo de stock.")}
               className="rounded-full"
               opcoes={produtosVisiveis.map((item) => ({
                 valor: item.id!,
                 rotulo: item.codigo ? `${item.codigo} - ${item.nome}` : item.nome,
-                detalhe: `Saldo: ${formatNumber2(Number(item.estoqueAtual) || 0)} ${item.unidade}`,
+                detalhe: t("Saldo: {saldo}", { saldo: `${formatNumber2(Number(item.estoqueAtual) || 0)} ${nomeUnidade(item.unidade)}` }),
               }))}
             />
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label>{tipo === "ajuste" ? "Contagem fisica" : "Quantidade"}</Label>
+              <Label>{tipo === "ajuste" ? t("Contagem física") : t("Quantidade")}</Label>
               <CampoNumerico
                 min={0}
-                sufixo={produto?.unidade}
+                sufixo={produto ? nomeUnidade(produto.unidade) : undefined}
                 value={quantidade}
                 onChange={setQuantidade}
                 className="rounded-full"
               />
             </div>
             <div className="space-y-2">
-              <Label>Data</Label>
+              <Label>{t("Data")}</Label>
               <Input type="date" value={data} onChange={(e) => setData(e.target.value)} className="rounded-full" />
             </div>
           </div>
@@ -263,33 +270,36 @@ export function MovimentoDialog({
             <>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Preco de compra unitario</Label>
+                  <Label>{t("Preço de compra unitário")}</Label>
                   <CampoNumerico min={0} sufixo="EUR" value={precoCompra} onChange={setPrecoCompra} className="rounded-full" />
                   <p className="text-xs text-muted-foreground">
-                    Antes dos impostos do cadastro. Custo real: {formatCurrency(custoEntrada)} / {produto?.unidade || "un"}
+                    {t("Antes dos impostos da ficha do produto. Custo real: {custo} / {unidade}", {
+                      custo: formatCurrency(custoEntrada),
+                      unidade: produto?.unidade ? nomeUnidade(produto.unidade) : t("un."),
+                    })}
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <Label>Fornecedor</Label>
+                  <Label>{t("Fornecedor")}</Label>
                   <Input value={fornecedor} onChange={(e) => setFornecedor(e.target.value)} className="rounded-full" />
                 </div>
               </div>
               <label className="flex items-center gap-2 text-sm">
                 <Checkbox checked={atualizarCusto} onCheckedChange={(v) => setAtualizarCusto(v === true)} />
-                Atualizar o preco de compra do cadastro com esta compra
+                {t("Atualizar o preço de compra na ficha do produto com esta compra")}
               </label>
             </>
           )}
 
           {tipo === "saida" && !obraFixa && (
             <div className="space-y-2">
-              <Label>Obra (opcional)</Label>
+              <Label>{t("Obra (opcional)")}</Label>
               <SeletorComBusca
                 valor={orcamentoId}
                 onChange={setOrcamentoId}
-                placeholder="Sem obra associada"
-                placeholderBusca="Procurar proposta ou cliente..."
-                vazio="Nenhuma proposta encontrada."
+                placeholder={t("Sem obra associada")}
+                placeholderBusca={t("Pesquisar proposta ou cliente...")}
+                vazio={t("Nenhuma proposta encontrada.")}
                 className="rounded-full"
                 opcoes={obras.map((o) => ({
                   valor: o.id!,
@@ -301,37 +311,37 @@ export function MovimentoDialog({
           )}
 
           <div className="space-y-2">
-            <Label>Documento (opcional)</Label>
+            <Label>{t("Documento (opcional)")}</Label>
             <Input
               value={documento}
               onChange={(e) => setDocumento(e.target.value)}
-              placeholder={tipo === "entrada" || ehCompra ? "N.o da fatura / guia" : "Guia de saida, requisicao..."}
+              placeholder={tipo === "entrada" || ehCompra ? t("N.º da fatura / guia") : t("Guia de saída, requisição...")}
               className="rounded-full"
             />
           </div>
 
           <div className="space-y-2">
-            <Label>Observacoes</Label>
+            <Label>{t("Observações")}</Label>
             <Textarea value={observacoes} onChange={(e) => setObservacoes(e.target.value)} rows={2} />
           </div>
 
           {produto && (
             <div className="rounded-lg bg-muted p-3 text-sm space-y-1">
               <div className="flex justify-between">
-                <span>Saldo atual</span>
+                <span>{t("Saldo atual")}</span>
                 <span className="tabular-nums">
-                  {formatNumber2(saldoAtual)} {produto.unidade}
+                  {formatNumber2(saldoAtual)} {nomeUnidade(produto.unidade)}
                 </span>
               </div>
               <div className={`flex justify-between font-medium ${saldoDepois < 0 ? "text-destructive" : ""}`}>
-                <span>Saldo depois</span>
+                <span>{t("Saldo depois")}</span>
                 <span className="tabular-nums">
-                  {formatNumber2(saldoDepois)} {produto.unidade}
+                  {formatNumber2(saldoDepois)} {nomeUnidade(produto.unidade)}
                 </span>
               </div>
               {tipo === "saida" && (
                 <div className="flex justify-between text-muted-foreground">
-                  <span>Custo da saida (medio)</span>
+                  <span>{t("Custo da saída (médio)")}</span>
                   <span className="tabular-nums">
                     {formatCurrency((Number(produto.custoMedio) || custoDoProduto(produto, grupos)) * quantidade)}
                   </span>
@@ -343,11 +353,11 @@ export function MovimentoDialog({
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
+            {t("Cancelar")}
           </Button>
           <Button type="button" onClick={gravar} disabled={aGravar || !produto} className="rounded-full">
             {aGravar && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Registar
+            {t("Registar movimento")}
           </Button>
         </div>
       </DialogContent>

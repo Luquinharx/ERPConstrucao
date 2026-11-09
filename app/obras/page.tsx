@@ -18,6 +18,7 @@ import { percentMedido, resumoContas } from "@/lib/obra"
 import { getFase } from "@/lib/orcamento-fases"
 import type { AutoMedicao, Conta, FaturaFornecedor, MovimentoEstoque, Orcamento, RegistoHoras } from "@/lib/types"
 import { formatCurrency, formatNumber2, matchesSearch } from "@/lib/utils"
+import { t } from "@/lib/i18n"
 
 /**
  * Obras em curso: tudo o que foi adjudicado, com o andamento financeiro e o
@@ -77,17 +78,21 @@ export default function ObrasPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-3xl font-bold">Obras</h1>
-        <p className="mt-2 text-muted-foreground">Propostas adjudicadas: andamento, pagamentos e lucro real contra o previsto.</p>
+        <h1 className="text-3xl font-bold">{t("Obras")}</h1>
+        <p className="mt-2 text-muted-foreground">{t("Propostas adjudicadas: andamento, pagamentos e lucro real contra o previsto.")}</p>
       </div>
-      <Input placeholder="Procurar obra ou cliente..." value={busca} onChange={(e) => setBusca(e.target.value)} className="max-w-md" />
+      <Input placeholder={t("Procurar obra ou cliente...")} value={busca} onChange={(e) => setBusca(e.target.value)} className="max-w-md" />
 
       {visiveis.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center py-12 text-center">
             <Building2 className="mb-3 h-10 w-10 text-muted-foreground" />
-            <p className="font-medium">Ainda sem obras</p>
-            <p className="text-sm text-muted-foreground">Uma proposta passa a obra quando e adjudicada (Orcamentos &gt; mudar fase &gt; Aceite).</p>
+            <p className="font-medium">{t("Ainda sem obras")}</p>
+            <p className="text-sm text-muted-foreground">
+              {t("Uma proposta passa a obra quando é adjudicada (Orçamentos > mudar de fase > {fase}).", {
+                fase: t(getFase("aceite").nome),
+              })}
+            </p>
           </CardContent>
         </Card>
       ) : (
@@ -100,13 +105,13 @@ export default function ObrasPage() {
                     <CardTitle className="text-lg">{numero}</CardTitle>
                     <CardDescription>{o.cliente.nome}</CardDescription>
                   </div>
-                  <Badge variant="outline" className={getFase(o.status).cor}>{getFase(o.status).nome}</Badge>
+                  <Badge variant="outline" className={getFase(o.status).cor}>{t(getFase(o.status).nome)}</Badge>
                 </div>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
                 <div>
                   <div className="mb-1 flex justify-between text-xs text-muted-foreground">
-                    <span>Medido</span>
+                    <span>{t("Medido")}</span>
                     <span>{formatNumber2(medido)}%</span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-muted">
@@ -114,15 +119,15 @@ export default function ObrasPage() {
                   </div>
                 </div>
                 <dl className="grid grid-cols-2 gap-x-4 gap-y-1">
-                  <dt className="text-muted-foreground">Adjudicado</dt>
+                  <dt className="text-muted-foreground">{t("Adjudicado")}</dt>
                   <dd className="text-right tabular-nums">{formatCurrency(o.adjudicacao?.valor ?? o.valorTotal)}</dd>
                   {verCusto && (
                     <>
-                      <dt className="text-muted-foreground">Recebido</dt>
+                      <dt className="text-muted-foreground">{t("Recebido")}</dt>
                       <dd className="text-right tabular-nums">{formatCurrency(recebido)}</dd>
-                      <dt className="text-muted-foreground">Lucro previsto</dt>
+                      <dt className="text-muted-foreground">{t("Lucro previsto")}</dt>
                       <dd className="text-right tabular-nums">{formatCurrency(ap.lucroPrevisto)}</dd>
-                      <dt className="text-muted-foreground">Lucro real</dt>
+                      <dt className="text-muted-foreground">{t("Lucro real")}</dt>
                       <dd className={`text-right tabular-nums font-medium ${ap.temReal && ap.lucroReal < ap.lucroPrevisto ? "text-rose-700" : ""}`}>
                         {ap.temReal ? formatCurrency(ap.lucroReal) : "-"}
                       </dd>
@@ -131,12 +136,12 @@ export default function ObrasPage() {
                 </dl>
                 <div className="flex flex-wrap gap-2 border-t pt-3 text-xs">
                   {[
-                    ["apuramento", "Apuramento"],
-                    ["autos", "Autos"],
-                    ["diario", "Diario"],
-                    ["pagamentos", "Pagamentos"],
-                    ["garantia", "Garantia"],
-                    ["portal", "Portal"],
+                    ["apuramento", t("Apuramento")],
+                    ["autos", t("Autos")],
+                    ["diario", t("Diário")],
+                    ["pagamentos", t("Pagamentos")],
+                    ["garantia", t("Garantia")],
+                    ["portal", t("Portal")],
                   ].map(([rota, nome]) => (
                     <Link key={rota} href={`/orcamentos/${o.id}/${rota}`} className="rounded-full border px-2.5 py-1 hover:bg-muted">
                       {nome}
